@@ -1,6 +1,6 @@
 {
   "name": "@timmeck/brain-core",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Shared core infrastructure for the Brain ecosystem — IPC, MCP, CLI, DB connection, and utilities",
   "type": "module",
   "main": "dist/index.js",
@@ -62,7 +62,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/timmeck/brain-core"
+    "url": "https://github.com/timmeck/brain-ecosystem",
+    "directory": "packages/brain-core"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

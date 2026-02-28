@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@timmeck/trading-brain)](https://www.npmjs.com/package/@timmeck/trading-brain)
 [![npm downloads](https://img.shields.io/npm/dm/@timmeck/trading-brain)](https://www.npmjs.com/package/@timmeck/trading-brain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/timmeck/trading-brain?style=social)](https://github.com/timmeck/trading-brain)
+[![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
 **Adaptive Trading Intelligence & Signal Learning System for Claude Code**
 
@@ -68,15 +68,15 @@ Without Trading Brain, every trading decision starts from zero. With Trading Bra
 
 ```bash
 npm install -g @timmeck/trading-brain
+trading setup
 ```
 
-Or from source:
+That's it. One command configures MCP and starts the daemon.
+
+Or install globally and configure manually:
 
 ```bash
-git clone https://github.com/timmeck/trading-brain.git
-cd trading-brain
-npm install
-npm run build
+npm install -g @timmeck/trading-brain
 ```
 
 ### Setup with Claude Code
@@ -178,6 +178,7 @@ The daemon runs background tasks: learning cycles, research analysis, synapse de
 ## CLI Commands
 
 ```
+trading setup              One-command setup: MCP + daemon
 trading start              Start the Trading Brain daemon
 trading stop               Stop the daemon
 trading status             Show stats (trades, rules, chains, insights, synapses)
@@ -326,17 +327,17 @@ Each signal dimension is classified:
 
 ## Brain Ecosystem
 
-Trading Brain is part of the **Brain Ecosystem** — a family of standalone MCP servers that give Claude Code persistent, self-learning memory.
+Trading Brain is part of the **[Brain Ecosystem](https://github.com/timmeck/brain-ecosystem)** — a monorepo of MCP servers that give Claude Code persistent, self-learning memory.
 
 | Brain | Purpose | Ports |
 |-------|---------|-------|
-| [Brain](https://github.com/timmeck/brain) v2.2.0 | Error memory, code intelligence & persistent context | 7777 / 7778 |
-| **Trading Brain** v1.3.0 | Adaptive trading intelligence with memory & sessions | **7779** / 7780 |
-| [Marketing Brain](https://github.com/timmeck/marketing-brain) | Content strategy & engagement | 7781 / 7782 |
-| [Brain Core](https://github.com/timmeck/brain-core) v1.6.0 | Shared infrastructure (IPC, MCP, REST, CLI, math, synapses, memory) | — |
+| [Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain) v2.2.1 | Error memory, code intelligence & persistent context | 7777 / 7778 |
+| **Trading Brain** v1.3.2 | Adaptive trading intelligence with memory & sessions | **7779** / 7780 |
+| [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain) v0.5.2 | Content strategy & engagement with memory & sessions | 7781 / 7782 / 7783 |
+| [Brain Core](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain-core) v1.6.1 | Shared infrastructure (IPC, MCP, REST, CLI, math, synapses, memory) | — |
 | [Brain Hub](https://timmeck.github.io/brain-hub/) | Ecosystem landing page | — |
 
-Each brain is **fully standalone** — [Brain Core](https://www.npmjs.com/package/@timmeck/brain-core) provides shared infrastructure (IPC, MCP, REST API, CLI, math, synapse algorithms) used by all brains, eliminating ~2,800 lines of duplicated code.
+All packages live in the [brain-ecosystem](https://github.com/timmeck/brain-ecosystem) monorepo with npm workspaces. [Brain Core](https://www.npmjs.com/package/@timmeck/brain-core) provides shared infrastructure (IPC, MCP, REST API, CLI, math, synapse algorithms) used by all brains, eliminating ~2,800 lines of duplicated code.
 
 ### Cross-Brain Communication
 
@@ -350,7 +351,7 @@ The interactive HTML dashboard (`trading dashboard`) includes an Ecosystem Peers
 
 If Trading Brain helps you, consider giving it a star — it helps others discover the project and keeps development going.
 
-[![Star this repo](https://img.shields.io/github/stars/timmeck/trading-brain?style=social)](https://github.com/timmeck/trading-brain)
+[![Star this repo](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Support%20Development-ea4aaa)](https://github.com/sponsors/timmeck)
 
 ## License

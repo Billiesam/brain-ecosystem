@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@timmeck/marketing-brain)](https://www.npmjs.com/package/@timmeck/marketing-brain)
 [![npm downloads](https://img.shields.io/npm/dm/@timmeck/marketing-brain)](https://www.npmjs.com/package/@timmeck/marketing-brain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/timmeck/marketing-brain?style=social)](https://github.com/timmeck/marketing-brain)
+[![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
 **Self-Learning Marketing Intelligence System for Claude Code**
 
@@ -76,10 +76,16 @@ Without Marketing Brain, your marketing knowledge lives in your head. With it:
 ### Installation
 
 ```bash
-git clone https://github.com/timmeck/marketing-brain.git
-cd marketing-brain
-npm install
-npm run build
+npm install -g @timmeck/marketing-brain
+marketing setup
+```
+
+That's it. One command configures MCP and starts the daemon.
+
+Or install globally and configure manually:
+
+```bash
+npm install -g @timmeck/marketing-brain
 ```
 
 ### Setup with Claude Code
@@ -90,13 +96,26 @@ Add to `~/.claude/settings.json`:
 {
   "mcpServers": {
     "marketing-brain": {
-      "command": "npx",
-      "args": ["tsx", "C:/path/to/marketing-brain/src/index.ts", "mcp-server"],
-      "cwd": "C:/path/to/marketing-brain"
+      "command": "marketing",
+      "args": ["mcp-server"]
     }
   }
 }
 ```
+
+### Setup with Cursor / Windsurf / Cline / Continue
+
+Marketing Brain supports MCP over HTTP with SSE transport:
+
+```json
+{
+  "marketing-brain": {
+    "url": "http://localhost:7782/sse"
+  }
+}
+```
+
+Make sure the daemon is running (`marketing start`).
 
 ### Start the Daemon
 
@@ -110,6 +129,7 @@ marketing doctor    # verify everything works (5/5 green)
 
 ### Daemon Management
 ```
+marketing setup                  One-command setup: MCP + daemon
 marketing start                  Start the daemon
 marketing stop                   Stop the daemon
 marketing status                 Show stats (posts, campaigns, synapses, insights)
@@ -255,18 +275,18 @@ Features:
 ## Architecture
 
 ```
-+------------------+     +------------------+     +------------------+
-|   Claude Code    |     |  Browser/CI/CD   |     |  Dashboard       |
-|   (MCP stdio)    |     |  (REST API)      |     |  (SSE live)      |
-+--------+---------+     +--------+---------+     +--------+---------+
++------------------+     +------------------+     +------------------+     +------------------+
+|   Claude Code    |     |  Cursor/Windsurf |     |  Browser/CI/CD   |     |  Dashboard       |
+|   (MCP stdio)    |     |  (MCP HTTP/SSE)  |     |  (REST API)      |     |  (SSE live)      |
++--------+---------+     +--------+---------+     +--------+---------+     +--------+---------+
+         |                        |                        |                        |
+         v                        v                        v                        v
++--------+---------+     +--------+---------+     +--------+---------+     +--------+---------+
+|   MCP Server     |     |   MCP HTTP/SSE   |     |    REST API      |     | Dashboard Server |
+|   (stdio)        |     |   (port 7782)    |     |   (port 7781)    |     |   (port 7783)    |
++--------+---------+     +--------+---------+     +--------+---------+     +--------+---------+
          |                        |                        |
-         v                        v                        v
-+--------+---------+     +--------+---------+     +--------+---------+
-|   MCP Server     |     |    REST API      |     | Dashboard Server |
-|   (stdio)        |     |   (port 7781)    |     |   (port 7783)    |
-+--------+---------+     +--------+---------+     +--------+---------+
-         |                        |                        |
-         +----------+-------------+----------+-------------+
+         +----------+-------------+----------+-------------+----------+
                     |
                     v
          +----------+-----------+
@@ -357,24 +377,24 @@ marketing config delete learning.intervalMs
 
 - **TypeScript** — Full type safety, ES2022, ESM modules
 - **better-sqlite3** — Embedded SQLite with WAL mode
-- **MCP SDK** — Model Context Protocol integration (stdio transport)
+- **MCP SDK** — Model Context Protocol integration (stdio + HTTP/SSE transports)
 - **Commander** — CLI framework
 - **Chalk** — Colored terminal output
 - **Winston** — Structured logging
 
 ## Brain Ecosystem
 
-Marketing Brain is part of the **Brain Ecosystem** — a family of standalone MCP servers that give Claude Code persistent, self-learning memory.
+Marketing Brain is part of the **[Brain Ecosystem](https://github.com/timmeck/brain-ecosystem)** — a monorepo of MCP servers that give Claude Code persistent, self-learning memory.
 
 | Brain | Purpose | Ports |
 |-------|---------|-------|
-| [Brain](https://github.com/timmeck/brain) v2.2.0 | Error memory, code intelligence & persistent context | 7777 / 7778 |
-| [Trading Brain](https://github.com/timmeck/trading-brain) v1.3.0 | Adaptive trading intelligence with memory & sessions | 7779 / 7780 |
-| **Marketing Brain** v0.5.0 | Content strategy & engagement with memory & sessions | **7781** / 7782 / 7783 |
-| [Brain Core](https://github.com/timmeck/brain-core) v1.6.0 | Shared infrastructure (IPC, MCP, REST, CLI, math, synapses, memory) | — |
+| [Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain) v2.2.1 | Error memory, code intelligence & persistent context | 7777 / 7778 |
+| [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain) v1.3.2 | Adaptive trading intelligence with memory & sessions | 7779 / 7780 |
+| **Marketing Brain** v0.5.2 | Content strategy & engagement with memory & sessions | **7781** / 7782 / 7783 |
+| [Brain Core](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain-core) v1.6.1 | Shared infrastructure (IPC, MCP, REST, CLI, math, synapses, memory) | — |
 | [Brain Hub](https://timmeck.github.io/brain-hub/) | Ecosystem landing page | — |
 
-Each brain is **fully standalone** — [Brain Core](https://www.npmjs.com/package/@timmeck/brain-core) provides shared infrastructure (IPC, MCP, REST API, CLI, math, synapse algorithms) used by all brains, eliminating ~2,800 lines of duplicated code.
+All packages live in the [brain-ecosystem](https://github.com/timmeck/brain-ecosystem) monorepo with npm workspaces. [Brain Core](https://www.npmjs.com/package/@timmeck/brain-core) provides shared infrastructure (IPC, MCP, REST API, CLI, math, synapse algorithms) used by all brains, eliminating ~2,800 lines of duplicated code.
 
 ### Cross-Brain Communication
 
@@ -388,7 +408,7 @@ The interactive HTML dashboard (`marketing dashboard`) includes an Ecosystem Pee
 
 If Marketing Brain helps you, consider giving it a star — it helps others discover the project and keeps development going.
 
-[![Star this repo](https://img.shields.io/github/stars/timmeck/marketing-brain?style=social)](https://github.com/timmeck/marketing-brain)
+[![Star this repo](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Support%20Development-ea4aaa)](https://github.com/sponsors/timmeck)
 
 ## License

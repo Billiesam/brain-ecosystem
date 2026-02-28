@@ -1,6 +1,6 @@
 {
   "name": "@timmeck/marketing-brain",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Self-learning marketing intelligence system with Hebbian synapse network",
   "type": "module",
   "main": "dist/index.js",
@@ -35,7 +35,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/timmeck/marketing-brain"
+    "url": "https://github.com/timmeck/brain-ecosystem",
+    "directory": "packages/marketing-brain"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

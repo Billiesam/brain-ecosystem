@@ -3,11 +3,11 @@
 [![npm version](https://img.shields.io/npm/v/@timmeck/brain-core)](https://www.npmjs.com/package/@timmeck/brain-core)
 [![npm downloads](https://img.shields.io/npm/dm/@timmeck/brain-core)](https://www.npmjs.com/package/@timmeck/brain-core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-core?style=social)](https://github.com/timmeck/brain-core)
+[![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
 **Shared infrastructure for the Brain ecosystem — IPC, MCP, CLI, DB, math, synapses, and utilities.**
 
-Brain Core extracts the common infrastructure used across all Brain MCP servers ([Brain](https://github.com/timmeck/brain), [Trading Brain](https://github.com/timmeck/trading-brain), [Marketing Brain](https://github.com/timmeck/marketing-brain)) into a single, reusable package.
+Brain Core extracts the common infrastructure used across all Brain MCP servers ([Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain), [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain), [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain)) into a single, reusable package. All packages live in the [brain-ecosystem](https://github.com/timmeck/brain-ecosystem) monorepo.
 
 ## What's Included
 
@@ -151,12 +151,12 @@ class MyRouter implements IpcRouter {
 
 | Brain | Version | Purpose | Ports |
 |-------|---------|---------|-------|
-| [Brain](https://github.com/timmeck/brain) | v2.2.0 | Error memory, code intelligence & persistent context | 7777/7778 |
-| [Trading Brain](https://github.com/timmeck/trading-brain) | v1.3.0 | Adaptive trading intelligence with memory & sessions | 7779/7780 |
-| [Marketing Brain](https://github.com/timmeck/marketing-brain) | v0.5.0 | Content strategy & engagement with memory & sessions | 7781/7782/7783 |
-| [Brain Core](https://github.com/timmeck/brain-core) | v1.6.0 | Shared infrastructure (this package) | — |
+| [Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain) | v2.2.1 | Error memory, code intelligence & persistent context | 7777/7778 |
+| [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain) | v1.3.2 | Adaptive trading intelligence with memory & sessions | 7779/7780 |
+| [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain) | v0.5.2 | Content strategy & engagement with memory & sessions | 7781/7782/7783 |
+| [Brain Core](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain-core) | v1.6.1 | Shared infrastructure (this package) | — |
 
-All three brains are standalone — brain-core is an **optional** shared dependency that eliminates ~600 lines of duplicated code across the ecosystem.
+All packages live in the [brain-ecosystem](https://github.com/timmeck/brain-ecosystem) monorepo with npm workspaces. Brain Core provides shared infrastructure that eliminates ~2,800 lines of duplicated code across the ecosystem.
 
 ## Cross-Brain Communication
 
@@ -168,7 +168,7 @@ import { CrossBrainClient, CrossBrainNotifier } from '@timmeck/brain-core';
 // Query peers
 const cross = new CrossBrainClient('brain');
 const peers = await cross.getAvailablePeers();
-// → [{ name: 'trading-brain', version: '1.3.0', uptime: 3600, pid: 12345, methods: 18 }, ...]
+// → [{ name: 'trading-brain', version: '1.3.2', uptime: 3600, pid: 12345, methods: 22 }, ...]
 
 // Push event notifications to peers (v1.5+)
 const notifier = new CrossBrainNotifier(cross, 'brain');
@@ -202,7 +202,7 @@ Visit the [Brain Hub](https://timmeck.github.io/brain-hub/) for the full ecosyst
 
 If Brain Core helps you, consider giving it a star — it helps others discover the project and keeps development going.
 
-[![Star this repo](https://img.shields.io/github/stars/timmeck/brain-core?style=social)](https://github.com/timmeck/brain-core)
+[![Star this repo](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Support%20Development-ea4aaa)](https://github.com/sponsors/timmeck)
 
 ## License

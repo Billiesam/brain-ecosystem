@@ -1,6 +1,6 @@
 {
   "name": "@timmeck/brain",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Adaptive error memory and code intelligence system with Hebbian synapse network, hybrid search, and REST API",
   "type": "module",
   "main": "dist/index.js",
@@ -37,7 +37,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/timmeck/brain"
+    "url": "https://github.com/timmeck/brain-ecosystem",
+    "directory": "packages/brain"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

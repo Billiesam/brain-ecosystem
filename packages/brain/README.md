@@ -3,12 +3,9 @@
 [![npm version](https://img.shields.io/npm/v/@timmeck/brain)](https://www.npmjs.com/package/@timmeck/brain)
 [![npm downloads](https://img.shields.io/npm/dm/@timmeck/brain)](https://www.npmjs.com/package/@timmeck/brain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/timmeck/brain?style=social)](https://github.com/timmeck/brain)
+[![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
 **Adaptive Error Memory, Code Intelligence & Persistent Context MCP Server for Claude Code**
-
-<!-- TODO: Replace with actual recording once setup wizard is recorded -->
-<!-- ![Demo](assets/demo.gif) -->
 
 ## Quick Start
 
@@ -351,17 +348,17 @@ Brain now maintains **persistent context** across sessions:
 
 ## Brain Ecosystem
 
-Brain is part of the **Brain Ecosystem** — a family of standalone MCP servers that give Claude Code persistent, self-learning memory.
+Brain is part of the **[Brain Ecosystem](https://github.com/timmeck/brain-ecosystem)** — a monorepo of MCP servers that give Claude Code persistent, self-learning memory.
 
 | Brain | Purpose | Ports |
 |-------|---------|-------|
-| **Brain** | Error memory, code intelligence & persistent context | **7777** / 7778 |
-| [Trading Brain](https://github.com/timmeck/trading-brain) v1.3.0 | Adaptive trading intelligence with memory & sessions | 7779 / 7780 |
-| [Marketing Brain](https://github.com/timmeck/marketing-brain) v0.5.0 | Content strategy & engagement with memory & sessions | 7781 / 7782 |
-| [Brain Core](https://github.com/timmeck/brain-core) v1.6.0 | Shared infrastructure (IPC, MCP, REST, CLI, math, synapses, memory) | — |
+| **Brain** v2.2.1 | Error memory, code intelligence & persistent context | **7777** / 7778 |
+| [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain) v1.3.2 | Adaptive trading intelligence with memory & sessions | 7779 / 7780 |
+| [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain) v0.5.2 | Content strategy & engagement with memory & sessions | 7781 / 7782 / 7783 |
+| [Brain Core](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain-core) v1.6.1 | Shared infrastructure (IPC, MCP, REST, CLI, math, synapses, memory) | — |
 | [Brain Hub](https://timmeck.github.io/brain-hub/) | Ecosystem landing page | — |
 
-Each brain is **fully standalone** — [Brain Core](https://www.npmjs.com/package/@timmeck/brain-core) provides shared infrastructure (IPC, MCP, REST API, CLI, math, synapse algorithms, memory types) used by all brains, eliminating ~2,800 lines of duplicated code.
+All packages live in the [brain-ecosystem](https://github.com/timmeck/brain-ecosystem) monorepo with npm workspaces. [Brain Core](https://www.npmjs.com/package/@timmeck/brain-core) provides shared infrastructure (IPC, MCP, REST API, CLI, math, synapse algorithms, memory types) used by all brains, eliminating ~2,800 lines of duplicated code.
 
 ### Cross-Brain Communication
 
@@ -382,7 +379,7 @@ Brains discover and query each other at runtime via IPC named pipes. Use `brain 
 
 If Brain helps you, consider giving it a star — it helps others discover the project and keeps development going.
 
-[![Star this repo](https://img.shields.io/github/stars/timmeck/brain?style=social)](https://github.com/timmeck/brain)
+[![Star this repo](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Support%20Development-ea4aaa)](https://github.com/sponsors/timmeck)
 
 ## License
