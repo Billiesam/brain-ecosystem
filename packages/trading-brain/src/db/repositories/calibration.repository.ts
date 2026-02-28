@@ -64,7 +64,7 @@ export class CalibrationRepository {
           min_outcomes_for_weights = @min_outcomes_for_weights,
           last_calibration = datetime('now'), updated_at = datetime('now')
       `),
-      get: db.prepare('SELECT * FROM calibration WHERE id = "main"'),
+      get: db.prepare("SELECT * FROM calibration WHERE id = 'main'"),
       insertHistory: db.prepare(`
         INSERT INTO calibration_history (trade_count, synapse_count,
           learning_rate, weaken_penalty, decay_half_life_days,
