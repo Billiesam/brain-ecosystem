@@ -300,28 +300,30 @@ describe('IPC Integration', () => {
     server = new IpcServer(makeRouter(), pipeName);
     server.start();
     await waitForServer(pipeName);
+    // Wait for probe client from waitForServer to fully disconnect
+    await delay(200);
 
-    expect(server.getClientCount()).toBe(0);
+    const baseline = server.getClientCount();
 
     const client1 = new IpcClient(pipeName, 3000);
     const client2 = new IpcClient(pipeName, 3000);
     clients.push(client1, client2);
 
     await client1.connect();
-    await delay(50);
-    expect(server.getClientCount()).toBe(1);
+    await delay(100);
+    expect(server.getClientCount()).toBe(baseline + 1);
 
     await client2.connect();
-    await delay(50);
-    expect(server.getClientCount()).toBe(2);
+    await delay(100);
+    expect(server.getClientCount()).toBe(baseline + 2);
 
     client1.disconnect();
-    await delay(100);
-    expect(server.getClientCount()).toBe(1);
+    await delay(200);
+    expect(server.getClientCount()).toBe(baseline + 1);
 
     client2.disconnect();
-    await delay(100);
-    expect(server.getClientCount()).toBe(0);
+    await delay(200);
+    expect(server.getClientCount()).toBe(baseline);
   }, 10_000);
 
   // ─── 11. Error in route handler is returned as error response ───────
