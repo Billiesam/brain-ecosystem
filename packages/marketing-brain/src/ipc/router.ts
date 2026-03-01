@@ -437,7 +437,7 @@ export class IpcRouter {
 
       ['status',               () => ({
         name: 'marketing-brain',
-        version: '1.11.0',
+        version: '1.11.1',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

@@ -389,7 +389,7 @@ export class IpcRouter {
 
       ['status', () => ({
         name: 'trading-brain',
-        version: '2.10.0',
+        version: '2.10.1',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

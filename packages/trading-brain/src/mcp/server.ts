@@ -8,7 +8,7 @@ import { registerDreamTools } from './dream-tools.js';
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
     name: 'trading-brain',
-    version: '2.10.0',
+    version: '2.10.1',
     entryPoint: path.resolve(import.meta.dirname, '../index.ts'),
     registerTools: (server, ipc) => {
       registerTools(server, ipc);
