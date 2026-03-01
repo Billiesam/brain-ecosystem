@@ -12,7 +12,7 @@ import { registerPrompts } from './prompts.js';
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
     name: 'brain',
-    version: '3.12.1',
+    version: '3.13.0',
     entryPoint: path.resolve(import.meta.dirname, '../index.ts'),
     registerTools: (server, ipc) => {
       registerTools(server, ipc);

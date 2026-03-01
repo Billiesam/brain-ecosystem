@@ -497,7 +497,7 @@ export class IpcRouter {
       // Status (cross-brain)
       ['status',                  () => ({
         name: 'brain',
-        version: '3.12.1',
+        version: '3.13.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,
