@@ -19,6 +19,7 @@ import type { DataMiner } from './data-miner.js';
 import type { DreamEngine } from '../dream/dream-engine.js';
 import type { ThoughtStream } from '../consciousness/thought-stream.js';
 import type { PredictionEngine } from '../prediction/prediction-engine.js';
+import type { SignalScanner } from '../scanner/signal-scanner.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -54,6 +55,7 @@ export class ResearchOrchestrator {
   private dreamEngine: DreamEngine | null = null;
   private thoughtStream: ThoughtStream | null = null;
   private predictionEngine: PredictionEngine | null = null;
+  private signalScanner: SignalScanner | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -105,6 +107,11 @@ export class ResearchOrchestrator {
   setThoughtStream(stream: ThoughtStream): void {
     this.thoughtStream = stream;
     this.autoResponder.setThoughtStream(stream);
+  }
+
+  /** Set the SignalScanner — feeds scan results into journal/predictions. */
+  setSignalScanner(scanner: SignalScanner): void {
+    this.signalScanner = scanner;
   }
 
   /** Set the PredictionEngine — wires journal into it. */
@@ -473,6 +480,42 @@ export class ResearchOrchestrator {
       }
     }
 
+    // 14. Signal Scanner: feed latest scan results into journal + predictions
+    if (this.signalScanner) {
+      ts?.emit('signal_scanner', 'perceiving', 'Checking scanner results...');
+      try {
+        const status = this.signalScanner.getStatus();
+        if (status.last_scan) {
+          const scan = status.last_scan;
+          // Feed scan metrics into PredictionEngine
+          if (this.predictionEngine) {
+            this.predictionEngine.recordMetric('scanner_total_repos', status.total_repos, 'scanner');
+            this.predictionEngine.recordMetric('scanner_breakouts', status.by_level.breakout, 'scanner');
+            this.predictionEngine.recordMetric('scanner_signals', status.by_level.signal, 'scanner');
+          }
+          // Journal new breakouts
+          if (scan.new_breakouts > 0) {
+            const breakouts = this.signalScanner.getSignals('breakout', 5);
+            for (const repo of breakouts) {
+              this.journal.recordDiscovery(
+                `Breakout: ${repo.full_name}`,
+                `★${repo.current_stars} (+${repo.star_velocity_24h}/24h) — Score: ${repo.signal_score.toFixed(1)} — ${repo.description ?? ''}`,
+                { url: repo.url, language: repo.language, phase: repo.phase },
+                'breakthrough',
+              );
+            }
+            ts?.emit('signal_scanner', 'discovering', `${scan.new_breakouts} new breakout repo${scan.new_breakouts > 1 ? 's' : ''}!`, 'breakthrough');
+          }
+          // Journal new signals
+          if (scan.new_signals > 0) {
+            ts?.emit('signal_scanner', 'discovering', `${scan.new_signals} new signal repo${scan.new_signals > 1 ? 's' : ''}`, 'notable');
+          }
+        }
+      } catch (err) {
+        this.log.error(`[orchestrator] Scanner integration error: ${(err as Error).message}`);
+      }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -786,6 +829,7 @@ export class ResearchOrchestrator {
       prediction: this.predictionEngine?.getSummary() ?? null,
       autoResponder: this.autoResponder.getStatus(),
       hypotheses: this.hypothesisEngine.getSummary(),
+      scanner: this.signalScanner?.getStatus() ?? null,
     };
   }
 }

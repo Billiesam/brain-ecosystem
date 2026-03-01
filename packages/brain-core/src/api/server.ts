@@ -80,6 +80,16 @@ export class BaseApiServer {
       });
     });
 
+    this.server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        this.logger.warn(`REST API port ${port} already in use — skipping`);
+        this.server?.close();
+        this.server = null;
+      } else {
+        this.logger.error(`REST API server error: ${err.message}`);
+      }
+    });
+
     this.server.listen(port, () => {
       this.logger.info(`REST API server started on http://localhost:${port}`);
     });

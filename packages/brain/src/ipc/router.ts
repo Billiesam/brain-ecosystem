@@ -40,6 +40,7 @@ import type { DreamEngine } from '@timmeck/brain-core';
 import type { ThoughtStream, ConsciousnessServer } from '@timmeck/brain-core';
 import type { PredictionEngine } from '@timmeck/brain-core';
 import type { ResearchOrchestrator } from '@timmeck/brain-core';
+import type { SignalScanner } from '@timmeck/brain-core';
 import type { ProjectScanner } from '../services/project-scanner.js';
 import type { ReposignalImporter } from '../services/reposignal-importer.js';
 
@@ -84,6 +85,7 @@ export interface Services {
   consciousnessServer?: ConsciousnessServer;
   predictionEngine?: PredictionEngine;
   orchestrator?: ResearchOrchestrator;
+  signalScanner?: SignalScanner;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -504,6 +506,21 @@ export class IpcRouter {
       ['scan.logs',               (params) => { if (!s.projectScanner) throw new Error('Project scanner not available'); return s.projectScanner.scanLogFiles(p(params).directory, p(params).project ?? 'unknown'); }],
       ['scan.build',              (params) => { if (!s.projectScanner) throw new Error('Project scanner not available'); return s.projectScanner.scanBuildOutput(p(params).directory, p(params).project ?? 'unknown'); }],
       ['scan.status',             () => { if (!s.projectScanner) throw new Error('Project scanner not available'); return s.projectScanner.getLastResult(); }],
+
+      // ─── Signal Scanner ──────────────────────────────────────
+      ['scanner.scan',           async () => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.scan(); }],
+      ['scanner.status',         () => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getStatus(); }],
+      ['scanner.stop',           () => { if (!s.signalScanner) throw new Error('Signal scanner not available'); s.signalScanner.abortScan(); return { stopped: true }; }],
+      ['scanner.signals',        (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getSignals(p(params).level, p(params)?.limit); }],
+      ['scanner.repo',           (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getRepo(p(params).github_id ?? p(params).githubId); }],
+      ['scanner.trending',       (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getTrending(p(params)?.limit); }],
+      ['scanner.search',         (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.searchRepos(p(params).query ?? '', p(params)?.language, p(params)?.limit); }],
+      ['scanner.stats',          () => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getStats(); }],
+      ['scanner.crypto',         (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getCryptoTokens(p(params)?.limit); }],
+      ['scanner.crypto.trending', () => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getCryptoTrending(); }],
+      ['scanner.hn',             (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.getHnMentions(p(params)?.limit); }],
+      ['scanner.config',         (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); if (p(params) && Object.keys(p(params)).length > 0) return s.signalScanner.updateConfig(p(params)); return s.signalScanner.getConfig(); }],
+      ['scanner.import.api',     async (params) => { if (!s.signalScanner) throw new Error('Signal scanner not available'); return s.signalScanner.importFromApi(p(params)?.url, { limit: p(params)?.limit, level: p(params)?.level, adminKey: p(params)?.adminKey }); }],
 
       // ─── Reposignal Import ──────────────────────────────────
       ['import.reposignal',       (params) => { if (!s.reposignalImporter) throw new Error('Reposignal importer not available'); return s.reposignalImporter.import(p(params).dbPath, p(params).options); }],

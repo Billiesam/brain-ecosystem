@@ -68,6 +68,16 @@ export class McpHttpServer {
       res.end('Not Found');
     });
 
+    this.server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        this.logger.warn(`MCP HTTP port ${this.port} already in use — skipping`);
+        this.server?.close();
+        this.server = null;
+      } else {
+        this.logger.error(`MCP HTTP server error: ${err.message}`);
+      }
+    });
+
     this.server.listen(this.port, () => {
       this.logger.info(`MCP HTTP server (SSE) started on http://localhost:${this.port}`);
     });

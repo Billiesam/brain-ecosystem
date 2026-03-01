@@ -85,6 +85,17 @@ export interface EmbeddingsConfig {
   batchSize: number;
 }
 
+export interface ScannerBrainConfig {
+  enabled: boolean;
+  githubToken: string;
+  scanIntervalMs: number;
+  minStarsEmerging: number;
+  minStarsTrending: number;
+  maxReposPerScan: number;
+  cryptoEnabled: boolean;
+  hnEnabled: boolean;
+}
+
 export interface BrainConfig {
   dataDir: string;
   dbPath: string;
@@ -100,4 +111,5 @@ export interface BrainConfig {
   research: ResearchConfig;
   log: LogConfig;
   retention: RetentionConfig;
+  scanner: ScannerBrainConfig;
 }

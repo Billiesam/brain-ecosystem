@@ -9,6 +9,7 @@ import { registerPredictionTools } from './prediction-tools.js';
 import { registerResponderTools } from './responder-tools.js';
 import { registerScanTools } from './scan-tools.js';
 import { registerReposignalTools } from './reposignal-tools.js';
+import { registerScannerTools } from './scanner-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
@@ -26,6 +27,7 @@ export async function startMcpServer(): Promise<void> {
       registerResponderTools(server, ipc);
       registerScanTools(server, ipc);
       registerReposignalTools(server, ipc);
+      registerScannerTools(server, ipc);
     },
     registerPrompts,
   });

@@ -9,6 +9,7 @@ import { registerPredictionToolsDirect } from './prediction-tools.js';
 import { registerResponderToolsDirect } from './responder-tools.js';
 import { registerScanToolsDirect } from './scan-tools.js';
 import { registerReposignalToolsDirect } from './reposignal-tools.js';
+import { registerScannerToolsDirect } from './scanner-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -29,6 +30,7 @@ export class McpHttpServer {
         registerResponderToolsDirect(server, router);
         registerScanToolsDirect(server, router);
         registerReposignalToolsDirect(server, router);
+        registerScannerToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

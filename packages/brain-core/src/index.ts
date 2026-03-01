@@ -186,3 +186,16 @@ export { PredictionEngine, runPredictionMigration } from './prediction/index.js'
 export { PredictionTracker } from './prediction/index.js';
 export { holtWintersForecast, ewmaForecast, calibrateConfidence } from './prediction/index.js';
 export type { PredictionDomain, PredictionStatus, PredictionEngineConfig, Prediction, PredictionAccuracy, PredictionSummary, ForecastResult, PredictionInput, MetricDataPoint, CalibrationBucket } from './prediction/index.js';
+
+// ── Scanner ──────────────────────────────────────────────
+export { SignalScanner, runScannerMigration } from './scanner/index.js';
+export { GitHubCollector } from './scanner/index.js';
+export { HnCollector } from './scanner/index.js';
+export { CryptoCollector } from './scanner/index.js';
+export { scoreRepo, classifyLevel, classifyWithHysteresis, classifyPhase, scoreCrypto } from './scanner/index.js';
+export type {
+  ScannerConfig, ScannedRepo, DailyStats, HnMention, CryptoToken,
+  ScanResult, ScannerStatus, SignalLevel, RepoPhase, ScoreBreakdown,
+  GitHubSearchResult, GitHubRepo, HnSearchResult, HnHit,
+  CoinGeckoMarket, CoinGeckoTrending,
+} from './scanner/index.js';

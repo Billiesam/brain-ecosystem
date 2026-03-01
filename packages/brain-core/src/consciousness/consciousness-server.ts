@@ -141,6 +141,16 @@ export class ConsciousnessServer {
       }
     }, 30_000);
 
+    this.server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        this.logger.warn(`Consciousness dashboard port ${port} already in use — skipping`);
+        this.server?.close();
+        this.server = null;
+      } else {
+        this.logger.error(`Consciousness dashboard error: ${err.message}`);
+      }
+    });
+
     this.server.listen(port, () => {
       this.logger.info(`Consciousness dashboard started on http://localhost:${port}`);
     });

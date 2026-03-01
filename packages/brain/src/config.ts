@@ -80,6 +80,16 @@ const defaults: BrainConfig = {
     solutionDays: 365,
     insightDays: 30,
   },
+  scanner: {
+    enabled: true,
+    githubToken: '',
+    scanIntervalMs: 21_600_000, // 6h
+    minStarsEmerging: 15,
+    minStarsTrending: 200,
+    maxReposPerScan: 5000,
+    cryptoEnabled: true,
+    hnEnabled: true,
+  },
 };
 
 function applyEnvOverrides(config: BrainConfig): void {
@@ -98,6 +108,9 @@ function applyEnvOverrides(config: BrainConfig): void {
   if (process.env['BRAIN_MCP_HTTP_ENABLED']) config.mcpHttp.enabled = process.env['BRAIN_MCP_HTTP_ENABLED'] !== 'false';
   if (process.env['BRAIN_EMBEDDINGS_ENABLED']) config.embeddings.enabled = process.env['BRAIN_EMBEDDINGS_ENABLED'] !== 'false';
   if (process.env['BRAIN_EMBEDDINGS_MODEL']) config.embeddings.modelName = process.env['BRAIN_EMBEDDINGS_MODEL'];
+  if (process.env['GITHUB_TOKEN']) config.scanner.githubToken = process.env['GITHUB_TOKEN'];
+  if (process.env['BRAIN_SCANNER_ENABLED']) config.scanner.enabled = process.env['BRAIN_SCANNER_ENABLED'] !== 'false';
+  if (process.env['BRAIN_SCANNER_INTERVAL']) config.scanner.scanIntervalMs = Number(process.env['BRAIN_SCANNER_INTERVAL']);
 }
 
 export function loadConfig(configPath?: string): BrainConfig {
