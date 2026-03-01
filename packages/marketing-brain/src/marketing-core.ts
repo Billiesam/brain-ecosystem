@@ -65,8 +65,7 @@ import { createMarketingDashboardServer } from './dashboard/server.js';
 import { renderDashboard } from './dashboard/renderer.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, CausalGraph, MetaLearningEngine, HypothesisEngine } from '@timmeck/brain-core';
-import type { HyperParameter } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler } from '@timmeck/brain-core';
 
 export class MarketingCore {
   private db: Database.Database | null = null;
@@ -191,15 +190,21 @@ export class MarketingCore {
     services.export = new ExportService(this.db!);
     services.backup = new BackupService(this.db!, config.dbPath);
 
-    // 10e. Session 8: Research Engines (Meta-Learning, Causal Inference, Hypothesis)
-    const metaParams: HyperParameter[] = [
-      { name: 'learningRate', value: 0.1, min: 0.01, max: 0.5, step: 0.02 },
-      { name: 'decayRate', value: 0.05, min: 0.01, max: 0.2, step: 0.01 },
-      { name: 'engagementWeight', value: 0.5, min: 0.1, max: 1.0, step: 0.05 },
-    ];
-    services.metaLearning = new MetaLearningEngine(this.db!, metaParams);
-    services.causal = new CausalGraph(this.db!);
-    services.hypothesis = new HypothesisEngine(this.db!);
+    // 10e. Autonomous Research Scheduler (Meta-Learning + Causal Inference + Hypothesis)
+    const researchScheduler = new AutonomousResearchScheduler(this.db!, {
+      brainName: 'marketing-brain',
+      hyperParams: [
+        { name: 'learningRate', value: 0.1, min: 0.01, max: 0.5, step: 0.02 },
+        { name: 'decayRate', value: 0.05, min: 0.01, max: 0.2, step: 0.01 },
+        { name: 'engagementWeight', value: 0.5, min: 0.1, max: 1.0, step: 0.05 },
+      ],
+    });
+    researchScheduler.start();
+    services.researchScheduler = researchScheduler;
+    services.metaLearning = researchScheduler.metaLearning;
+    services.causal = researchScheduler.causalGraph;
+    services.hypothesis = researchScheduler.hypothesisEngine;
+    logger.info('Autonomous research scheduler started');
 
     // 11. IPC Server
     const router = new IpcRouter(services);
@@ -263,7 +268,7 @@ export class MarketingCore {
     }
 
     // 13. Event listeners (synapse wiring)
-    this.setupEventListeners(synapseManager, services.webhook, services.causal, services.hypothesis);
+    this.setupEventListeners(synapseManager, services.webhook, researchScheduler);
 
     // 13b. Cross-Brain Event Subscriptions
     this.setupCrossBrainSubscriptions();
@@ -375,7 +380,9 @@ export class MarketingCore {
     });
   }
 
-  private setupEventListeners(synapseManager: SynapseManager, webhook?: WebhookService, causal?: CausalGraph, hypothesis?: HypothesisEngine): void {
+  private setupEventListeners(synapseManager: SynapseManager, webhook?: WebhookService, researchScheduler?: AutonomousResearchScheduler): void {
+    const causal = researchScheduler?.causalGraph;
+    const hypothesis = researchScheduler?.hypothesisEngine;
     const bus = getEventBus();
     const notifier = this.notifier;
 

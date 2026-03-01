@@ -105,6 +105,10 @@ export type { ExportOptions, ExportResult } from './export/service.js';
 export { BackupService } from './backup/service.js';
 export type { BackupConfig, BackupRecord, RestoreResult } from './backup/service.js';
 
+// ── Autonomous Research ──────────────────────────────────
+export { AutonomousResearchScheduler, runResearchDiscoveryMigration } from './research/autonomous-scheduler.js';
+export type { ResearchDiscovery, ResearchCycleReport, AutonomousResearchConfig } from './research/autonomous-scheduler.js';
+
 // ── Meta-Learning ────────────────────────────────────────
 export { MetaLearningEngine, runMetaLearningMigration } from './meta-learning/engine.js';
 export type { HyperParameter, LearningSnapshot, ParameterRecommendation, MetaLearningStatus } from './meta-learning/engine.js';

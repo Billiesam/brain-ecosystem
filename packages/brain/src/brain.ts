@@ -63,8 +63,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, CausalGraph, MetaLearningEngine, HypothesisEngine } from '@timmeck/brain-core';
-import type { HyperParameter } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -79,6 +78,7 @@ export class BrainCore {
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
   private correlator: CrossBrainCorrelator | null = null;
   private ecosystemService: EcosystemService | null = null;
+  private researchScheduler: AutonomousResearchScheduler | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -213,15 +213,22 @@ export class BrainCore {
     services.export = new ExportService(this.db!);
     services.backup = new BackupService(this.db!, config.dbPath);
 
-    // 11e. Session 8: Research Engines (Meta-Learning, Causal Inference, Hypothesis)
-    const metaParams: HyperParameter[] = [
-      { name: 'learningRate', value: 0.1, min: 0.01, max: 0.5, step: 0.02 },
-      { name: 'decayRate', value: 0.05, min: 0.01, max: 0.2, step: 0.01 },
-      { name: 'pruneThreshold', value: 0.1, min: 0.01, max: 0.5, step: 0.02 },
-    ];
-    services.metaLearning = new MetaLearningEngine(this.db!, metaParams);
-    services.causal = new CausalGraph(this.db!);
-    services.hypothesis = new HypothesisEngine(this.db!);
+    // 11e. Autonomous Research Scheduler (Meta-Learning + Causal Inference + Hypothesis)
+    const researchScheduler = new AutonomousResearchScheduler(this.db!, {
+      brainName: 'brain',
+      hyperParams: [
+        { name: 'learningRate', value: 0.1, min: 0.01, max: 0.5, step: 0.02 },
+        { name: 'decayRate', value: 0.05, min: 0.01, max: 0.2, step: 0.01 },
+        { name: 'pruneThreshold', value: 0.1, min: 0.01, max: 0.5, step: 0.02 },
+      ],
+    });
+    researchScheduler.start();
+    this.researchScheduler = researchScheduler;
+    services.researchScheduler = researchScheduler;
+    services.metaLearning = researchScheduler.metaLearning;
+    services.causal = researchScheduler.causalGraph;
+    services.hypothesis = researchScheduler.hypothesisEngine;
+    logger.info('Autonomous research scheduler started');
 
     // 12. IPC Server
     const router = new IpcRouter(services);
@@ -305,6 +312,7 @@ export class BrainCore {
     }
 
     this.subscriptionManager?.disconnectAll();
+    this.researchScheduler?.stop();
     this.researchEngine?.stop();
     this.embeddingEngine?.stop();
     this.learningEngine?.stop();
@@ -323,6 +331,7 @@ export class BrainCore {
     this.subscriptionManager = null;
     this.correlator = null;
     this.ecosystemService = null;
+    this.researchScheduler = null;
   }
 
   restart(): void {

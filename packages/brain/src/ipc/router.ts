@@ -26,6 +26,7 @@ import type { BackupService } from '@timmeck/brain-core';
 import type { MetaLearningEngine } from '@timmeck/brain-core';
 import type { CausalGraph } from '@timmeck/brain-core';
 import type { HypothesisEngine } from '@timmeck/brain-core';
+import type { AutonomousResearchScheduler } from '@timmeck/brain-core';
 
 export interface Services {
   error: ErrorService;
@@ -53,6 +54,7 @@ export interface Services {
   metaLearning?: MetaLearningEngine;
   causal?: CausalGraph;
   hypothesis?: HypothesisEngine;
+  researchScheduler?: AutonomousResearchScheduler;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -360,10 +362,18 @@ export class IpcRouter {
       ['hypothesis.summary',  () => { if (!s.hypothesis) throw new Error('Hypothesis engine not available'); return s.hypothesis.getSummary(); }],
       ['hypothesis.propose',  (params) => { if (!s.hypothesis) throw new Error('Hypothesis engine not available'); return s.hypothesis.propose(p(params)); }],
 
+      // ─── Autonomous Research ─────────────────────────────
+      ['research.status',      () => { if (!s.researchScheduler) throw new Error('Research scheduler not available'); return s.researchScheduler.getStatus(); }],
+      ['research.run',         () => { if (!s.researchScheduler) throw new Error('Research scheduler not available'); return s.researchScheduler.runCycle(); }],
+      ['research.discoveries', (params) => { if (!s.researchScheduler) throw new Error('Research scheduler not available'); return s.researchScheduler.getDiscoveries(p(params)?.type, p(params)?.limit); }],
+      ['research.reports',     (params) => { if (!s.researchScheduler) throw new Error('Research scheduler not available'); return s.researchScheduler.getCycleReports(p(params)?.limit); }],
+      ['research.record',      (params) => { if (!s.researchScheduler) throw new Error('Research scheduler not available'); s.researchScheduler.recordEvent(p(params).type, p(params).data); return { recorded: true }; }],
+      ['research.onCycle',     (params) => { if (!s.researchScheduler) throw new Error('Research scheduler not available'); s.researchScheduler.onLearningCycleComplete(p(params).metrics, p(params).score); return { recorded: true }; }],
+
       // Status (cross-brain)
       ['status',                  () => ({
         name: 'brain',
-        version: '3.5.0',
+        version: '3.6.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

@@ -1,6 +1,6 @@
 {
   "name": "@timmeck/brain-core",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Shared core infrastructure for the Brain ecosystem — IPC, MCP, CLI, DB connection, and utilities",
   "type": "module",
   "main": "dist/index.js",
@@ -44,6 +44,7 @@
     "./webhooks/service": "./dist/webhooks/service.js",
     "./export/service": "./dist/export/service.js",
     "./backup/service": "./dist/backup/service.js",
+    "./research/autonomous-scheduler": "./dist/research/autonomous-scheduler.js",
     "./meta-learning/engine": "./dist/meta-learning/engine.js",
     "./causal/engine": "./dist/causal/engine.js",
     "./hypothesis/engine": "./dist/hypothesis/engine.js"
