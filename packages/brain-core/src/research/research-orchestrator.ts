@@ -386,6 +386,31 @@ export class ResearchOrchestrator {
       ts?.emit('self_improvement', 'analyzing', 'No improvement suggestions this cycle');
     }
 
+    // 11. Self-Metrics: feed own cycle data into PredictionEngine
+    if (this.predictionEngine) {
+      const cycleDuration = Date.now() - start;
+      this.predictionEngine.recordMetric('cycle_duration_ms', cycleDuration, 'metric');
+      this.predictionEngine.recordMetric('anomaly_count', anomalies.length, 'metric');
+      this.predictionEngine.recordMetric('insight_count', insights.length, 'metric');
+      this.predictionEngine.recordMetric('correlation_count', significant.length, 'metric');
+      const journalStats = this.journal.getSummary();
+      this.predictionEngine.recordMetric('journal_entries', (journalStats.total_entries as number) ?? 0, 'metric');
+      const responderStatus = this.autoResponder.getStatus();
+      this.predictionEngine.recordMetric('auto_response_count', responderStatus.total_responses, 'metric');
+      ts?.emit('orchestrator', 'perceiving', `Self-metrics recorded: ${anomalies.length} anomalies, ${insights.length} insights, ${cycleDuration}ms`);
+    }
+
+    // 12. Auto-Experiments: propose experiments on own parameters when none exist
+    if (this.cycleCount > 3) {
+      const running = this.experimentEngine.list('running_control', 5).length
+        + this.experimentEngine.list('running_treatment', 5).length;
+      if (running === 0 && this.cycleCount % 5 === 0) {
+        this.proposeAutoExperiment(ts);
+      }
+      // Feed measurements into running experiments
+      this.feedExperimentMeasurements(anomalies.length, insights.length);
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -565,6 +590,97 @@ export class ResearchOrchestrator {
       this.writeSuggestionsToFile(result);
     }
     return result;
+  }
+
+  /** Auto-propose an experiment on Brain's own parameters. */
+  private proposeAutoExperiment(ts: ThoughtStream | null): void {
+    // Candidate experiments Brain can run on itself
+    const candidates = [
+      {
+        name: 'Anomaly Z-Threshold Sensitivity',
+        hypothesis: 'Lowering z-threshold from 2.0 to 1.5 will detect more anomalies without too many false positives',
+        iv: 'anomaly_z_threshold', dv: 'anomaly_detection_quality',
+        control: 2.0, treatment: 1.5,
+      },
+      {
+        name: 'Synapse Decay Rate Impact',
+        hypothesis: 'Reducing synapse decay rate improves knowledge retention across cycles',
+        iv: 'synapse_decay_rate', dv: 'knowledge_stability',
+        control: 0.05, treatment: 0.02,
+      },
+      {
+        name: 'Research Interval Optimization',
+        hypothesis: 'Shorter research intervals produce more insights per hour',
+        iv: 'research_interval_ms', dv: 'insight_rate',
+        control: 600000, treatment: 300000,
+      },
+      {
+        name: 'Hypothesis Confidence Bar',
+        hypothesis: 'Lower hypothesis confidence threshold leads to more experimental discoveries',
+        iv: 'hypothesis_min_confidence', dv: 'discovery_rate',
+        control: 0.5, treatment: 0.3,
+      },
+      {
+        name: 'Prediction Horizon Tuning',
+        hypothesis: 'Shorter prediction horizon (30min vs 1h) improves prediction accuracy',
+        iv: 'prediction_horizon_ms', dv: 'prediction_accuracy',
+        control: 3600000, treatment: 1800000,
+      },
+    ];
+
+    // Pick one that hasn't been run yet
+    const existing = this.experimentEngine.list(undefined, 100).map(e => e.name);
+    const candidate = candidates.find(c => !existing.includes(c.name));
+    if (!candidate) return;
+
+    try {
+      const exp = this.experimentEngine.propose({
+        name: candidate.name,
+        hypothesis: candidate.hypothesis,
+        independent_variable: candidate.iv,
+        dependent_variable: candidate.dv,
+        control_value: candidate.control,
+        treatment_value: candidate.treatment,
+        duration_cycles: 10,
+      });
+
+      if (exp.id) {
+        this.experimentEngine.start(exp.id);
+        ts?.emit('experiment', 'experimenting', `Auto-Experiment gestartet: "${candidate.name}" — ${candidate.hypothesis}`, 'notable');
+        this.journal.recordExperiment(candidate.name, 'started', { hypothesis: candidate.hypothesis, control: candidate.control, treatment: candidate.treatment }, false);
+        this.log.info(`[orchestrator] Auto-experiment started: ${candidate.name}`);
+      }
+    } catch {
+      // Max concurrent reached or other issue — skip silently
+    }
+  }
+
+  /** Feed cycle measurements into running experiments. */
+  private feedExperimentMeasurements(anomalyCount: number, insightCount: number): void {
+    const running = [
+      ...this.experimentEngine.list('running_control', 10),
+      ...this.experimentEngine.list('running_treatment', 10),
+    ];
+
+    for (const exp of running) {
+      if (!exp.id) continue;
+      // Map dependent variable to a measurable value
+      let value: number;
+      switch (exp.dependent_variable) {
+        case 'anomaly_detection_quality': value = anomalyCount; break;
+        case 'knowledge_stability': value = insightCount; break;
+        case 'insight_rate': value = insightCount; break;
+        case 'discovery_rate': value = insightCount + anomalyCount; break;
+        case 'prediction_accuracy': {
+          const predSummary = this.predictionEngine?.getSummary();
+          const domains = (predSummary?.by_domain ?? []) as Array<{ accuracy_rate?: number }>;
+          value = domains.length > 0 ? (domains[0]?.accuracy_rate ?? 0) : 0;
+          break;
+        }
+        default: value = 0;
+      }
+      this.experimentEngine.recordMeasurement(exp.id, value);
+    }
   }
 
   /** Append improvement suggestions to ~/.brain/improvement-requests.md */
