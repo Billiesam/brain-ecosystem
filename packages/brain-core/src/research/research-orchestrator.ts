@@ -13,6 +13,7 @@ import type { CausalGraph } from '../causal/engine.js';
 import type { ResearchCycleReport } from './autonomous-scheduler.js';
 import type { DataMiner } from './data-miner.js';
 import type { DreamEngine } from '../dream/dream-engine.js';
+import type { ThoughtStream } from '../consciousness/thought-stream.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ export class ResearchOrchestrator {
 
   private dataMiner: DataMiner | null = null;
   private dreamEngine: DreamEngine | null = null;
+  private thoughtStream: ThoughtStream | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -79,6 +81,11 @@ export class ResearchOrchestrator {
     this.dreamEngine = engine;
     engine.setJournal(this.journal);
     engine.setKnowledgeDistiller(this.knowledgeDistiller);
+  }
+
+  /** Set the ThoughtStream for consciousness — emits thoughts at each step. */
+  setThoughtStream(stream: ThoughtStream): void {
+    this.thoughtStream = stream;
   }
 
   /** Start the autonomous feedback loop timer. */
@@ -168,21 +175,28 @@ export class ResearchOrchestrator {
   runFeedbackCycle(): void {
     this.cycleCount++;
     const start = Date.now();
+    const ts = this.thoughtStream;
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} ───`);
+
+    ts?.emit('orchestrator', 'perceiving', `Feedback Cycle #${this.cycleCount} starting...`);
 
     // 0. DataMiner: mine new data from DB into engines
     if (this.dataMiner) {
+      ts?.emit('data_miner', 'perceiving', 'Scanning for new data...');
       try {
         this.dataMiner.mine();
+        ts?.emit('data_miner', 'perceiving', 'Data scan complete');
       } catch (err) {
         this.log.error(`[orchestrator] DataMiner error: ${(err as Error).message}`);
       }
     }
 
     // 1. Self-observer analyzes accumulated observations → insights
+    ts?.emit('self_observer', 'analyzing', 'Analyzing system activity...');
     const insights = this.selfObserver.analyze();
     if (insights.length > 0) {
       this.log.info(`[orchestrator] Self-observer: ${insights.length} insights`);
+      ts?.emit('self_observer', 'discovering', `Found ${insights.length} insight${insights.length > 1 ? 's' : ''}: ${insights.map(i => i.title).join(', ')}`, insights.some(i => i.confidence > 0.8) ? 'notable' : 'routine');
       for (const insight of insights) {
         this.journal.recordDiscovery(
           insight.title,
@@ -191,12 +205,17 @@ export class ResearchOrchestrator {
           insight.confidence > 0.8 ? 'notable' : 'routine',
         );
       }
+    } else {
+      ts?.emit('self_observer', 'analyzing', 'No new insights this cycle');
     }
 
     // 2. Anomaly detection
+    ts?.emit('anomaly_detective', 'analyzing', 'Scanning metrics for anomalies...');
     const anomalies = this.anomalyDetective.detect();
     if (anomalies.length > 0) {
       this.log.info(`[orchestrator] Anomalies detected: ${anomalies.length}`);
+      const hasCritical = anomalies.some(a => a.severity === 'critical');
+      ts?.emit('anomaly_detective', 'discovering', `Detected ${anomalies.length} anomal${anomalies.length > 1 ? 'ies' : 'y'}: ${anomalies.map(a => `${a.metric} (${a.severity})`).join(', ')}`, hasCritical ? 'breakthrough' : 'notable');
       for (const a of anomalies) {
         this.journal.write({
           type: 'anomaly',
@@ -208,13 +227,17 @@ export class ResearchOrchestrator {
           data: { metric: a.metric, expected: a.expected_value, actual: a.actual_value, deviation: a.deviation },
         });
       }
+    } else {
+      ts?.emit('anomaly_detective', 'analyzing', 'No anomalies detected');
     }
 
     // 3. Cross-domain correlation analysis
+    ts?.emit('cross_domain', 'correlating', 'Analyzing cross-brain event correlations...');
     const correlations = this.crossDomain.analyze();
     const significant = correlations.filter(c => Math.abs(c.correlation) > 0.5 && c.p_value < 0.05);
     if (significant.length > 0) {
       this.log.info(`[orchestrator] Cross-domain: ${significant.length} significant correlations`);
+      ts?.emit('cross_domain', 'discovering', `Found ${significant.length} significant correlation${significant.length > 1 ? 's' : ''}`, 'notable');
       for (const corr of significant) {
         this.journal.recordDiscovery(
           `Cross-domain: ${corr.source_brain}:${corr.source_event} → ${corr.target_brain}:${corr.target_event}`,
@@ -223,10 +246,16 @@ export class ResearchOrchestrator {
           'notable',
         );
       }
+    } else {
+      ts?.emit('cross_domain', 'correlating', 'No significant correlations this cycle');
     }
 
     // 4. Adaptive strategy: check for regressions and revert
+    ts?.emit('adaptive_strategy', 'analyzing', 'Checking for strategy regressions...');
     const reverted = this.adaptiveStrategy.checkAndRevert(this.cycleCount);
+    if (reverted.length > 0) {
+      ts?.emit('adaptive_strategy', 'discovering', `Reverted ${reverted.length} strategy adaptation${reverted.length > 1 ? 's' : ''}: ${reverted.map(r => r.parameter).join(', ')}`, 'notable');
+    }
     for (const r of reverted) {
       this.journal.write({
         type: 'adaptation',
@@ -240,12 +269,14 @@ export class ResearchOrchestrator {
     }
 
     // 5. Check running experiments
+    ts?.emit('experiment', 'experimenting', 'Checking running experiments...');
     const experiments = this.experimentEngine.list();
     for (const exp of experiments) {
       if (exp.status === 'analyzing' && exp.id) {
         const result = this.experimentEngine.analyze(exp.id);
         if (result?.conclusion) {
           const sig = result.conclusion.significant;
+          ts?.emit('experiment', 'discovering', `Experiment "${exp.name}": ${sig ? result.conclusion.direction : 'inconclusive'} (p=${result.conclusion.p_value.toFixed(4)})`, sig ? 'notable' : 'routine');
           this.journal.recordExperiment(
             exp.name,
             sig ? (result.conclusion.direction === 'positive' ? 'confirmed' : 'rejected') : 'inconclusive',
@@ -259,26 +290,36 @@ export class ResearchOrchestrator {
 
     // 6. Knowledge distillation (periodic)
     if (this.cycleCount % this.distillEvery === 0) {
+      ts?.emit('knowledge_distiller', 'analyzing', 'Distilling knowledge from journal...');
       const { principles, antiPatterns, strategies } = this.knowledgeDistiller.distill();
-      if (principles.length + antiPatterns.length + strategies.length > 0) {
+      const total = principles.length + antiPatterns.length + strategies.length;
+      if (total > 0) {
         this.log.info(`[orchestrator] Knowledge distilled: ${principles.length} principles, ${antiPatterns.length} anti-patterns, ${strategies.length} strategies`);
+        ts?.emit('knowledge_distiller', 'discovering', `Distilled ${total} knowledge items: ${principles.length} principles, ${antiPatterns.length} anti-patterns, ${strategies.length} strategies`, 'notable');
+      } else {
+        ts?.emit('knowledge_distiller', 'analyzing', 'No new knowledge to distill');
       }
     }
 
     // 7. Research agenda generation (periodic)
     if (this.cycleCount % this.agendaEvery === 0) {
+      ts?.emit('research_agenda', 'hypothesizing', 'Generating research agenda...');
       const agenda = this.researchAgenda.generate();
       if (agenda.length > 0) {
         this.log.info(`[orchestrator] Research agenda: ${agenda.length} items generated`);
+        ts?.emit('research_agenda', 'discovering', `Generated ${agenda.length} research agenda item${agenda.length > 1 ? 's' : ''}`, 'routine');
       }
     }
 
     // 8. Journal reflection (periodic)
     if (this.cycleCount % this.reflectEvery === 0) {
+      ts?.emit('journal', 'reflecting', 'Reflecting on recent journal entries...');
       this.journal.reflect();
+      ts?.emit('journal', 'reflecting', 'Reflection complete', 'notable');
     }
 
     const duration = Date.now() - start;
+    ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
   }
 

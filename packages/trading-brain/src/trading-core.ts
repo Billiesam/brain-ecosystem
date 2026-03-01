@@ -53,7 +53,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer } from '@timmeck/brain-core';
 
 export class TradingCore {
   private db: Database.Database | null = null;
@@ -67,6 +67,7 @@ export class TradingCore {
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
   private correlator: CrossBrainCorrelator | null = null;
   private orchestrator: ResearchOrchestrator | null = null;
+  private consciousnessServer: ConsciousnessServer | null = null;
   private config: TradingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -242,7 +243,27 @@ export class TradingCore {
     this.orchestrator.setDreamEngine(dreamEngine);
     dreamEngine.start();
     services.dreamEngine = dreamEngine;
-    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active)');
+
+    // 12g. Consciousness — ThoughtStream + Dashboard
+    const thoughtStream = new ThoughtStream();
+    this.orchestrator.setThoughtStream(thoughtStream);
+    dreamEngine.setThoughtStream(thoughtStream);
+    this.consciousnessServer = new ConsciousnessServer({
+      port: 7785,
+      thoughtStream,
+      getNetworkState: () => {
+        try {
+          const nodes = this.db!.prepare('SELECT id, content AS label, category AS type, importance FROM memories WHERE active = 1 LIMIT 200').all();
+          const edges = this.db!.prepare('SELECT source_id, target_id, weight FROM synapses LIMIT 500').all();
+          return { nodes, edges };
+        } catch { return { nodes: [], edges: [] }; }
+      },
+      getEngineStatus: () => this.orchestrator!.getSummary(),
+    });
+    this.consciousnessServer.start();
+    services.consciousnessServer = this.consciousnessServer;
+    services.thoughtStream = thoughtStream;
+    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Consciousness on :7785)');
 
     // 13. IPC Server
     const router = new IpcRouter(services);
@@ -315,6 +336,7 @@ export class TradingCore {
 
   private cleanup(): void {
     this.subscriptionManager?.disconnectAll();
+    this.consciousnessServer?.stop();
     this.orchestrator?.stop();
     this.researchEngine?.stop();
     this.learningEngine?.stop();
@@ -330,6 +352,7 @@ export class TradingCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.orchestrator = null;
+    this.consciousnessServer = null;
     this.subscriptionManager = null;
     this.correlator = null;
   }

@@ -38,6 +38,7 @@ import type { ResearchAgendaEngine } from '@timmeck/brain-core';
 import type { AnomalyDetective } from '@timmeck/brain-core';
 import type { ResearchJournal } from '@timmeck/brain-core';
 import type { DreamEngine } from '@timmeck/brain-core';
+import type { ThoughtStream, ConsciousnessServer } from '@timmeck/brain-core';
 
 export interface Services {
   post: PostService;
@@ -76,6 +77,8 @@ export interface Services {
   anomalyDetective?: AnomalyDetective;
   journal?: ResearchJournal;
   dreamEngine?: DreamEngine;
+  thoughtStream?: ThoughtStream;
+  consciousnessServer?: ConsciousnessServer;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -435,9 +438,15 @@ export class IpcRouter {
       ['dream.history',            (params) => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.getHistory(p(params)?.limit); }],
       ['dream.journal',            (params) => { if (!s.journal) throw new Error('Research journal not available'); return s.journal.search('dream', p(params)?.limit ?? 10); }],
 
+      // ─── Consciousness ──────────────────────────────────────
+      ['consciousness.status',    () => { if (!s.thoughtStream) throw new Error('ThoughtStream not available'); return { ...s.thoughtStream.getStats(), engines: s.thoughtStream.getEngineActivity(), clients: s.consciousnessServer?.getClientCount() ?? 0 }; }],
+      ['consciousness.thoughts',  (params) => { if (!s.thoughtStream) throw new Error('ThoughtStream not available'); const pp = p(params); return pp?.engine ? s.thoughtStream.getByEngine(pp.engine, pp?.limit ?? 50) : s.thoughtStream.getRecent(pp?.limit ?? 50); }],
+      ['consciousness.engines',   () => { if (!s.thoughtStream) throw new Error('ThoughtStream not available'); return s.thoughtStream.getEngineActivity(); }],
+      ['consciousness.clear',     () => { if (!s.thoughtStream) throw new Error('ThoughtStream not available'); s.thoughtStream.clear(); return { cleared: true }; }],
+
       ['status',               () => ({
         name: 'marketing-brain',
-        version: '1.11.1',
+        version: '1.12.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

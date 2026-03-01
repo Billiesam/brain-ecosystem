@@ -4,6 +4,7 @@ import { DreamConsolidator } from './consolidator.js';
 import type { BaseEmbeddingEngine } from '../embeddings/engine.js';
 import type { ResearchJournal } from '../research/journal.js';
 import type { KnowledgeDistiller } from '../research/knowledge-distiller.js';
+import type { ThoughtStream } from '../consciousness/thought-stream.js';
 import type {
   DreamEngineConfig,
   DreamCycleReport,
@@ -60,6 +61,7 @@ export class DreamEngine {
   private embeddingEngine: BaseEmbeddingEngine | null = null;
   private journal: ResearchJournal | null = null;
   private knowledgeDistiller: KnowledgeDistiller | null = null;
+  private thoughtStream: ThoughtStream | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastActivityTimestamp = Date.now();
   private cycleCount = 0;
@@ -100,6 +102,11 @@ export class DreamEngine {
     this.knowledgeDistiller = distiller;
   }
 
+  /** Set the ThoughtStream for consciousness — emits dream thoughts. */
+  setThoughtStream(stream: ThoughtStream): void {
+    this.thoughtStream = stream;
+  }
+
   /** Start the periodic dream timer. */
   start(): void {
     if (this.timer) return;
@@ -130,41 +137,53 @@ export class DreamEngine {
     this.cycleCount++;
     const cycleId = `dream-${this.config.brainName}-${Date.now()}-${this.cycleCount}`;
     const start = Date.now();
+    const ts = this.thoughtStream;
 
     this.log.info(`[dream] ─── Dream Cycle #${this.cycleCount} (${trigger}) ───`);
+    ts?.emit('dream', 'dreaming', `Dream Cycle #${this.cycleCount} starting (${trigger})...`, 'notable');
 
     // 1. Memory Replay
+    ts?.emit('dream', 'dreaming', `Replaying top ${this.config.replayBatchSize} memories...`);
     const replay = this.consolidator.replayMemories(this.db, this.config);
     if (replay.memoriesReplayed > 0) {
       this.log.info(`[dream] Replay: ${replay.memoriesReplayed} memories, ${replay.synapsesStrengthened} synapses strengthened`);
+      ts?.emit('dream', 'dreaming', `Replayed ${replay.memoriesReplayed} memories, strengthened ${replay.synapsesStrengthened} synapses, decayed ${replay.synapsesDecayed}`);
     }
 
     // 2. Synapse Pruning
+    ts?.emit('dream', 'dreaming', `Pruning weak synapses (threshold: ${this.config.dreamPruneThreshold})...`);
     const pruning = this.consolidator.pruneSynapses(this.db, this.config);
     if (pruning.synapsesPruned > 0) {
       this.log.info(`[dream] Pruning: ${pruning.synapsesPruned} weak synapses removed (threshold: ${pruning.threshold})`);
+      ts?.emit('dream', 'dreaming', `Pruned ${pruning.synapsesPruned} weak synapses`);
     }
 
     // 3. Memory Compression
+    ts?.emit('dream', 'dreaming', 'Compressing similar memories...');
     const compression = this.consolidator.compressMemories(this.db, this.embeddingEngine, this.config);
     if (compression.memoriesConsolidated > 0) {
       this.log.info(`[dream] Compression: ${compression.memoriesConsolidated} clusters, ${compression.memoriesSuperseded} memories superseded (ratio: ${compression.compressionRatio.toFixed(2)})`);
+      ts?.emit('dream', 'dreaming', `Compressed ${compression.memoriesSuperseded} memories into ${compression.memoriesConsolidated} clusters (ratio: ${compression.compressionRatio.toFixed(2)})`, 'notable');
     }
 
     // 4. Importance Decay
+    ts?.emit('dream', 'dreaming', 'Decaying old memory importance...');
     const decay = this.consolidator.decayImportance(this.db, this.config);
     if (decay.memoriesDecayed > 0) {
       this.log.info(`[dream] Decay: ${decay.memoriesDecayed} memories decayed, ${decay.memoriesArchived} archived`);
+      ts?.emit('dream', 'dreaming', `Decayed ${decay.memoriesDecayed} memories, archived ${decay.memoriesArchived}`);
     }
 
     // 5. Knowledge Distillation (optional)
     let principlesDiscovered = 0;
     if (this.knowledgeDistiller) {
       try {
+        ts?.emit('dream', 'dreaming', 'Distilling knowledge from dreams...');
         const { principles, antiPatterns, strategies } = this.knowledgeDistiller.distill();
         principlesDiscovered = principles.length + antiPatterns.length + strategies.length;
         if (principlesDiscovered > 0) {
           this.log.info(`[dream] Distillation: ${principlesDiscovered} knowledge items extracted`);
+          ts?.emit('dream', 'discovering', `Dream distillation: ${principlesDiscovered} knowledge items extracted`, 'notable');
         }
       } catch (err) {
         this.log.warn(`[dream] Distillation error: ${(err as Error).message}`);
@@ -221,6 +240,7 @@ export class DreamEngine {
     });
 
     this.log.info(`[dream] ─── Dream Cycle #${this.cycleCount} complete (${duration}ms) ───`);
+    ts?.emit('dream', 'dreaming', `Dream Cycle #${this.cycleCount} complete: replayed ${replay.memoriesReplayed}, pruned ${pruning.synapsesPruned}, consolidated ${compression.memoriesConsolidated}, archived ${decay.memoriesArchived} (${duration}ms)`, 'breakthrough');
 
     return {
       cycleId,

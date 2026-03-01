@@ -172,3 +172,7 @@ export { BrainDataMinerAdapter, TradingDataMinerAdapter, MarketingDataMinerAdapt
 export { DreamEngine, runDreamMigration } from './dream/index.js';
 export { DreamConsolidator } from './dream/index.js';
 export type { DreamEngineConfig, DreamCycleReport, DreamStatus, DreamHistoryEntry, DreamTrigger, MemoryReplayResult, SynapsePruneResult, MemoryCompressionResult, MemoryCluster, ImportanceDecayResult } from './dream/index.js';
+
+// ── Consciousness ───────────────────────────────────
+export { ThoughtStream, ConsciousnessServer } from './consciousness/index.js';
+export type { ConsciousnessServerOptions, Thought, ThoughtType, ThoughtSignificance, ConsciousnessConfig, ConsciousnessStatus, EngineActivity } from './consciousness/index.js';

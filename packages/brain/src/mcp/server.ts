@@ -4,18 +4,20 @@ import { registerTools } from './tools.js';
 import { registerResearchTools } from './research-tools.js';
 import { registerAdvancedResearchTools } from './advanced-research-tools.js';
 import { registerDreamTools } from './dream-tools.js';
+import { registerConsciousnessTools } from './consciousness-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
     name: 'brain',
-    version: '3.10.1',
+    version: '3.11.0',
     entryPoint: path.resolve(import.meta.dirname, '../index.ts'),
     registerTools: (server, ipc) => {
       registerTools(server, ipc);
       registerResearchTools(server, ipc);
       registerAdvancedResearchTools(server, ipc);
       registerDreamTools(server, ipc);
+      registerConsciousnessTools(server, ipc);
     },
     registerPrompts,
   });

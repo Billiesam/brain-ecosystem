@@ -4,17 +4,19 @@ import { registerTools } from './tools.js';
 import { registerResearchTools } from './research-tools.js';
 import { registerAdvancedResearchTools } from './advanced-research-tools.js';
 import { registerDreamTools } from './dream-tools.js';
+import { registerConsciousnessTools } from './consciousness-tools.js';
 
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
     name: 'trading-brain',
-    version: '2.10.1',
+    version: '2.11.0',
     entryPoint: path.resolve(import.meta.dirname, '../index.ts'),
     registerTools: (server, ipc) => {
       registerTools(server, ipc);
       registerResearchTools(server, ipc);
       registerAdvancedResearchTools(server, ipc);
       registerDreamTools(server, ipc);
+      registerConsciousnessTools(server, ipc);
     },
   });
 }
