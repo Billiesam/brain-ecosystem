@@ -221,6 +221,14 @@ export class BrainCore {
         port: config.api.port,
         router,
         apiKey: config.api.apiKey,
+        healthCheck: () => ({
+          db: this.db !== null,
+          ipc: this.ipcServer !== null,
+          learning: this.learningEngine !== null,
+          research: this.researchEngine !== null,
+          embeddings: this.embeddingEngine !== null,
+          ecosystemHealth: this.correlator?.getHealth().score ?? null,
+        }),
       });
       this.apiServer.start();
       logger.info(`REST API enabled on port ${config.api.port}`);

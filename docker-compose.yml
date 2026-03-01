@@ -14,11 +14,21 @@ services:
       - BRAIN_DATA_DIR=/data
       - BRAIN_IPC_DIR=/tmp/brain-ipc
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7777/api/stats', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7777/api/v1/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   trading-brain:
@@ -36,11 +46,21 @@ services:
       - TRADING_BRAIN_DATA_DIR=/data
       - BRAIN_IPC_DIR=/tmp/brain-ipc
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7779/api/stats', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7779/api/v1/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       brain:
         condition: service_healthy
@@ -62,11 +82,21 @@ services:
       - MARKETING_BRAIN_DATA_DIR=/data
       - BRAIN_IPC_DIR=/tmp/brain-ipc
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7781/api/stats', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7781/api/v1/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       brain:
         condition: service_healthy

@@ -1,11 +1,20 @@
 import http from 'node:http';
 import { getLogger } from '../utils/logger.js';
 import type { IpcRouter } from '../ipc/server.js';
+import { RateLimiter, readBodyWithLimit, applySecurityHeaders } from './middleware.js';
+import type { RateLimitConfig, SizeLimitConfig, SecurityHeadersConfig } from './middleware.js';
+import { validateParams } from '../ipc/validation.js';
+import { ValidationError } from '../ipc/errors.js';
 
 export interface ApiServerOptions {
   port: number;
   router: IpcRouter;
   apiKey?: string;
+  rateLimit?: RateLimitConfig;
+  sizeLimit?: SizeLimitConfig;
+  security?: SecurityHeadersConfig;
+  /** Callback for deep health checks (DB, engines, etc.) */
+  healthCheck?: () => Record<string, unknown>;
 }
 
 export interface RouteDefinition {
@@ -20,18 +29,19 @@ export class BaseApiServer {
   protected logger = getLogger();
   private routes: RouteDefinition[];
   protected sseClients: Set<http.ServerResponse> = new Set();
+  private rateLimiter: RateLimiter;
 
   constructor(protected options: ApiServerOptions) {
     this.routes = this.buildRoutes();
+    this.rateLimiter = new RateLimiter(options.rateLimit);
   }
 
   start(): void {
     const { port, apiKey } = this.options;
 
     this.server = http.createServer((req, res) => {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+      // Security headers
+      applySecurityHeaders(res, this.options.security);
 
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
@@ -39,6 +49,19 @@ export class BaseApiServer {
         return;
       }
 
+      // Rate limiting (skip health check)
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      if (url.pathname !== '/api/v1/health' && url.pathname !== '/api/v1/ready') {
+        const limit = this.rateLimiter.check(req);
+        res.setHeader('X-RateLimit-Remaining', String(limit.remaining));
+        res.setHeader('X-RateLimit-Reset', String(Math.ceil(limit.resetAt / 1000)));
+        if (!limit.allowed) {
+          this.json(res, 429, { error: 'Too Many Requests', message: 'Rate limit exceeded' });
+          return;
+        }
+      }
+
+      // API key auth
       if (apiKey) {
         const provided = (req.headers['x-api-key'] as string) ??
           req.headers.authorization?.replace('Bearer ', '');
@@ -63,6 +86,7 @@ export class BaseApiServer {
   }
 
   stop(): void {
+    this.rateLimiter.stop();
     for (const client of this.sseClients) {
       try { client.end(); } catch { /* ignore */ }
     }
@@ -83,9 +107,19 @@ export class BaseApiServer {
     const method = req.method ?? 'GET';
     const query = url.searchParams;
 
-    // Health check
+    // Health check (deep)
     if (pathname === '/api/v1/health') {
-      this.json(res, 200, { status: 'ok', timestamp: new Date().toISOString() });
+      const base = { status: 'ok', timestamp: new Date().toISOString(), uptime: Math.floor(process.uptime()), memory: Math.floor(process.memoryUsage().rss / 1024 / 1024) };
+      const extra = this.options.healthCheck?.() ?? {};
+      this.json(res, 200, { ...base, ...extra });
+      return;
+    }
+
+    // Readiness probe (for Kubernetes)
+    if (pathname === '/api/v1/ready') {
+      const extra = this.options.healthCheck?.() ?? {};
+      const ready = extra.db !== false && extra.ipc !== false;
+      this.json(res, ready ? 200 : 503, { ready, timestamp: new Date().toISOString(), ...extra });
       return;
     }
 
@@ -115,22 +149,28 @@ export class BaseApiServer {
 
     // Generic RPC endpoint
     if (pathname === '/api/v1/rpc' && method === 'POST') {
-      const body = await this.readBody(req);
-      if (!body) {
+      const bodyResult = await readBodyWithLimit(req, this.options.sizeLimit);
+      if (bodyResult.error) {
+        this.json(res, 413, { error: 'Payload Too Large', message: bodyResult.error });
+        return;
+      }
+      if (!bodyResult.body) {
         this.json(res, 400, { error: 'Bad Request', message: 'Empty request body' });
         return;
       }
 
-      const parsed = JSON.parse(body);
+      const parsed = JSON.parse(bodyResult.body);
 
       // Batch RPC support
       if (Array.isArray(parsed)) {
         const results = parsed.map((call: { method: string; params?: unknown; id?: string | number }) => {
           try {
-            const result = this.options.router.handle(call.method, call.params ?? {});
+            const validated = validateParams(call.params);
+            const result = this.options.router.handle(call.method, validated);
             return { id: call.id, result };
           } catch (err) {
-            return { id: call.id, error: err instanceof Error ? err.message : String(err) };
+            const code = err instanceof ValidationError ? 'VALIDATION_ERROR' : 'ERROR';
+            return { id: call.id, error: err instanceof Error ? err.message : String(err), code };
           }
         });
         this.json(res, 200, results);
@@ -143,10 +183,12 @@ export class BaseApiServer {
       }
 
       try {
-        const result = this.options.router.handle(parsed.method, parsed.params ?? {});
+        const validated = validateParams(parsed.params);
+        const result = this.options.router.handle(parsed.method, validated);
         this.json(res, 200, { result });
       } catch (err) {
-        this.json(res, 400, { error: err instanceof Error ? err.message : String(err) });
+        const status = err instanceof ValidationError ? 400 : 400;
+        this.json(res, status, { error: err instanceof Error ? err.message : String(err) });
       }
       return;
     }
@@ -155,8 +197,12 @@ export class BaseApiServer {
     let body: unknown = undefined;
     if (method === 'POST' || method === 'PUT') {
       try {
-        const raw = await this.readBody(req);
-        body = raw ? JSON.parse(raw) : {};
+        const bodyResult = await readBodyWithLimit(req, this.options.sizeLimit);
+        if (bodyResult.error) {
+          this.json(res, 413, { error: 'Payload Too Large', message: bodyResult.error });
+          return;
+        }
+        body = bodyResult.body ? JSON.parse(bodyResult.body) : {};
       } catch {
         this.json(res, 400, { error: 'Bad Request', message: 'Invalid JSON body' });
         return;

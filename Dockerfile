@@ -30,7 +30,7 @@ RUN mkdir -p /data
 ENV BRAIN_DATA_DIR=/data
 EXPOSE 7777 7778
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
-  CMD node -e "require('http').get('http://localhost:7777/api/stats', r => process.exit(r.statusCode === 200 ? 0 : 1))"
+  CMD node -e "require('http').get('http://localhost:7777/api/v1/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"
 CMD ["node", "packages/brain/dist/index.js", "daemon"]
 
 # ── Trading Brain ──
@@ -46,7 +46,7 @@ RUN mkdir -p /data
 ENV TRADING_BRAIN_DATA_DIR=/data
 EXPOSE 7779 7780
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
-  CMD node -e "require('http').get('http://localhost:7779/api/stats', r => process.exit(r.statusCode === 200 ? 0 : 1))"
+  CMD node -e "require('http').get('http://localhost:7779/api/v1/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"
 CMD ["node", "packages/trading-brain/dist/index.js", "daemon"]
 
 # ── Marketing Brain ──
@@ -63,5 +63,5 @@ RUN mkdir -p /data
 ENV MARKETING_BRAIN_DATA_DIR=/data
 EXPOSE 7781 7782 7783
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
-  CMD node -e "require('http').get('http://localhost:7781/api/stats', r => process.exit(r.statusCode === 200 ? 0 : 1))"
+  CMD node -e "require('http').get('http://localhost:7781/api/v1/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"
 CMD ["node", "packages/marketing-brain/dist/index.js", "daemon"]

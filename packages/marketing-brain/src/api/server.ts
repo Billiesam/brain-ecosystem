@@ -1,30 +1,44 @@
 import http from 'node:http';
 import { getLogger } from '../utils/logger.js';
 import type { IpcRouter } from '../ipc/router.js';
+import { RateLimiter, applySecurityHeaders, readBodyWithLimit } from '@timmeck/brain-core';
+import { validateParams } from '@timmeck/brain-core';
 
 interface ApiServerOptions {
   port: number;
   router: IpcRouter;
   apiKey?: string;
+  healthCheck?: () => Record<string, unknown>;
 }
 
 export class ApiServer {
   private server: http.Server | null = null;
   private logger = getLogger();
+  private rateLimiter = new RateLimiter();
 
   constructor(private opts: ApiServerOptions) {}
 
   start(): void {
     this.server = http.createServer((req, res) => {
-      // CORS
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      // Security headers
+      applySecurityHeaders(res);
 
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();
         return;
+      }
+
+      // Rate limiting (skip health)
+      const url = req.url ?? '/';
+      if (url !== '/api/v1/health' && url !== '/api/v1/ready') {
+        const limit = this.rateLimiter.check(req);
+        res.setHeader('X-RateLimit-Remaining', String(limit.remaining));
+        if (!limit.allowed) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Too Many Requests' }));
+          return;
+        }
       }
 
       // Auth check
@@ -37,28 +51,43 @@ export class ApiServer {
         }
       }
 
-      // Health check
-      if (req.url === '/api/v1/health') {
+      // Health check (deep)
+      if (url === '/api/v1/health') {
+        const base = { status: 'ok', service: 'marketing-brain', uptime: Math.floor(process.uptime()), memory: Math.floor(process.memoryUsage().rss / 1024 / 1024) };
+        const extra = this.opts.healthCheck?.() ?? {};
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', service: 'marketing-brain' }));
+        res.end(JSON.stringify({ ...base, ...extra }));
+        return;
+      }
+
+      // Readiness probe
+      if (url === '/api/v1/ready') {
+        const extra = this.opts.healthCheck?.() ?? {};
+        const ready = extra.db !== false && extra.ipc !== false;
+        res.writeHead(ready ? 200 : 503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ready, ...extra }));
         return;
       }
 
       // Methods list
-      if (req.url === '/api/v1/methods') {
+      if (url === '/api/v1/methods') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ methods: this.opts.router.listMethods() }));
         return;
       }
 
       // RPC endpoint
-      if (req.url === '/api/v1/rpc' && req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
+      if (url === '/api/v1/rpc' && req.method === 'POST') {
+        readBodyWithLimit(req).then(bodyResult => {
+          if (bodyResult.error) {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: bodyResult.error }));
+            return;
+          }
           try {
-            const { method, params } = JSON.parse(body);
-            const result = this.opts.router.handle(method, params);
+            const { method, params } = JSON.parse(bodyResult.body!);
+            const validated = validateParams(params);
+            const result = this.opts.router.handle(method, validated);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ result }));
           } catch (err) {
@@ -79,6 +108,7 @@ export class ApiServer {
   }
 
   stop(): void {
+    this.rateLimiter.stop();
     this.server?.close();
     this.server = null;
     this.logger.info('API server stopped');

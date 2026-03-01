@@ -16,6 +16,9 @@ export { encodeMessage, MessageDecoder } from './ipc/protocol.js';
 export { IpcServer } from './ipc/server.js';
 export type { IpcRouter } from './ipc/server.js';
 export { IpcClient } from './ipc/client.js';
+export { validateParams, withValidation } from './ipc/validation.js';
+export type { ValidationOptions } from './ipc/validation.js';
+export { IpcError, ValidationError, NotFoundError, TimeoutError, ServiceUnavailableError } from './ipc/errors.js';
 
 // ── MCP ────────────────────────────────────────────────────
 export { startMcpServer } from './mcp/server.js';
@@ -29,6 +32,8 @@ export { c, baseIcons, header, keyValue, statusBadge, progressBar, divider, tabl
 // ── API ────────────────────────────────────────────────────
 export { BaseApiServer } from './api/server.js';
 export type { ApiServerOptions, RouteDefinition } from './api/server.js';
+export { RateLimiter, readBodyWithLimit, applySecurityHeaders } from './api/middleware.js';
+export type { RateLimitConfig, SizeLimitConfig, SecurityHeadersConfig } from './api/middleware.js';
 
 // ── Math ───────────────────────────────────────────────────
 export { wilsonScore } from './math/wilson-score.js';

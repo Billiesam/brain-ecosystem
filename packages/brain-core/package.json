@@ -1,6 +1,6 @@
 {
   "name": "@timmeck/brain-core",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Shared core infrastructure for the Brain ecosystem — IPC, MCP, CLI, DB connection, and utilities",
   "type": "module",
   "main": "dist/index.js",
@@ -20,6 +20,9 @@
     "./mcp/http-server": "./dist/mcp/http-server.js",
     "./cli/colors": "./dist/cli/colors.js",
     "./api/server": "./dist/api/server.js",
+    "./api/middleware": "./dist/api/middleware.js",
+    "./ipc/validation": "./dist/ipc/validation.js",
+    "./ipc/errors": "./dist/ipc/errors.js",
     "./math/wilson-score": "./dist/math/wilson-score.js",
     "./math/time-decay": "./dist/math/time-decay.js",
     "./config/loader": "./dist/config/loader.js",
