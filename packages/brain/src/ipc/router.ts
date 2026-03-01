@@ -18,7 +18,7 @@ import type { TaskService } from '../services/task.service.js';
 import type { DocService } from '../services/doc.service.js';
 import type { LearningEngine } from '../learning/learning-engine.js';
 import type { AutoResolutionService } from '../services/auto-resolution.service.js';
-import type { CrossBrainClient, CrossBrainSubscriptionManager } from '@timmeck/brain-core';
+import type { CrossBrainClient, CrossBrainSubscriptionManager, EcosystemService } from '@timmeck/brain-core';
 import type { IpcServer } from '@timmeck/brain-core';
 
 export interface Services {
@@ -40,6 +40,7 @@ export interface Services {
   learning?: LearningEngine;
   autoResolution?: AutoResolutionService;
   crossBrain?: CrossBrainClient;
+  ecosystem?: EcosystemService;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -229,6 +230,7 @@ export class IpcRouter {
 
       // Ecosystem
       ['ecosystem.status',        async () => {
+        if (s.ecosystem) return s.ecosystem.getStatus();
         if (!s.crossBrain) return { peers: [] };
         const peers = await s.crossBrain.broadcast('status');
         return { self: 'brain', peers };
@@ -239,6 +241,22 @@ export class IpcRouter {
         const result = await s.crossBrain.query(peer, method, args);
         if (result === null) throw new Error(`Peer '${peer}' not available`);
         return result;
+      }],
+      ['ecosystem.health',        () => {
+        if (!s.ecosystem) throw new Error('Ecosystem service not available');
+        return s.ecosystem.getHealth();
+      }],
+      ['ecosystem.correlations',  (params) => {
+        if (!s.ecosystem) throw new Error('Ecosystem service not available');
+        return s.ecosystem.getCorrelations(p(params)?.minStrength);
+      }],
+      ['ecosystem.timeline',      (params) => {
+        if (!s.ecosystem) throw new Error('Ecosystem service not available');
+        return s.ecosystem.getTimeline(p(params)?.limit);
+      }],
+      ['ecosystem.analytics',     async () => {
+        if (!s.ecosystem) throw new Error('Ecosystem service not available');
+        return s.ecosystem.getAggregatedAnalytics();
       }],
 
       // Memory
@@ -286,7 +304,7 @@ export class IpcRouter {
       // Status (cross-brain)
       ['status',                  () => ({
         name: 'brain',
-        version: '2.2.0',
+        version: '3.2.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

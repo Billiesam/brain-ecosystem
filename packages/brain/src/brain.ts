@@ -63,7 +63,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -76,6 +76,8 @@ export class BrainCore {
   private crossBrain: CrossBrainClient | null = null;
   private notifier: CrossBrainNotifier | null = null;
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
+  private correlator: CrossBrainCorrelator | null = null;
+  private ecosystemService: EcosystemService | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -197,7 +199,12 @@ export class BrainCore {
     this.crossBrain = new CrossBrainClient('brain');
     this.notifier = new CrossBrainNotifier(this.crossBrain, 'brain');
 
-    // 11b. Cross-Brain Subscription Manager
+    // 11b. Cross-Brain Correlator + Ecosystem Service
+    this.correlator = new CrossBrainCorrelator();
+    this.ecosystemService = new EcosystemService(this.correlator, this.crossBrain);
+    services.ecosystem = this.ecosystemService;
+
+    // 11c. Cross-Brain Subscription Manager
     this.subscriptionManager = new CrossBrainSubscriptionManager('brain');
 
     // 12. IPC Server
@@ -290,6 +297,8 @@ export class BrainCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.subscriptionManager = null;
+    this.correlator = null;
+    this.ecosystemService = null;
   }
 
   restart(): void {
@@ -322,19 +331,39 @@ export class BrainCore {
   }
 
   private setupCrossBrainSubscriptions(): void {
-    if (!this.subscriptionManager) return;
+    if (!this.subscriptionManager || !this.correlator) return;
     const logger = getLogger();
+    const correlator = this.correlator;
 
     // Subscribe to trading-brain: trade:completed events for error-trade correlation
     this.subscriptionManager.subscribe('trading-brain', ['trade:completed'], (event: string, data: unknown) => {
       logger.info(`[cross-brain] Received ${event} from trading-brain`, { data });
-      // TODO: deeper integration — correlate trade outcomes with recent errors
+      correlator.recordEvent('trading-brain', event, data);
+    });
+
+    // Subscribe to trading-brain: trade:outcome for win/loss correlation with errors
+    this.subscriptionManager.subscribe('trading-brain', ['trade:outcome'], (event: string, data: unknown) => {
+      correlator.recordEvent('trading-brain', event, data);
+      const d = data as Record<string, unknown> | null;
+      if (d && d.win === false) {
+        // Check if correlator detected error-trade-loss pattern
+        const lossCorrelations = correlator.getCorrelations(0.3)
+          .filter(c => c.type === 'error-trade-loss');
+        if (lossCorrelations.length > 0) {
+          logger.warn(`[cross-brain] Trade loss correlated with recent errors (strength: ${lossCorrelations[0].strength.toFixed(2)})`);
+        }
+      }
     });
 
     // Subscribe to marketing-brain: post:published events for project activity tracking
     this.subscriptionManager.subscribe('marketing-brain', ['post:published'], (event: string, data: unknown) => {
       logger.info(`[cross-brain] Received ${event} from marketing-brain`, { data });
-      // TODO: deeper integration — track project activity from published content
+      correlator.recordEvent('marketing-brain', event, data);
+    });
+
+    // Subscribe to marketing-brain: campaign:created for ecosystem awareness
+    this.subscriptionManager.subscribe('marketing-brain', ['campaign:created'], (event: string, data: unknown) => {
+      correlator.recordEvent('marketing-brain', event, data);
     });
   }
 
@@ -342,7 +371,7 @@ export class BrainCore {
     const bus = getEventBus();
     const notifier = this.notifier;
 
-    // Error → Project synapse + notify peers
+    // Error → Project synapse + notify peers + feed correlator
     bus.on('error:reported', ({ errorId, projectId }) => {
       synapseManager.strengthen(
         { type: 'error', id: errorId },
@@ -350,6 +379,7 @@ export class BrainCore {
         'co_occurs',
       );
       notifier?.notify('error:reported', { errorId, projectId });
+      this.correlator?.recordEvent('brain', 'error:reported', { errorId, projectId });
     });
 
     // Solution applied → strengthen or weaken
@@ -384,10 +414,11 @@ export class BrainCore {
       getLogger().info(`New rule #${ruleId} learned: ${pattern}`);
     });
 
-    // Insight created → log + notify marketing (content opportunity)
+    // Insight created → log + notify marketing (content opportunity) + feed correlator
     bus.on('insight:created', ({ insightId, type }) => {
       getLogger().info(`New insight #${insightId} (${type})`);
       notifier?.notifyPeer('marketing-brain', 'insight:created', { insightId, type });
+      this.correlator?.recordEvent('brain', 'insight:created', { insightId, type });
     });
 
     // Memory → Project synapse

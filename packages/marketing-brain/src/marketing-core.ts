@@ -65,7 +65,7 @@ import { createMarketingDashboardServer } from './dashboard/server.js';
 import { renderDashboard } from './dashboard/renderer.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator } from '@timmeck/brain-core';
 
 export class MarketingCore {
   private db: Database.Database | null = null;
@@ -78,6 +78,7 @@ export class MarketingCore {
   private crossBrain: CrossBrainClient | null = null;
   private notifier: CrossBrainNotifier | null = null;
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
+  private correlator: CrossBrainCorrelator | null = null;
   private config: MarketingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -178,7 +179,10 @@ export class MarketingCore {
     this.crossBrain = new CrossBrainClient('marketing-brain');
     this.notifier = new CrossBrainNotifier(this.crossBrain, 'marketing-brain');
 
-    // 10b. Cross-Brain Subscription Manager
+    // 10b. Cross-Brain Correlator
+    this.correlator = new CrossBrainCorrelator();
+
+    // 10c. Cross-Brain Subscription Manager
     this.subscriptionManager = new CrossBrainSubscriptionManager('marketing-brain');
 
     // 11. IPC Server
@@ -289,6 +293,7 @@ export class MarketingCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.subscriptionManager = null;
+    this.correlator = null;
   }
 
   restart(): void {
@@ -320,13 +325,30 @@ export class MarketingCore {
   }
 
   private setupCrossBrainSubscriptions(): void {
-    if (!this.subscriptionManager) return;
+    if (!this.subscriptionManager || !this.correlator) return;
     const logger = getLogger();
+    const correlator = this.correlator;
 
-    // Subscribe to brain: error:reported events for project health context
+    // Subscribe to brain: error:reported events — adjust content tone based on project health
     this.subscriptionManager.subscribe('brain', ['error:reported'], (event: string, data: unknown) => {
-      logger.info(`[cross-brain] Received ${event} from brain`, { data });
-      // TODO: deeper integration — adjust content tone/urgency based on project health
+      logger.info(`[cross-brain] System error from brain — adjusting content context`, { data });
+      correlator.recordEvent('brain', event, data);
+
+      const health = correlator.getHealth();
+      if (health.status === 'critical') {
+        logger.warn(`[cross-brain] Ecosystem critical (score: ${health.score}) — pausing non-urgent content`);
+      }
+    });
+
+    // Subscribe to brain: insight:created for content opportunity detection
+    this.subscriptionManager.subscribe('brain', ['insight:created'], (event: string, data: unknown) => {
+      logger.info(`[cross-brain] New insight from brain — potential content opportunity`, { data });
+      correlator.recordEvent('brain', event, data);
+    });
+
+    // Subscribe to trading-brain: trade:outcome for cross-domain awareness
+    this.subscriptionManager.subscribe('trading-brain', ['trade:outcome'], (event: string, data: unknown) => {
+      correlator.recordEvent('trading-brain', event, data);
     });
   }
 
@@ -344,10 +366,11 @@ export class MarketingCore {
       }
     });
 
-    // Post published → notify peers (engagement tracking)
+    // Post published → notify peers (engagement tracking) + feed correlator
     bus.on('post:published', ({ postId, platform }) => {
       getLogger().info(`Post #${postId} published on ${platform}`);
       notifier?.notify('post:published', { postId, platform });
+      this.correlator?.recordEvent('marketing-brain', 'post:published', { postId, platform });
     });
 
     bus.on('strategy:reported', ({ strategyId, postId }) => {
@@ -371,6 +394,7 @@ export class MarketingCore {
     bus.on('insight:created', ({ insightId, type }) => {
       getLogger().info(`New insight #${insightId} (${type})`);
       notifier?.notifyPeer('brain', 'insight:created', { insightId, type });
+      this.correlator?.recordEvent('marketing-brain', 'insight:created', { insightId, type });
     });
   }
 }

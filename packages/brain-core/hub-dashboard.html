@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain Ecosystem Hub</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0d1117;
+      --bg-card: #161b22;
+      --bg-elevated: #1c2129;
+      --border-color: #30363d;
+      --text-primary: #c9d1d9;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --color-brain: #58a6ff;
+      --color-trading: #3fb950;
+      --color-marketing: #d2a8ff;
+      --color-green: #3fb950;
+      --color-yellow: #d29922;
+      --color-red: #f85149;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-card);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .health-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-elevated);
+      font-size: 0.875rem;
+    }
+
+    .health-badge-score {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--color-green);
+    }
+
+    .health-badge-label {
+      color: var(--text-secondary);
+    }
+
+    /* ---- Main Content ---- */
+    main {
+      flex: 1;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    section h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    section h2 .counter {
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* ---- Brain Status Cards ---- */
+    .brain-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .brain-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      transition: border-color 0.2s ease;
+    }
+
+    .brain-card:hover {
+      border-color: var(--text-muted);
+    }
+
+    .brain-card[data-brain="brain"] .brain-card-accent {
+      color: var(--color-brain);
+    }
+
+    .brain-card[data-brain="trading"] .brain-card-accent {
+      color: var(--color-trading);
+    }
+
+    .brain-card[data-brain="marketing"] .brain-card-accent {
+      color: var(--color-marketing);
+    }
+
+    .brain-card[data-brain="brain"] {
+      border-top: 3px solid var(--color-brain);
+    }
+
+    .brain-card[data-brain="trading"] {
+      border-top: 3px solid var(--color-trading);
+    }
+
+    .brain-card[data-brain="marketing"] {
+      border-top: 3px solid var(--color-marketing);
+    }
+
+    .brain-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .brain-card-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--color-red);
+      flex-shrink: 0;
+    }
+
+    .status-dot.online {
+      background-color: var(--color-green);
+      box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+    }
+
+    .status-dot.offline {
+      background-color: var(--color-red);
+    }
+
+    .brain-card-version {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .brain-card-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .brain-stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brain-stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .brain-stat-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .brain-card-key-metric {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .key-metric-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .key-metric-value {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    /* ---- Ecosystem Health ---- */
+    .health-section {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 28px;
+      align-items: start;
+    }
+
+    .health-gauge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .health-gauge svg {
+      display: block;
+    }
+
+    .health-score-display {
+      position: relative;
+      width: 140px;
+      height: 80px;
+    }
+
+    .health-score-number {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--color-green);
+    }
+
+    .health-status-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-green);
+    }
+
+    .health-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 4px;
+    }
+
+    .health-detail-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .health-detail-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      min-width: 100px;
+    }
+
+    .health-detail-value {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    #health-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-elevated);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .health-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--color-green);
+      border-radius: 3px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    .alert-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 14px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .alert-panel-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    #alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .alert-item {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      padding: 4px 8px;
+      border-left: 3px solid var(--color-yellow);
+      background: rgba(210, 153, 34, 0.06);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .alert-item.critical {
+      border-left-color: var(--color-red);
+      background: rgba(248, 81, 73, 0.06);
+    }
+
+    .no-alerts {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ---- Correlation Insights ---- */
+    .correlation-section {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .correlation-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .correlation-table thead th {
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .correlation-row td {
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+      vertical-align: middle;
+    }
+
+    .correlation-row:last-child td {
+      border-bottom: none;
+    }
+
+    .correlation-type {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .correlation-sources {
+      color: var(--text-secondary);
+    }
+
+    .correlation-sources .arrow {
+      color: var(--text-muted);
+      margin: 0 4px;
+    }
+
+    .strength-bar-container {
+      width: 80px;
+      height: 6px;
+      background: var(--bg-primary);
+      border-radius: 3px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    .strength-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--color-brain);
+      transition: width 0.3s ease;
+    }
+
+    .strength-value {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .correlation-count {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .correlation-time {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .no-correlations {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    /* ---- Event Timeline ---- */
+    .timeline-section {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    #timeline-list {
+      max-height: 480px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #timeline-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #timeline-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #timeline-list::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    .timeline-event {
+      display: grid;
+      grid-template-columns: 140px 100px 120px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 0.83rem;
+      transition: background-color 0.15s ease;
+    }
+
+    .timeline-event:hover {
+      background-color: var(--bg-elevated);
+    }
+
+    .timeline-timestamp {
+      color: var(--text-muted);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.78rem;
+    }
+
+    .timeline-source {
+      font-weight: 600;
+      font-size: 0.78rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-align: center;
+      display: inline-block;
+    }
+
+    .timeline-source[data-source="brain"] {
+      color: var(--color-brain);
+      background: rgba(88, 166, 255, 0.1);
+    }
+
+    .timeline-source[data-source="trading"] {
+      color: var(--color-trading);
+      background: rgba(63, 185, 80, 0.1);
+    }
+
+    .timeline-source[data-source="marketing"] {
+      color: var(--color-marketing);
+      background: rgba(210, 168, 255, 0.1);
+    }
+
+    .timeline-type {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .timeline-data {
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .no-events {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    /* ---- Footer ---- */
+    footer {
+      padding: 16px 32px;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background-color: var(--bg-card);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 960px) {
+      .brain-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .health-grid {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
+      }
+
+      .health-details {
+        align-items: center;
+      }
+
+      .timeline-event {
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 12px;
+      }
+
+      main {
+        padding: 16px;
+      }
+
+      header {
+        padding: 16px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .correlation-table thead {
+        display: none;
+      }
+
+      .correlation-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+      }
+
+      .correlation-row td {
+        border-bottom: none;
+        padding: 2px 0;
+      }
+
+      .timeline-event {
+        grid-template-columns: 1fr;
+        gap: 2px;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(48, 54, 61, 0.3);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========== Header ========== -->
+  <header>
+    <h1>Brain Ecosystem Hub</h1>
+    <div class="health-badge">
+      <span class="health-badge-label">Ecosystem Health</span>
+      <span class="health-badge-score" id="header-health-score">--</span>
+    </div>
+  </header>
+
+  <!-- ========== Main ========== -->
+  <main>
+
+    <!-- Brain Status Cards -->
+    <section aria-label="Brain Status">
+      <h2>Brain Status</h2>
+      <div class="brain-cards">
+
+        <!-- Brain -->
+        <article class="brain-card" data-brain="brain">
+          <div class="brain-card-header">
+            <div class="brain-card-name">
+              <span class="status-dot offline" data-field="status-dot"></span>
+              <span class="brain-card-accent">Brain</span>
+            </div>
+            <span class="brain-card-version" data-field="version">--</span>
+          </div>
+          <div class="brain-card-stats">
+            <div class="brain-stat">
+              <span class="brain-stat-label">Uptime</span>
+              <span class="brain-stat-value" data-field="uptime">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">PID</span>
+              <span class="brain-stat-value" data-field="pid">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">Methods</span>
+              <span class="brain-stat-value" data-field="methods">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">Status</span>
+              <span class="brain-stat-value" data-field="status">offline</span>
+            </div>
+          </div>
+          <div class="brain-card-key-metric">
+            <span class="key-metric-label">Errors (24h)</span>
+            <span class="key-metric-value brain-card-accent" data-field="key-metric">0</span>
+          </div>
+        </article>
+
+        <!-- Trading Brain -->
+        <article class="brain-card" data-brain="trading">
+          <div class="brain-card-header">
+            <div class="brain-card-name">
+              <span class="status-dot offline" data-field="status-dot"></span>
+              <span class="brain-card-accent">Trading Brain</span>
+            </div>
+            <span class="brain-card-version" data-field="version">--</span>
+          </div>
+          <div class="brain-card-stats">
+            <div class="brain-stat">
+              <span class="brain-stat-label">Uptime</span>
+              <span class="brain-stat-value" data-field="uptime">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">PID</span>
+              <span class="brain-stat-value" data-field="pid">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">Methods</span>
+              <span class="brain-stat-value" data-field="methods">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">Status</span>
+              <span class="brain-stat-value" data-field="status">offline</span>
+            </div>
+          </div>
+          <div class="brain-card-key-metric">
+            <span class="key-metric-label">Trades (24h)</span>
+            <span class="key-metric-value brain-card-accent" data-field="key-metric">0</span>
+          </div>
+        </article>
+
+        <!-- Marketing Brain -->
+        <article class="brain-card" data-brain="marketing">
+          <div class="brain-card-header">
+            <div class="brain-card-name">
+              <span class="status-dot offline" data-field="status-dot"></span>
+              <span class="brain-card-accent">Marketing Brain</span>
+            </div>
+            <span class="brain-card-version" data-field="version">--</span>
+          </div>
+          <div class="brain-card-stats">
+            <div class="brain-stat">
+              <span class="brain-stat-label">Uptime</span>
+              <span class="brain-stat-value" data-field="uptime">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">PID</span>
+              <span class="brain-stat-value" data-field="pid">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">Methods</span>
+              <span class="brain-stat-value" data-field="methods">--</span>
+            </div>
+            <div class="brain-stat">
+              <span class="brain-stat-label">Status</span>
+              <span class="brain-stat-value" data-field="status">offline</span>
+            </div>
+          </div>
+          <div class="brain-card-key-metric">
+            <span class="key-metric-label">Posts (24h)</span>
+            <span class="key-metric-value brain-card-accent" data-field="key-metric">0</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- Ecosystem Health -->
+    <section aria-label="Ecosystem Health">
+      <h2>Ecosystem Health</h2>
+      <div class="health-section">
+        <div class="health-grid">
+
+          <!-- Gauge -->
+          <div class="health-gauge">
+            <div class="health-score-display">
+              <svg width="140" height="80" viewBox="0 0 140 80" aria-hidden="true">
+                <!-- Background arc -->
+                <path
+                  d="M 10 75 A 60 60 0 0 1 130 75"
+                  fill="none"
+                  stroke="#30363d"
+                  stroke-width="10"
+                  stroke-linecap="round"
+                />
+                <!-- Filled arc -->
+                <path
+                  id="health-arc"
+                  d="M 10 75 A 60 60 0 0 1 130 75"
+                  fill="none"
+                  stroke="#3fb950"
+                  stroke-width="10"
+                  stroke-linecap="round"
+                  stroke-dasharray="188.5"
+                  stroke-dashoffset="0"
+                />
+              </svg>
+              <span class="health-score-number" id="health-score">--</span>
+            </div>
+            <span class="health-status-text" id="health-status">--</span>
+          </div>
+
+          <!-- Details -->
+          <div class="health-details">
+            <div class="health-detail-row">
+              <span class="health-detail-label">Active Brains</span>
+              <span class="health-detail-value" id="active-brains">0 / 3</span>
+            </div>
+            <div class="health-detail-row">
+              <span class="health-detail-label">Total Events</span>
+              <span class="health-detail-value" id="total-events">0</span>
+            </div>
+            <div class="health-detail-row">
+              <span class="health-detail-label">Correlations</span>
+              <span class="health-detail-value" id="total-correlations">0</span>
+            </div>
+            <div id="health-bar">
+              <div class="health-bar-fill" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Alerts -->
+          <div class="alert-panel">
+            <div class="alert-panel-title">Alerts</div>
+            <div id="alert-list">
+              <div class="no-alerts">No active alerts</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Correlation Insights -->
+    <section aria-label="Correlation Insights">
+      <h2>
+        Correlation Insights
+        <span class="counter" id="correlation-count-badge">0</span>
+      </h2>
+      <div class="correlation-section">
+        <table class="correlation-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Sources</th>
+              <th>Strength</th>
+              <th>Count</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody id="correlation-list">
+            <tr>
+              <td colspan="5" class="no-correlations">No correlations detected yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Event Timeline -->
+    <section aria-label="Event Timeline">
+      <h2>
+        Cross-Brain Event Timeline
+        <span class="counter" id="event-count-badge">0</span>
+      </h2>
+      <div class="timeline-section">
+        <div id="timeline-list">
+          <div class="no-events">Waiting for cross-brain events...</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== Footer ========== -->
+  <footer>
+    Brain Ecosystem Hub &mdash; Powered by Hebbian Learning
+  </footer>
+
+</body>
+</html>

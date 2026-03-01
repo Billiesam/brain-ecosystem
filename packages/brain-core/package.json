@@ -1,6 +1,6 @@
 {
   "name": "@timmeck/brain-core",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "description": "Shared core infrastructure for the Brain ecosystem — IPC, MCP, CLI, DB connection, and utilities",
   "type": "module",
   "main": "dist/index.js",
@@ -30,8 +30,11 @@
     "./synapses/pathfinder": "./dist/synapses/pathfinder.js",
     "./synapses/synapse-manager": "./dist/synapses/synapse-manager.js",
     "./dashboard/server": "./dist/dashboard/server.js",
+    "./dashboard/hub-server": "./dist/dashboard/hub-server.js",
     "./cross-brain": "./dist/cross-brain/client.js",
     "./cross-brain/subscription": "./dist/cross-brain/subscription.js",
+    "./cross-brain/correlator": "./dist/cross-brain/correlator.js",
+    "./ecosystem/service": "./dist/ecosystem/service.js",
     "./memory/types": "./dist/memory/types.js",
     "./memory/base-memory-engine": "./dist/memory/base-memory-engine.js",
     "./embeddings/engine": "./dist/embeddings/engine.js"

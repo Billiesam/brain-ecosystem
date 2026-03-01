@@ -53,7 +53,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator } from '@timmeck/brain-core';
 
 export class TradingCore {
   private db: Database.Database | null = null;
@@ -65,6 +65,7 @@ export class TradingCore {
   private crossBrain: CrossBrainClient | null = null;
   private notifier: CrossBrainNotifier | null = null;
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
+  private correlator: CrossBrainCorrelator | null = null;
   private config: TradingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -178,7 +179,10 @@ export class TradingCore {
     this.crossBrain = new CrossBrainClient('trading-brain');
     this.notifier = new CrossBrainNotifier(this.crossBrain, 'trading-brain');
 
-    // 12b. Cross-Brain Subscription Manager
+    // 12b. Cross-Brain Correlator
+    this.correlator = new CrossBrainCorrelator();
+
+    // 12c. Cross-Brain Subscription Manager
     this.subscriptionManager = new CrossBrainSubscriptionManager('trading-brain');
 
     // 13. IPC Server
@@ -259,6 +263,7 @@ export class TradingCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.subscriptionManager = null;
+    this.correlator = null;
   }
 
   restart(): void {
@@ -291,13 +296,25 @@ export class TradingCore {
   }
 
   private setupCrossBrainSubscriptions(): void {
-    if (!this.subscriptionManager) return;
+    if (!this.subscriptionManager || !this.correlator) return;
     const logger = getLogger();
+    const correlator = this.correlator;
 
-    // Subscribe to brain: error:reported events for system problem awareness during trades
+    // Subscribe to brain: error:reported events — flag system instability for trading context
     this.subscriptionManager.subscribe('brain', ['error:reported'], (event: string, data: unknown) => {
-      logger.info(`[cross-brain] Received ${event} from brain`, { data });
-      // TODO: deeper integration — pause or flag trades when system errors spike
+      logger.warn(`[cross-brain] System error from brain — flagging active trades for review`, { data });
+      correlator.recordEvent('brain', event, data);
+
+      // Check health: if degraded, log warning for trade awareness
+      const health = correlator.getHealth();
+      if (health.status !== 'healthy') {
+        logger.warn(`[cross-brain] Ecosystem health ${health.status} (score: ${health.score}) — trade caution advised`);
+      }
+    });
+
+    // Subscribe to marketing-brain: post:published for ecosystem awareness
+    this.subscriptionManager.subscribe('marketing-brain', ['post:published'], (event: string, data: unknown) => {
+      correlator.recordEvent('marketing-brain', event, data);
     });
   }
 
@@ -305,10 +322,11 @@ export class TradingCore {
     const bus = getEventBus();
     const notifier = this.notifier;
 
-    // Trade recorded → log + notify brain (error correlation)
+    // Trade recorded → log + notify brain (error correlation) + feed correlator
     bus.on('trade:recorded', ({ tradeId, fingerprint, win }) => {
       getLogger().info(`Trade #${tradeId} recorded: ${fingerprint} (${win ? 'WIN' : 'LOSS'})`);
       notifier?.notifyPeer('brain', 'trade:outcome', { tradeId, fingerprint, win });
+      this.correlator?.recordEvent('trading-brain', 'trade:outcome', { tradeId, fingerprint, win });
     });
 
     // Synapse updated → log at debug level

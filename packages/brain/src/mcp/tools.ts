@@ -832,6 +832,88 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
       return textResult({ error: { id: error.id, type: error.errorType, message: error.message }, recentTrades: trades });
     },
   );
+
+  // === Ecosystem Intelligence Tools ===
+
+  server.tool(
+    'brain_ecosystem_health',
+    'Get ecosystem health score and alerts. Detects cross-brain event correlations (e.g., errors causing trade losses).',
+    {},
+    async () => {
+      const result: AnyResult = await call('ecosystem.health', {});
+      const lines = [
+        `Health Score: ${result.score}/100 (${result.status})`,
+        `Active Brains: ${result.activeBrains}`,
+        `Total Events: ${result.totalEvents}`,
+        `Correlations: ${result.correlations}`,
+        `Recent Errors: ${result.recentErrors}`,
+        `Recent Trade Losses: ${result.recentTradeLosses}`,
+      ];
+      if (result.alerts?.length) {
+        lines.push('', 'Alerts:');
+        for (const alert of result.alerts) {
+          lines.push(`  ! ${alert}`);
+        }
+      }
+      return textResult(lines.join('\n'));
+    },
+  );
+
+  server.tool(
+    'brain_ecosystem_correlations',
+    'View detected cross-brain correlations (e.g., error-trade-loss patterns, publish-during-errors).',
+    {
+      min_strength: z.number().min(0).max(1).optional().describe('Minimum correlation strength (0-1)'),
+    },
+    async (params) => {
+      const result = await call('ecosystem.correlations', { minStrength: params.min_strength }) as AnyResult[];
+      if (!result?.length) return textResult('No cross-brain correlations detected yet.');
+      const lines = result.map((c: AnyResult) =>
+        `[${c.type}] ${c.sourceA}:${c.eventA} ↔ ${c.sourceB}:${c.eventB} — strength: ${Number(c.strength).toFixed(2)}, seen ${c.count}x`
+      );
+      return textResult(`Cross-Brain Correlations (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_ecosystem_timeline',
+    'View recent cross-brain event timeline showing activity across all brains.',
+    {
+      limit: z.number().optional().describe('Max events to return (default: 20)'),
+    },
+    async (params) => {
+      const result = await call('ecosystem.timeline', { limit: params.limit ?? 20 }) as AnyResult[];
+      if (!result?.length) return textResult('No cross-brain events recorded yet.');
+      const lines = result.map((e: AnyResult) => {
+        const time = new Date(e.timestamp).toLocaleTimeString();
+        return `[${time}] ${e.source} → ${e.event}`;
+      });
+      return textResult(`Event Timeline (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_ecosystem_analytics',
+    'Aggregate analytics from all brains: errors/solutions from brain, trades/win-rate from trading, posts/engagement from marketing.',
+    {},
+    async () => {
+      const result: AnyResult = await call('ecosystem.analytics', {});
+      const lines: string[] = ['Ecosystem Analytics:'];
+      if (result.brain) {
+        lines.push(`\nBrain: ${result.brain.errors} errors, ${result.brain.solutions} solutions, ${result.brain.modules} modules`);
+      }
+      if (result.trading) {
+        lines.push(`Trading: ${result.trading.trades} trades, ${(result.trading.winRate * 100).toFixed(1)}% win rate, ${result.trading.signals} signals`);
+      }
+      if (result.marketing) {
+        lines.push(`Marketing: ${result.marketing.posts} posts, ${result.marketing.campaigns} campaigns, ${result.marketing.engagement} engagement`);
+      }
+      if (!result.brain && !result.trading && !result.marketing) {
+        lines.push('No peer brains available.');
+      }
+      return textResult(lines.join('\n'));
+    },
+  );
 }
 
 function detectLanguage(filePath: string): string {

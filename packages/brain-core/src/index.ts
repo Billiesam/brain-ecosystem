@@ -71,6 +71,8 @@ export { BaseMemoryEngine } from './memory/base-memory-engine.js';
 // ── Dashboard ────────────────────────────────────────────
 export { DashboardServer } from './dashboard/server.js';
 export type { DashboardServerOptions } from './dashboard/server.js';
+export { createHubDashboard } from './dashboard/hub-server.js';
+export type { HubDashboardOptions } from './dashboard/hub-server.js';
 
 // ── Cross-Brain ────────────────────────────────────────────
 export { CrossBrainClient } from './cross-brain/client.js';
@@ -79,3 +81,9 @@ export { CrossBrainNotifier } from './cross-brain/notifications.js';
 export type { CrossBrainEvent } from './cross-brain/notifications.js';
 export { CrossBrainSubscriptionManager } from './cross-brain/subscription.js';
 export type { EventSubscription } from './cross-brain/subscription.js';
+export { CrossBrainCorrelator } from './cross-brain/correlator.js';
+export type { CorrelatorEvent, Correlation, EcosystemHealth, CorrelatorConfig } from './cross-brain/correlator.js';
+
+// ── Ecosystem ──────────────────────────────────────────────
+export { EcosystemService } from './ecosystem/service.js';
+export type { BrainStatus, EcosystemStatus, AggregatedAnalytics } from './ecosystem/service.js';
