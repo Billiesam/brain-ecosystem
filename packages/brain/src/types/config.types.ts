@@ -96,6 +96,10 @@ export interface ScannerBrainConfig {
   hnEnabled: boolean;
 }
 
+export interface CodegenDashboardConfig {
+  port: number;
+}
+
 export interface BrainConfig {
   dataDir: string;
   dbPath: string;
@@ -112,4 +116,5 @@ export interface BrainConfig {
   log: LogConfig;
   retention: RetentionConfig;
   scanner: ScannerBrainConfig;
+  codegenDashboard?: CodegenDashboardConfig;
 }

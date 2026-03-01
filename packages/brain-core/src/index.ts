@@ -192,6 +192,8 @@ export { CodeMiner, runCodeMinerMigration } from './codegen/index.js';
 export { PatternExtractor, runPatternExtractorMigration } from './codegen/index.js';
 export { ContextBuilder } from './codegen/index.js';
 export { CodeGenerator, runCodeGeneratorMigration } from './codegen/index.js';
+export { CodegenServer } from './codegen/index.js';
+export type { CodegenServerOptions } from './codegen/index.js';
 export type {
   CodeMinerConfig, RepoContent, CodeMinerSummary,
   ExtractedPattern, DependencyPattern, TechStack, ProjectStructure, ReadmePattern,

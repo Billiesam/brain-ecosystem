@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -83,6 +83,7 @@ export class BrainCore {
   private researchScheduler: AutonomousResearchScheduler | null = null;
   private orchestrator: ResearchOrchestrator | null = null;
   private consciousnessServer: ConsciousnessServer | null = null;
+  private codegenServer: CodegenServer | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -372,7 +373,17 @@ export class BrainCore {
       codeGenerator.setThoughtStream(thoughtStream);
       this.orchestrator.setCodeGenerator(codeGenerator);
       services.codeGenerator = codeGenerator;
-      logger.info('CodeGenerator activated (ANTHROPIC_API_KEY set)');
+
+      // CodeGen Dashboard
+      this.codegenServer = new CodegenServer({
+        port: config.codegenDashboard?.port ?? 7787,
+        codeGenerator,
+        codeMiner: services.codeMiner ?? null,
+        patternExtractor: patternExtractor ?? null,
+      });
+      this.codegenServer.start();
+      services.codegenServer = this.codegenServer;
+      logger.info('CodeGenerator activated (ANTHROPIC_API_KEY set, dashboard on :' + (config.codegenDashboard?.port ?? 7787) + ')');
     }
 
     // 12. IPC Server
@@ -462,6 +473,7 @@ export class BrainCore {
     }
 
     this.subscriptionManager?.disconnectAll();
+    this.codegenServer?.stop();
     this.consciousnessServer?.stop();
     this.orchestrator?.stop();
     this.researchScheduler?.stop();
@@ -482,6 +494,7 @@ export class BrainCore {
     this.researchEngine = null;
     this.orchestrator = null;
     this.consciousnessServer = null;
+    this.codegenServer = null;
     this.subscriptionManager = null;
     this.correlator = null;
     this.ecosystemService = null;

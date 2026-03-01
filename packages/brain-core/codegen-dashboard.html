@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeGen Dashboard</title>
+<style>
+  :root {
+    --bg-primary: #0a0a1a;
+    --bg-secondary: #0f1128;
+    --bg-card: rgba(15, 17, 40, 0.85);
+    --border: rgba(100, 120, 255, 0.15);
+    --text-primary: #e0e4ff;
+    --text-secondary: #8890b5;
+    --text-muted: #555a7a;
+    --cyan: #00e5ff;
+    --magenta: #ff0090;
+    --gold: #ffd700;
+    --green: #00ff88;
+    --purple: #b388ff;
+    --orange: #ff9100;
+    --blue: #448aff;
+    --red: #ff5252;
+    --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.4);
+    --glow-green: 0 0 20px rgba(0, 255, 136, 0.4);
+    --glow-red: 0 0 15px rgba(255, 82, 82, 0.3);
+    --glow-gold: 0 0 20px rgba(255, 215, 0, 0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* ── Layout ─────────────────────────────────── */
+  .dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, var(--cyan), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header .logo {
+    font-size: 22px;
+  }
+  .connection-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .connection-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red);
+    transition: all 0.3s;
+  }
+  .connection-dot.connected {
+    background: var(--green);
+    box-shadow: var(--glow-green);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ── Status Cards ───────────────────────────── */
+  .status-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  .stat-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .stat-card .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+  }
+  .stat-card:nth-child(1) .value { color: var(--cyan); }
+  .stat-card:nth-child(2) .value { color: var(--green); }
+  .stat-card:nth-child(3) .value { color: var(--gold); }
+  .stat-card:nth-child(4) .value { color: var(--purple); }
+
+  /* ── Generate Panel ─────────────────────────── */
+  .generate-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .generate-panel .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .generate-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .form-group.task-group { flex: 1; }
+  .form-group label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .generate-form textarea {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 10px 12px;
+    resize: none;
+    height: 60px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .generate-form textarea:focus {
+    border-color: var(--cyan);
+  }
+  .generate-form select {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 10px 12px;
+    outline: none;
+    cursor: pointer;
+    min-width: 130px;
+  }
+  .btn-generate {
+    background: linear-gradient(135deg, var(--cyan), var(--blue));
+    border: none;
+    border-radius: 6px;
+    color: #0a0a1a;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 24px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    height: 40px;
+  }
+  .btn-generate:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ── Main Content Grid ──────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* ── Pending Review ─────────────────────────── */
+  .pending-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    max-height: 600px;
+    overflow-y: auto;
+    grid-column: 1 / -1;
+  }
+  .pending-panel .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pending-panel .panel-title .count {
+    background: var(--gold);
+    color: #0a0a1a;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .pending-panel::-webkit-scrollbar { width: 4px; }
+  .pending-panel::-webkit-scrollbar-track { background: transparent; }
+  .pending-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .review-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .review-card:hover { border-color: var(--cyan); }
+  .review-card .task-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .review-card .task-title .gen-id {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+  .review-card .meta-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .meta-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(100, 120, 255, 0.1);
+    color: var(--text-secondary);
+  }
+  .code-block {
+    background: #060612;
+    border: 1px solid rgba(100, 120, 255, 0.1);
+    border-radius: 6px;
+    padding: 14px;
+    margin: 10px 0;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.6;
+    position: relative;
+  }
+  .code-block pre {
+    margin: 0;
+    white-space: pre;
+    font-family: inherit;
+  }
+  .code-block::-webkit-scrollbar { width: 4px; height: 4px; }
+  .code-block::-webkit-scrollbar-track { background: transparent; }
+  .code-block::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  /* Syntax highlighting */
+  .syn-keyword { color: var(--magenta); }
+  .syn-string { color: var(--green); }
+  .syn-comment { color: var(--text-muted); font-style: italic; }
+  .syn-number { color: var(--gold); }
+  .syn-type { color: var(--cyan); }
+  .syn-fn { color: var(--blue); }
+
+  .explanation {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 8px 0;
+    padding: 10px 12px;
+    background: rgba(100, 120, 255, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid var(--purple);
+  }
+
+  .review-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+  }
+  .review-actions input {
+    flex: 1;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 8px 12px;
+    outline: none;
+  }
+  .review-actions input:focus { border-color: var(--cyan); }
+  .btn-approve, .btn-reject {
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 18px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .btn-approve {
+    background: var(--green);
+    color: #0a0a1a;
+  }
+  .btn-approve:hover { box-shadow: var(--glow-green); }
+  .btn-reject {
+    background: var(--red);
+    color: #fff;
+  }
+  .btn-reject:hover { box-shadow: var(--glow-red); }
+
+  .no-pending {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  /* ── History Table ──────────────────────────── */
+  .history-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .history-panel .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .history-panel::-webkit-scrollbar { width: 4px; }
+  .history-panel::-webkit-scrollbar-track { background: transparent; }
+  .history-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .history-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(100, 120, 255, 0.05);
+    color: var(--text-secondary);
+  }
+  .history-table tr:hover td { background: rgba(100, 120, 255, 0.03); }
+  .history-table .task-cell {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+
+  /* Status badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-generating { background: rgba(68, 138, 255, 0.2); color: var(--blue); }
+  .badge-generated { background: rgba(255, 215, 0, 0.2); color: var(--gold); }
+  .badge-approved { background: rgba(0, 255, 136, 0.2); color: var(--green); }
+  .badge-rejected { background: rgba(255, 82, 82, 0.2); color: var(--red); }
+  .badge-failed { background: rgba(255, 82, 82, 0.15); color: var(--red); }
+  .badge-pending_review { background: rgba(255, 145, 0, 0.2); color: var(--orange); }
+
+  /* ── Patterns Panel ─────────────────────────── */
+  .patterns-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .patterns-panel .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .patterns-panel::-webkit-scrollbar { width: 4px; }
+  .patterns-panel::-webkit-scrollbar-track { background: transparent; }
+  .patterns-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .pattern-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .pattern-tab {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pattern-tab.active {
+    background: rgba(0, 229, 255, 0.1);
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+  .pattern-tab:hover:not(.active) {
+    border-color: var(--text-muted);
+    color: var(--text-secondary);
+  }
+
+  .pattern-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pattern-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  .pattern-item:hover { background: rgba(255, 255, 255, 0.04); }
+  .pattern-item .name { color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pattern-item .freq {
+    color: var(--cyan);
+    font-weight: 600;
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+  .pattern-bar {
+    height: 3px;
+    background: var(--cyan);
+    border-radius: 2px;
+    opacity: 0.4;
+    margin-top: 3px;
+    transition: width 0.3s;
+  }
+
+  /* ── Footer ─────────────────────────────────── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .footer a { color: var(--cyan); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  /* ── Animations ─────────────────────────────── */
+  @keyframes flash-green {
+    0% { background: rgba(0, 255, 136, 0.15); }
+    100% { background: transparent; }
+  }
+  @keyframes flash-red {
+    0% { background: rgba(255, 82, 82, 0.15); }
+    100% { background: transparent; }
+  }
+  .flash-approved { animation: flash-green 1.5s ease-out; }
+  .flash-rejected { animation: flash-red 1.5s ease-out; }
+
+  /* ── Responsive ─────────────────────────────── */
+  @media (max-width: 900px) {
+    .status-cards { grid-template-columns: repeat(2, 1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .generate-form { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="logo">&lt;/&gt;</span>
+      <h1>CodeGen Dashboard</h1>
+    </div>
+    <div class="connection-status">
+      <div class="connection-dot" id="connDot"></div>
+      <span id="connText">Disconnected</span>
+    </div>
+  </div>
+
+  <!-- Status Cards -->
+  <div class="status-cards">
+    <div class="stat-card">
+      <div class="value" id="statTotal">0</div>
+      <div class="label">Total Generations</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="statApproval">0%</div>
+      <div class="label">Approval Rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="statTokens">0</div>
+      <div class="label">Tokens Used</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="statRepos">0</div>
+      <div class="label">Repos Mined</div>
+    </div>
+  </div>
+
+  <!-- Generate Panel -->
+  <div class="generate-panel">
+    <div class="panel-title">
+      <span>&#9889;</span> Generate Code
+    </div>
+    <div class="generate-form">
+      <div class="form-group task-group">
+        <label>Task Description</label>
+        <textarea id="taskInput" placeholder="Describe what code to generate..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Language</label>
+        <select id="langSelect">
+          <option value="typescript">TypeScript</option>
+          <option value="javascript">JavaScript</option>
+          <option value="python">Python</option>
+          <option value="rust">Rust</option>
+          <option value="go">Go</option>
+        </select>
+      </div>
+      <button class="btn-generate" id="btnGenerate" onclick="triggerGenerate()">Generate</button>
+    </div>
+  </div>
+
+  <!-- Pending Review -->
+  <div class="pending-panel" id="pendingPanel">
+    <div class="panel-title">
+      <span>&#128269;</span> Pending Review <span class="count" id="pendingCount">0</span>
+    </div>
+    <div id="pendingList">
+      <div class="no-pending">No pending generations to review</div>
+    </div>
+  </div>
+
+  <!-- History + Patterns -->
+  <div class="main-grid">
+    <div class="history-panel">
+      <div class="panel-title">&#128203; Generation History</div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Task</th>
+            <th>Status</th>
+            <th>Trigger</th>
+            <th>Tokens</th>
+            <th>Time</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+    <div class="patterns-panel">
+      <div class="panel-title">&#129520; Mined Patterns</div>
+      <div class="pattern-tabs" id="patternTabs">
+        <button class="pattern-tab active" data-tab="dependencies" onclick="switchTab('dependencies')">Dependencies</button>
+        <button class="pattern-tab" data-tab="tech_stacks" onclick="switchTab('tech_stacks')">Tech Stacks</button>
+        <button class="pattern-tab" data-tab="structures" onclick="switchTab('structures')">Structures</button>
+        <button class="pattern-tab" data-tab="readme" onclick="switchTab('readme')">README</button>
+      </div>
+      <div class="pattern-list" id="patternList">
+        <div class="no-pending">No patterns extracted yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>CodeGen Dashboard &mdash; Brain Ecosystem</span>
+    <span id="footerStatus">Uptime: --</span>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────
+let state = { summary: null, generations: [], pending: [], minerSummary: null, patterns: null };
+let connected = false;
+let startTime = Date.now();
+let currentTab = 'dependencies';
+let eventSource = null;
+
+// ── SSE Connection ─────────────────────────────
+function connectSSE() {
+  if (eventSource) { try { eventSource.close(); } catch {} }
+  eventSource = new EventSource('/events');
+
+  eventSource.addEventListener('connected', () => {
+    connected = true;
+    updateConnectionUI();
+    loadState();
+  });
+
+  eventSource.addEventListener('codegen:generated', (e) => {
+    const gen = JSON.parse(e.data);
+    loadState(); // Refresh full state
+  });
+
+  eventSource.addEventListener('codegen:approved', (e) => {
+    loadState();
+  });
+
+  eventSource.addEventListener('codegen:rejected', (e) => {
+    loadState();
+  });
+
+  eventSource.addEventListener('codegen:error', (e) => {
+    const err = JSON.parse(e.data);
+    showNotification('Generation error: ' + err.error, 'error');
+    loadState();
+  });
+
+  eventSource.addEventListener('heartbeat', () => {
+    // keep-alive
+  });
+
+  eventSource.onerror = () => {
+    connected = false;
+    updateConnectionUI();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ── Data Loading ───────────────────────────────
+async function loadState() {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) return;
+    state = await res.json();
+    render();
+  } catch {}
+}
+
+// ── Rendering ──────────────────────────────────
+function render() {
+  renderStats();
+  renderPending();
+  renderHistory();
+  renderPatterns();
+}
+
+function renderStats() {
+  const s = state.summary;
+  if (!s) return;
+  document.getElementById('statTotal').textContent = s.total_generations;
+  document.getElementById('statApproval').textContent = Math.round(s.approval_rate * 100) + '%';
+  document.getElementById('statTokens').textContent = formatNumber(s.total_tokens_used);
+  document.getElementById('statRepos').textContent = state.minerSummary ? state.minerSummary.total_repos_mined : '0';
+}
+
+function renderPending() {
+  const pending = state.pending || [];
+  document.getElementById('pendingCount').textContent = pending.length;
+  const container = document.getElementById('pendingList');
+
+  if (pending.length === 0) {
+    container.innerHTML = '<div class="no-pending">No pending generations to review</div>';
+    return;
+  }
+
+  container.innerHTML = pending.map(gen => `
+    <div class="review-card" id="review-${gen.id}">
+      <div class="task-title">
+        <span>${escapeHtml(gen.task)}</span>
+        <span class="gen-id">#${gen.id}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-tag">${gen.language || 'typescript'}</span>
+        <span class="meta-tag">${gen.trigger}</span>
+        <span class="meta-tag">${gen.tokens_used} tokens</span>
+        <span class="meta-tag">${gen.generation_time_ms}ms</span>
+        ${gen.context_summary ? `<span class="meta-tag">${escapeHtml(gen.context_summary)}</span>` : ''}
+      </div>
+      ${gen.generated_code ? `<div class="code-block"><pre>${highlightSyntax(gen.generated_code, gen.language)}</pre></div>` : ''}
+      ${gen.generated_explanation ? `<div class="explanation">${escapeHtml(gen.generated_explanation)}</div>` : ''}
+      <div class="review-actions">
+        <input type="text" id="notes-${gen.id}" placeholder="Review notes (optional)..." />
+        <button class="btn-approve" onclick="reviewGeneration(${gen.id}, 'approve')">Approve</button>
+        <button class="btn-reject" onclick="reviewGeneration(${gen.id}, 'reject')">Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderHistory() {
+  const gens = state.generations || [];
+  const tbody = document.getElementById('historyBody');
+
+  tbody.innerHTML = gens.map(gen => `
+    <tr>
+      <td style="color:var(--text-muted)">#${gen.id}</td>
+      <td class="task-cell" title="${escapeAttr(gen.task)}">${escapeHtml(gen.task.substring(0, 60))}</td>
+      <td><span class="badge badge-${gen.status}">${gen.status}</span></td>
+      <td>${gen.trigger}</td>
+      <td>${formatNumber(gen.tokens_used)}</td>
+      <td>${gen.generation_time_ms ? (gen.generation_time_ms / 1000).toFixed(1) + 's' : '-'}</td>
+      <td style="color:var(--text-muted)">${formatDate(gen.created_at)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderPatterns() {
+  const patterns = state.patterns;
+  const container = document.getElementById('patternList');
+
+  if (!patterns) {
+    container.innerHTML = '<div class="no-pending">No patterns extracted yet</div>';
+    return;
+  }
+
+  const data = patterns[currentTab] || [];
+  if (data.length === 0) {
+    container.innerHTML = '<div class="no-pending">No patterns in this category</div>';
+    return;
+  }
+
+  const maxFreq = Math.max(...data.map(p => p.frequency || 1));
+
+  container.innerHTML = data.map(p => {
+    let parsed = {};
+    try { parsed = JSON.parse(p.pattern_data); } catch {}
+    const name = parsed.name || parsed.stack || parsed.path || parsed.section || p.pattern_key;
+    const freq = p.frequency;
+    const pct = Math.round((freq / maxFreq) * 100);
+
+    return `
+      <div class="pattern-item">
+        <span class="name" title="${escapeAttr(name)}">${escapeHtml(name)}</span>
+        <span class="freq">${freq}x</span>
+      </div>
+      <div class="pattern-bar" style="width: ${pct}%"></div>
+    `;
+  }).join('');
+}
+
+// ── Actions ────────────────────────────────────
+async function triggerGenerate() {
+  const taskInput = document.getElementById('taskInput');
+  const langSelect = document.getElementById('langSelect');
+  const btn = document.getElementById('btnGenerate');
+  const task = taskInput.value.trim();
+
+  if (!task) { taskInput.focus(); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, language: langSelect.value }),
+    });
+    const data = await res.json();
+    if (data.accepted) {
+      taskInput.value = '';
+      showNotification('Generation started: ' + task.substring(0, 50), 'info');
+    } else {
+      showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showNotification('Network error', 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Generate';
+}
+
+async function reviewGeneration(id, action) {
+  const notesInput = document.getElementById('notes-' + id);
+  const notes = notesInput ? notesInput.value.trim() : '';
+  const card = document.getElementById('review-' + id);
+
+  try {
+    const res = await fetch(`/api/${action}/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: notes || undefined }),
+    });
+
+    if (res.ok) {
+      if (card) {
+        card.classList.add(action === 'approve' ? 'flash-approved' : 'flash-rejected');
+        setTimeout(() => loadState(), 800);
+      }
+    } else {
+      const data = await res.json();
+      showNotification('Error: ' + data.error, 'error');
+    }
+  } catch {
+    showNotification('Network error', 'error');
+  }
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.pattern-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  renderPatterns();
+}
+
+// ── Syntax Highlighting (regex-based) ──────────
+function highlightSyntax(code, language) {
+  let html = escapeHtml(code);
+
+  // Comments: // ... and /* ... */
+  html = html.replace(/(\/\/[^\n]*)/g, '<span class="syn-comment">$1</span>');
+  html = html.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syn-comment">$1</span>');
+
+  // Strings: "..." and '...' and `...`
+  html = html.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, '<span class="syn-string">$1</span>');
+  html = html.replace(/(&#x27;(?:[^&]|&(?!#x27;))*?&#x27;)/g, '<span class="syn-string">$1</span>');
+
+  // Numbers
+  html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
+
+  // Keywords
+  const keywords = ['const', 'let', 'var', 'function', 'class', 'interface', 'type', 'import', 'export',
+    'from', 'return', 'if', 'else', 'for', 'while', 'async', 'await', 'new', 'throw', 'try', 'catch',
+    'finally', 'extends', 'implements', 'default', 'switch', 'case', 'break', 'continue', 'typeof',
+    'instanceof', 'void', 'null', 'undefined', 'true', 'false', 'this', 'super', 'static', 'readonly',
+    'public', 'private', 'protected', 'abstract', 'enum', 'namespace', 'declare', 'module',
+    'def', 'self', 'None', 'True', 'False', 'fn', 'impl', 'struct', 'trait', 'pub', 'mod', 'use',
+    'func', 'package', 'defer', 'go', 'chan', 'select', 'range', 'map', 'make'];
+  const kwRegex = new RegExp('\\b(' + keywords.join('|') + ')\\b', 'g');
+  html = html.replace(kwRegex, '<span class="syn-keyword">$1</span>');
+
+  // Types (capitalized words)
+  html = html.replace(/\b([A-Z][a-zA-Z0-9]+)\b/g, '<span class="syn-type">$1</span>');
+
+  return html;
+}
+
+// ── Utilities ──────────────────────────────────
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatNumber(n) {
+  if (n === undefined || n === null) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
+  return String(n);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr + 'Z');
+  const now = new Date();
+  const diffMs = now - d;
+  if (diffMs < 60_000) return 'just now';
+  if (diffMs < 3_600_000) return Math.floor(diffMs / 60_000) + 'm ago';
+  if (diffMs < 86_400_000) return Math.floor(diffMs / 3_600_000) + 'h ago';
+  return d.toLocaleDateString();
+}
+
+function showNotification(msg, type) {
+  // Simple in-place notification via console + brief visual feedback
+  console.log(`[${type}] ${msg}`);
+}
+
+function updateConnectionUI() {
+  const dot = document.getElementById('connDot');
+  const text = document.getElementById('connText');
+  dot.classList.toggle('connected', connected);
+  text.textContent = connected ? 'Connected' : 'Disconnected';
+}
+
+function updateUptime() {
+  const secs = Math.floor((Date.now() - startTime) / 1000);
+  const mins = Math.floor(secs / 60);
+  const hrs = Math.floor(mins / 60);
+  let str = '';
+  if (hrs > 0) str += hrs + 'h ';
+  str += (mins % 60) + 'm ' + (secs % 60) + 's';
+  document.getElementById('footerStatus').textContent = 'Session: ' + str + (connected ? ' | Connected' : ' | Disconnected');
+}
+
+// ── Keyboard ───────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    triggerGenerate();
+  }
+});
+
+// ── Init ───────────────────────────────────────
+connectSSE();
+loadState();
+setInterval(updateUptime, 1000);
+setInterval(loadState, 15000); // Poll every 15s as fallback
+</script>
+</body>
+</html>

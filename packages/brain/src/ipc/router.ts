@@ -92,6 +92,7 @@ export interface Services {
   codeGenerator?: CodeGenerator;
   codeMiner?: CodeMiner;
   patternExtractor?: PatternExtractor;
+  codegenServer?: import('@timmeck/brain-core').CodegenServer;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
