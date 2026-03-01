@@ -87,6 +87,8 @@ export class BrainCore {
   private config: BrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
+  private restartCount = 0;
+  private restartWindowStart = 0;
 
   start(configPath?: string): void {
     this.configPath = configPath;
@@ -345,26 +347,32 @@ export class BrainCore {
       logger.info(`Signal scanner started (interval: ${config.scanner.scanIntervalMs}ms, token: ${config.scanner.githubToken ? 'yes' : 'NO — set GITHUB_TOKEN'})`);
     }
 
-    // 11l. CodeGenerator + CodeMiner — autonomous code generation
-    if (process.env.ANTHROPIC_API_KEY) {
+    // 11l. CodeMiner — mine repo contents from GitHub (needs GITHUB_TOKEN)
+    let patternExtractor: PatternExtractor | undefined;
+    if (config.scanner.githubToken) {
       const codeMiner = new CodeMiner(this.db!, { githubToken: config.scanner.githubToken });
-      const patternExtractor = new PatternExtractor(this.db!);
+      patternExtractor = new PatternExtractor(this.db!);
+      this.orchestrator.setCodeMiner(codeMiner);
+      services.codeMiner = codeMiner;
+      services.patternExtractor = patternExtractor;
+      void codeMiner.bootstrap();
+      logger.info('CodeMiner activated (GITHUB_TOKEN set)');
+    }
+
+    // 11m. CodeGenerator — autonomous code generation (needs ANTHROPIC_API_KEY)
+    if (process.env.ANTHROPIC_API_KEY) {
       const codeGenerator = new CodeGenerator(this.db!, { brainName: 'brain', apiKey: process.env.ANTHROPIC_API_KEY });
       const contextBuilder = new ContextBuilder(
         this.orchestrator.knowledgeDistiller,
         this.orchestrator.journal,
-        patternExtractor,
+        patternExtractor ?? null,
         services.signalScanner ?? null,
       );
       codeGenerator.setContextBuilder(contextBuilder);
       codeGenerator.setThoughtStream(thoughtStream);
       this.orchestrator.setCodeGenerator(codeGenerator);
-      this.orchestrator.setCodeMiner(codeMiner);
       services.codeGenerator = codeGenerator;
-      services.codeMiner = codeMiner;
-      services.patternExtractor = patternExtractor;
-      void codeMiner.bootstrap(); // Async, runs in background
-      logger.info('CodeGenerator + CodeMiner activated (ANTHROPIC_API_KEY set)');
+      logger.info('CodeGenerator activated (ANTHROPIC_API_KEY set)');
     }
 
     // 12. IPC Server
@@ -420,14 +428,19 @@ export class BrainCore {
     process.on('SIGINT', () => this.stop());
     process.on('SIGTERM', () => this.stop());
 
-    // 16. Crash recovery — auto-restart on uncaught errors
+    // 16. Crash recovery — auto-restart on uncaught errors (with loop protection)
     process.on('uncaughtException', (err) => {
-      logger.error('Uncaught exception — restarting', { error: err.message, stack: err.stack });
+      logger.error('Uncaught exception', { error: err.message, stack: err.stack });
       this.logCrash('uncaughtException', err);
+      // Don't restart on port conflicts — it will just loop
+      if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+        logger.error('Port conflict during restart — stopping to prevent crash loop');
+        return;
+      }
       this.restart();
     });
     process.on('unhandledRejection', (reason) => {
-      logger.error('Unhandled rejection — restarting', { reason: String(reason) });
+      logger.error('Unhandled rejection', { reason: String(reason) });
       this.logCrash('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason)));
       this.restart();
     });
@@ -480,12 +493,34 @@ export class BrainCore {
     this.restarting = true;
 
     const logger = getLogger();
-    logger.info('Restarting Brain daemon...');
+
+    // Rate-limit restarts: max 3 within 60s, then give up
+    const now = Date.now();
+    if (now - this.restartWindowStart > 60_000) {
+      this.restartCount = 0;
+      this.restartWindowStart = now;
+    }
+    this.restartCount++;
+    if (this.restartCount > 3) {
+      logger.error('Too many restarts (>3 in 60s) — exiting. Watchdog will recover.');
+      this.logCrash('restart-limit', new Error('Exceeded 3 restarts in 60 seconds'));
+      process.exit(1);
+    }
+
+    logger.info(`Restarting Brain daemon (attempt ${this.restartCount}/3)...`);
 
     try { this.cleanup(); } catch { /* best effort cleanup */ }
 
-    this.restarting = false;
-    this.start(this.configPath);
+    // Delay restart to allow OS to release ports
+    setTimeout(() => {
+      this.restarting = false;
+      try {
+        this.start(this.configPath);
+      } catch (err) {
+        logger.error('Restart failed', { error: err instanceof Error ? err.message : String(err) });
+        this.restarting = false;
+      }
+    }, 1000);
   }
 
   stop(): void {

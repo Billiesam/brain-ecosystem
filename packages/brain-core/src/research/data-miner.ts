@@ -98,28 +98,36 @@ export function runDataMinerMigration(db: Database.Database): void {
 
 export class DataMiner {
   private db: Database.Database;
-  private adapter: DataMinerAdapter;
+  private adapters: DataMinerAdapter[];
   private engines: DataMinerEngines;
   private log = getLogger();
   private state: DataMinerState;
 
   constructor(db: Database.Database, adapter: DataMinerAdapter, engines: DataMinerEngines) {
     this.db = db;
-    this.adapter = adapter;
+    this.adapters = [adapter];
     this.engines = engines;
 
     runDataMinerMigration(db);
     this.state = this.loadState();
   }
 
+  /** Register an additional adapter for mining. */
+  addAdapter(adapter: DataMinerAdapter): void {
+    this.adapters.push(adapter);
+    this.log.info(`[data-miner] Added adapter: ${adapter.name}`);
+  }
+
   /** Bootstrap: scan ALL historical data and feed into engines. Only runs once. */
   bootstrap(): void {
     if (this.state.bootstrap_complete) {
-      this.log.info(`[data-miner] Bootstrap already complete for ${this.adapter.name}`);
+      const names = this.adapters.map(a => a.name).join(', ');
+      this.log.info(`[data-miner] Bootstrap already complete for ${names}`);
       return;
     }
 
-    this.log.info(`[data-miner] Bootstrapping ${this.adapter.name} — scanning all historical data...`);
+    const names = this.adapters.map(a => a.name).join(', ');
+    this.log.info(`[data-miner] Bootstrapping ${names} — scanning all historical data...`);
     const start = Date.now();
 
     // Mine everything from epoch
@@ -131,7 +139,7 @@ export class DataMiner {
 
     const duration = Date.now() - start;
     this.log.info(
-      `[data-miner] Bootstrap complete for ${this.adapter.name} in ${duration}ms — ` +
+      `[data-miner] Bootstrap complete for ${names} in ${duration}ms — ` +
       `${result.observations} observations, ${result.causalEvents} causal events, ` +
       `${result.metrics} metrics, ${result.hypothesisObs} hypothesis observations, ` +
       `${result.crossDomain} cross-domain events`,
@@ -149,8 +157,9 @@ export class DataMiner {
     this.saveState();
 
     if (result.total > 0) {
+      const names = this.adapters.map(a => a.name).join(', ');
       this.log.info(
-        `[data-miner] Mined ${result.total} items from ${this.adapter.name} ` +
+        `[data-miner] Mined ${result.total} items from ${names} ` +
         `(obs: ${result.observations}, causal: ${result.causalEvents}, ` +
         `metrics: ${result.metrics}, hypo: ${result.hypothesisObs}, cross: ${result.crossDomain})`,
       );
@@ -171,75 +180,77 @@ export class DataMiner {
     let hypothesisObs = 0;
     let crossDomain = 0;
 
-    // 1. Mine observations → SelfObserver
-    try {
-      const obs = this.adapter.mineObservations(this.db, since);
-      for (const o of obs) {
-        this.engines.selfObserver.record({
-          category: o.category,
-          event_type: o.event_type,
-          metrics: o.metrics,
-        });
-      }
-      observations = obs.length;
-      this.state.total_observations_mined += observations;
-    } catch (err) {
-      this.log.error(`[data-miner] Error mining observations: ${(err as Error).message}`);
-    }
-
-    // 2. Mine causal events → CausalGraph
-    try {
-      const events = this.adapter.mineCausalEvents(this.db, since);
-      if (this.engines.causalGraph) {
-        for (const e of events) {
-          this.engines.causalGraph.recordEvent(e.source, e.type, e.data);
-        }
-      }
-      causalEvents = events.length;
-      this.state.total_causal_events_mined += causalEvents;
-    } catch (err) {
-      this.log.error(`[data-miner] Error mining causal events: ${(err as Error).message}`);
-    }
-
-    // 3. Mine metrics → AnomalyDetective
-    try {
-      const m = this.adapter.mineMetrics(this.db, since);
-      for (const metric of m) {
-        this.engines.anomalyDetective.recordMetric(metric.name, metric.value);
-      }
-      metrics = m.length;
-    } catch (err) {
-      this.log.error(`[data-miner] Error mining metrics: ${(err as Error).message}`);
-    }
-
-    // 4. Mine hypothesis observations → HypothesisEngine
-    try {
-      const hypo = this.adapter.mineHypothesisObservations(this.db, since);
-      if (this.engines.hypothesisEngine) {
-        for (const h of hypo) {
-          this.engines.hypothesisEngine.observe({
-            source: h.source,
-            type: h.type,
-            value: h.value,
-            timestamp: Date.now(),
-            metadata: h.metadata,
+    for (const adapter of this.adapters) {
+      // 1. Mine observations → SelfObserver
+      try {
+        const obs = adapter.mineObservations(this.db, since);
+        for (const o of obs) {
+          this.engines.selfObserver.record({
+            category: o.category,
+            event_type: o.event_type,
+            metrics: o.metrics,
           });
         }
+        observations += obs.length;
+        this.state.total_observations_mined += obs.length;
+      } catch (err) {
+        this.log.error(`[data-miner] Error mining observations from ${adapter.name}: ${(err as Error).message}`);
       }
-      hypothesisObs = hypo.length;
-    } catch (err) {
-      this.log.error(`[data-miner] Error mining hypothesis observations: ${(err as Error).message}`);
-    }
 
-    // 5. Mine cross-domain events → CrossDomainEngine
-    try {
-      const cd = this.adapter.mineCrossDomainEvents(this.db, since);
-      for (const c of cd) {
-        this.engines.crossDomain.recordEvent(c.brain, c.eventType, c.data);
+      // 2. Mine causal events → CausalGraph
+      try {
+        const events = adapter.mineCausalEvents(this.db, since);
+        if (this.engines.causalGraph) {
+          for (const e of events) {
+            this.engines.causalGraph.recordEvent(e.source, e.type, e.data);
+          }
+        }
+        causalEvents += events.length;
+        this.state.total_causal_events_mined += events.length;
+      } catch (err) {
+        this.log.error(`[data-miner] Error mining causal events from ${adapter.name}: ${(err as Error).message}`);
       }
-      crossDomain = cd.length;
-    } catch (err) {
-      this.log.error(`[data-miner] Error mining cross-domain events: ${(err as Error).message}`);
+
+      // 3. Mine metrics → AnomalyDetective
+      try {
+        const m = adapter.mineMetrics(this.db, since);
+        for (const metric of m) {
+          this.engines.anomalyDetective.recordMetric(metric.name, metric.value);
+        }
+        metrics += m.length;
+      } catch (err) {
+        this.log.error(`[data-miner] Error mining metrics from ${adapter.name}: ${(err as Error).message}`);
+      }
+
+      // 4. Mine hypothesis observations → HypothesisEngine
+      try {
+        const hypo = adapter.mineHypothesisObservations(this.db, since);
+        if (this.engines.hypothesisEngine) {
+          for (const h of hypo) {
+            this.engines.hypothesisEngine.observe({
+              source: h.source,
+              type: h.type,
+              value: h.value,
+              timestamp: Date.now(),
+              metadata: h.metadata,
+            });
+          }
+        }
+        hypothesisObs += hypo.length;
+      } catch (err) {
+        this.log.error(`[data-miner] Error mining hypothesis observations from ${adapter.name}: ${(err as Error).message}`);
+      }
+
+      // 5. Mine cross-domain events → CrossDomainEngine
+      try {
+        const cd = adapter.mineCrossDomainEvents(this.db, since);
+        for (const c of cd) {
+          this.engines.crossDomain.recordEvent(c.brain, c.eventType, c.data);
+        }
+        crossDomain += cd.length;
+      } catch (err) {
+        this.log.error(`[data-miner] Error mining cross-domain events from ${adapter.name}: ${(err as Error).message}`);
+      }
     }
 
     const total = observations + causalEvents + metrics + hypothesisObs + crossDomain;
