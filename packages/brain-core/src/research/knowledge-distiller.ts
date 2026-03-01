@@ -336,6 +336,58 @@ export class KnowledgeDistiller {
       }
     } catch { /* hypotheses table might not exist */ }
 
+    // Extract from resolved anomalies (patterns that were identified and resolved)
+    try {
+      const resolvedAnomalies = this.db.prepare(`
+        SELECT type, title, description, metric, expected_value, actual_value, deviation, resolution
+        FROM anomalies
+        WHERE resolved = 1 AND resolution IS NOT NULL
+        ORDER BY timestamp DESC LIMIT 20
+      `).all() as Array<Record<string, unknown>>;
+
+      for (const a of resolvedAnomalies) {
+        const id = `anomaly-${this.hashString(a.title as string)}`;
+        const principle: Principle = {
+          id,
+          domain: (a.type as string) || 'anomaly',
+          statement: `When ${a.metric} deviates ${((a.deviation as number) || 0).toFixed(1)}% from expected: ${a.resolution}`,
+          success_rate: 0.8,
+          sample_size: 1,
+          confidence: 0.65,
+          source: 'resolved_anomaly',
+        };
+
+        this.upsertPrinciple(principle);
+        principles.push(principle);
+      }
+    } catch { /* anomalies table might not exist */ }
+
+    // Extract from successful auto-responses (patterns of effective automated reactions)
+    try {
+      const successfulResponses = this.db.prepare(`
+        SELECT action, description, parameters_before, parameters_after
+        FROM auto_responses
+        WHERE success = 1 AND reverted = 0
+        ORDER BY timestamp DESC LIMIT 20
+      `).all() as Array<Record<string, unknown>>;
+
+      for (const r of successfulResponses) {
+        const id = `autofix-${this.hashString(r.description as string)}`;
+        const principle: Principle = {
+          id,
+          domain: 'auto_response',
+          statement: r.description as string,
+          success_rate: 1.0,
+          sample_size: 1,
+          confidence: 0.7,
+          source: `auto_response:${r.action}`,
+        };
+
+        this.upsertPrinciple(principle);
+        principles.push(principle);
+      }
+    } catch { /* auto_responses table might not exist */ }
+
     // Extract from research discoveries
     try {
       const discoveries = this.db.prepare(`
@@ -398,6 +450,63 @@ export class KnowledgeDistiller {
       }
     } catch { /* hypotheses table might not exist */ }
 
+    // Extract from reverted auto-responses (automated fixes that failed)
+    try {
+      const revertedResponses = this.db.prepare(`
+        SELECT action, description, parameters_before, parameters_after
+        FROM auto_responses
+        WHERE reverted = 1
+        ORDER BY timestamp DESC LIMIT 20
+      `).all() as Array<Record<string, unknown>>;
+
+      for (const r of revertedResponses) {
+        const id = `anti-auto-${this.hashString(r.description as string)}`;
+        const anti: AntiPattern = {
+          id,
+          domain: 'auto_response',
+          statement: `NOT: ${r.description}`,
+          failure_rate: 1.0,
+          sample_size: 1,
+          confidence: 0.7,
+          alternative: r.parameters_before
+            ? `Revert to previous parameters: ${r.parameters_before}`
+            : 'Avoid this automated response — it was reverted.',
+        };
+
+        this.upsertAntiPattern(anti);
+        antiPatterns.push(anti);
+      }
+    } catch { /* auto_responses table might not exist */ }
+
+    // Extract from recurring unresolved anomalies (patterns that keep happening)
+    try {
+      const recurringAnomalies = this.db.prepare(`
+        SELECT type, metric, COUNT(*) as occurrences, AVG(deviation) as avg_deviation,
+               MAX(title) as title
+        FROM anomalies
+        WHERE resolved = 0
+        GROUP BY type, metric
+        HAVING occurrences >= 3
+        ORDER BY occurrences DESC LIMIT 10
+      `).all() as Array<Record<string, unknown>>;
+
+      for (const a of recurringAnomalies) {
+        const id = `anti-anomaly-${a.metric}`;
+        const anti: AntiPattern = {
+          id,
+          domain: (a.type as string) || 'anomaly',
+          statement: `Recurring anomaly: ${a.metric} deviates avg ${((a.avg_deviation as number) || 0).toFixed(1)}% (${a.occurrences}x unresolved)`,
+          failure_rate: 1.0,
+          sample_size: a.occurrences as number,
+          confidence: Math.min(0.5 + (a.occurrences as number) * 0.1, 0.95),
+          alternative: `Investigate root cause of ${a.metric} instability. ${a.title}`,
+        };
+
+        this.upsertAntiPattern(anti);
+        antiPatterns.push(anti);
+      }
+    } catch { /* anomalies table might not exist */ }
+
     // Extract from reverted strategy adaptations
     try {
       const reverted = this.db.prepare(`
@@ -458,6 +567,37 @@ export class KnowledgeDistiller {
         strategies.push(strategy);
       }
     } catch { /* strategy_adaptations table might not exist */ }
+
+    // Extract from successful auto-response patterns (strategies that work for anomalies)
+    try {
+      const responsePatterns = this.db.prepare(`
+        SELECT action, COUNT(*) as uses, SUM(CASE WHEN reverted = 0 THEN 1 ELSE 0 END) as successes,
+               MAX(description) as description
+        FROM auto_responses
+        WHERE success = 1
+        GROUP BY action
+        HAVING uses >= 2
+        ORDER BY successes DESC LIMIT 10
+      `).all() as Array<Record<string, unknown>>;
+
+      for (const rp of responsePatterns) {
+        const successRate = (rp.successes as number) / (rp.uses as number);
+        if (successRate < 0.6) continue;
+
+        const id = `strat-auto-${rp.action}`;
+        const strategy: Strategy = {
+          id,
+          domain: 'auto_response',
+          description: `Use "${rp.action}" response for anomalies (${((successRate) * 100).toFixed(0)}% success over ${rp.uses} uses)`,
+          conditions: [`Anomaly detected`, rp.description as string],
+          effectiveness: successRate,
+          evidence_count: rp.uses as number,
+        };
+
+        this.upsertStrategy(strategy);
+        strategies.push(strategy);
+      }
+    } catch { /* auto_responses table might not exist */ }
 
     // Extract from meta-learning optimizations
     try {

@@ -88,13 +88,70 @@ export function importCommand(): Command {
     .option('--smart', 'Smart import: scan Git history, log files, and build output for errors + solutions')
     .option('--no-build', 'Skip build scan (use with --smart)')
     .option('--git-depth <n>', 'Number of git commits to scan (default: 200)', '200')
+    .option('--reposignal [dbPath]', 'Import tech intelligence from a reposignal/aisurvival SQLite DB')
+    .option('--min-signal <level>', 'Minimum signal level for reposignal import (noise/watch/signal/breakout)', 'watch')
     .action(async (directory: string, opts) => {
       const dir = resolve(directory);
       const projectName = opts.project ?? basename(dir);
       const maxSizeKb = parseInt(opts.maxSize, 10) || 100;
       const maxSizeBytes = maxSizeKb * 1024;
 
-      // Verify directory exists
+      // Reposignal Import Mode (path can be a .db file, not necessarily a directory)
+      if (opts.reposignal) {
+        const dbPath = typeof opts.reposignal === 'string' ? resolve(opts.reposignal) : dir;
+        console.log(`${icons.brain}  ${c.info('Reposignal Import')} from ${c.value(dbPath)}`);
+        console.log(`  Min signal level: ${c.cyan(opts.minSignal)}`);
+        console.log(divider());
+
+        await withIpc(async (client) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result: any = await client.request('import.reposignal', {
+            dbPath,
+            options: {
+              minSignalLevel: opts.minSignal,
+            },
+          });
+
+          console.log(`\n  ${icons.ok} ${c.label('Repos in DB:')}       ${c.value(result.totalReposInDb)}`);
+          console.log(`  ${icons.ok} ${c.label('Repos imported:')}    ${c.green(result.reposImported)}`);
+          console.log(`  ${icons.ok} ${c.label('Discoveries:')}      ${c.green(result.discoveriesCreated)}`);
+          console.log(`  ${icons.ok} ${c.label('Journal entries:')}  ${c.green(result.journalEntriesCreated)}`);
+          console.log(`  ${icons.ok} ${c.label('HN mentions:')}      ${c.green(result.hnMentionsImported)}`);
+          console.log(`  ${icons.ok} ${c.label('Metrics:')}          ${c.green(result.metricsRecorded)}`);
+          if (result.skippedDuplicates > 0) {
+            console.log(`  ${c.dim(`Duplicates skipped: ${result.skippedDuplicates}`)}`);
+          }
+
+          // Signal breakdown
+          if (result.signalBreakdown && Object.keys(result.signalBreakdown).length > 0) {
+            console.log(`\n  ${c.label('Signal Levels:')}`);
+            for (const [level, count] of Object.entries(result.signalBreakdown)) {
+              const color = level === 'breakout' ? c.red : level === 'signal' ? c.orange : c.dim;
+              console.log(`    ${color(level)}: ${c.value(count)}`);
+            }
+          }
+
+          // Top languages
+          if (result.languageBreakdown) {
+            const langs = Object.entries(result.languageBreakdown)
+              .sort(([, a], [, b]) => (b as number) - (a as number))
+              .slice(0, 10);
+            if (langs.length > 0) {
+              console.log(`\n  ${c.label('Top Languages:')}`);
+              for (const [lang, count] of langs) {
+                console.log(`    ${c.cyan(lang)}: ${c.value(count)}`);
+              }
+            }
+          }
+
+          console.log(header('Reposignal Import Summary', icons.brain));
+          console.log(`  ${c.label('Duration:')} ${c.dim(`${result.duration_ms}ms`)}`);
+          console.log(divider());
+        }, 120_000);
+        return;
+      }
+
+      // Verify directory exists (for non-reposignal modes)
       try {
         const stat = statSync(dir);
         if (!stat.isDirectory()) {

@@ -8,6 +8,7 @@ import { registerConsciousnessToolsDirect } from './consciousness-tools.js';
 import { registerPredictionToolsDirect } from './prediction-tools.js';
 import { registerResponderToolsDirect } from './responder-tools.js';
 import { registerScanToolsDirect } from './scan-tools.js';
+import { registerReposignalToolsDirect } from './reposignal-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -17,7 +18,7 @@ export class McpHttpServer {
     this.inner = new CoreMcpHttpServer(
       port,
       router,
-      { name: 'brain', version: '3.14.0' },
+      { name: 'brain', version: '3.16.0' },
       (server, _r) => {
         registerToolsDirect(server, router);
         registerResearchToolsDirect(server, router);
@@ -27,6 +28,7 @@ export class McpHttpServer {
         registerPredictionToolsDirect(server, router);
         registerResponderToolsDirect(server, router);
         registerScanToolsDirect(server, router);
+        registerReposignalToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

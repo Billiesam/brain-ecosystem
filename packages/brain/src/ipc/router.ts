@@ -41,6 +41,7 @@ import type { ThoughtStream, ConsciousnessServer } from '@timmeck/brain-core';
 import type { PredictionEngine } from '@timmeck/brain-core';
 import type { ResearchOrchestrator } from '@timmeck/brain-core';
 import type { ProjectScanner } from '../services/project-scanner.js';
+import type { ReposignalImporter } from '../services/reposignal-importer.js';
 
 export interface Services {
   error: ErrorService;
@@ -84,6 +85,7 @@ export interface Services {
   predictionEngine?: PredictionEngine;
   orchestrator?: ResearchOrchestrator;
   projectScanner?: ProjectScanner;
+  reposignalImporter?: ReposignalImporter;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -503,10 +505,15 @@ export class IpcRouter {
       ['scan.build',              (params) => { if (!s.projectScanner) throw new Error('Project scanner not available'); return s.projectScanner.scanBuildOutput(p(params).directory, p(params).project ?? 'unknown'); }],
       ['scan.status',             () => { if (!s.projectScanner) throw new Error('Project scanner not available'); return s.projectScanner.getLastResult(); }],
 
+      // ─── Reposignal Import ──────────────────────────────────
+      ['import.reposignal',       (params) => { if (!s.reposignalImporter) throw new Error('Reposignal importer not available'); return s.reposignalImporter.import(p(params).dbPath, p(params).options); }],
+      ['import.reposignal.status', () => { if (!s.reposignalImporter) throw new Error('Reposignal importer not available'); return s.reposignalImporter.getLastResult(); }],
+      ['import.reposignal.stats', () => { if (!s.reposignalImporter) throw new Error('Reposignal importer not available'); return s.reposignalImporter.getStats(); }],
+
       // Status (cross-brain)
       ['status',                  () => ({
         name: 'brain',
-        version: '3.14.0',
+        version: '3.16.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

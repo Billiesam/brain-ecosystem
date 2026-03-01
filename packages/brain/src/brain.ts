@@ -44,6 +44,7 @@ import { TaskService } from './services/task.service.js';
 import { DocService } from './services/doc.service.js';
 import { AutoResolutionService } from './services/auto-resolution.service.js';
 import { ProjectScanner } from './services/project-scanner.js';
+import { ReposignalImporter } from './services/reposignal-importer.js';
 
 // Synapses
 import { SynapseManager } from './synapses/synapse-manager.js';
@@ -170,6 +171,9 @@ export class BrainCore {
 
     // Project Scanner (smart import: Git + Logs + Build → Errors + Solutions)
     services.projectScanner = new ProjectScanner(services.error, services.solution, services.git);
+
+    // Reposignal Importer (import tech intelligence from reposignal/aisurvival DB)
+    services.reposignalImporter = new ReposignalImporter(this.db!);
 
     // 8. Embedding Engine (local vector search)
     if (config.embeddings.enabled) {
