@@ -61,6 +61,11 @@ export class ResearchOrchestrator {
   private reflectEvery: number;
   private log = getLogger();
 
+  /** Tracks how many times each suggestion key has been emitted without being resolved. */
+  private suggestionHistory: Map<string, { count: number; firstCycle: number; lastCycle: number }> = new Map();
+  /** Max repeats before trying an alternative. */
+  private readonly stalledThreshold = 3;
+
   constructor(db: Database.Database, config: ResearchOrchestratorConfig, causalGraph?: CausalGraph) {
     this.brainName = config.brainName;
     this.distillEvery = config.distillEvery ?? 5;
@@ -386,84 +391,179 @@ export class ResearchOrchestrator {
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
   }
 
-  /** Analyze Brain's own state and generate concrete improvement suggestions. */
+  /** Analyze Brain's own state and generate concrete improvement suggestions.
+   *  Tracks suggestion history — if a suggestion repeats 3+ times without resolution,
+   *  Brain tries alternative strategies instead of repeating itself. */
   private generateSelfImprovementSuggestions(): string[] {
-    const suggestions: string[] = [];
+    const raw: Array<{ key: string; suggestion: string; alternatives: string[] }> = [];
     const summary = this.getSummary();
 
-    // Check prediction engine state
+    // ── Diagnose current state ──────────────────────────
+
+    // Prediction engine
     const pred = summary.prediction as Record<string, unknown> | null;
     if (pred) {
       const total = (pred.total_predictions as number) ?? 0;
-      const accuracy = (pred.by_domain as Record<string, unknown>[]) ?? [];
       if (total === 0) {
-        suggestions.push('Tell Claude: Brain hat noch keine Predictions — wir brauchen mehr Domain-Events. Importiere Projekte mit "brain import <dir>" damit Errors/Solutions reinkommen und die PredictionEngine lernen kann.');
+        raw.push({
+          key: 'no_predictions',
+          suggestion: 'Tell Claude: Brain hat noch keine Predictions — wir brauchen mehr Domain-Events. Importiere Projekte mit "brain import <dir>" damit Errors/Solutions reinkommen und die PredictionEngine lernen kann.',
+          alternatives: [
+            'Tell Claude: Predictions brauchen Daten, aber niemand importiert Projekte. Alternativer Ansatz: Brain generiert synthetische Metriken aus seinen eigenen Anomaly- und Journal-Daten. Baue eine "SelfMetricGenerator" die aus internen Events (anomaly_count, journal_entries, cycle_duration) automatisch Prediction-Metriken erzeugt.',
+            'Tell Claude: Statt auf externe Daten zu warten, nutzt Brain jetzt die eigenen Feedback-Cycle-Metriken als Trainigsdaten. Baue recordMetric() Aufrufe direkt in den Orchestrator ein: cycle_duration, anomaly_count, insight_count, response_count pro Cycle.',
+            'Tell Claude: Brain hat genug interne Daten um sich selbst vorherzusagen. Idee: PredictionEngine auf orchestrator-eigene Metriken ansetzen (cycle_count, anomaly_rate, journal_growth) — dann lernt Brain seine eigene Entwicklung vorherzusagen.',
+          ],
+        });
       }
+      const accuracy = (pred.by_domain as Record<string, unknown>[]) ?? [];
       for (const d of accuracy) {
         const rate = d.accuracy_rate as number;
         if (typeof rate === 'number' && rate < 0.3 && (d.total as number) > 5) {
-          suggestions.push(`Tell Claude: Prediction accuracy für "${d.domain}" ist nur ${(rate * 100).toFixed(0)}% — die Smoothing-Parameter (alpha/beta) sollten optimiert werden. Mehr historische Daten oder kürzere Horizonte könnten helfen.`);
+          raw.push({
+            key: `low_accuracy_${d.domain}`,
+            suggestion: `Tell Claude: Prediction accuracy für "${d.domain}" ist nur ${(rate * 100).toFixed(0)}% — Smoothing-Parameter optimieren oder kürzere Horizonte nutzen.`,
+            alternatives: [
+              `Tell Claude: Prediction für "${d.domain}" ist schlecht trotz Tuning. Neuer Ansatz: ExperimentEngine soll verschiedene Alpha/Beta-Kombinationen A/B-testen und die beste automatisch übernehmen.`,
+              `Tell Claude: Statt bessere Vorhersagen zu erzwingen — Confidence-Threshold erhöhen und nur hochsichere Predictions ausgeben. Lieber selten aber richtig als oft und falsch.`,
+            ],
+          });
         }
       }
     }
 
-    // Check AutoResponder effectiveness
+    // AutoResponder effectiveness
     const responder = summary.autoResponder as Record<string, unknown> | null;
     if (responder) {
       const totalResp = (responder.total_responses as number) ?? 0;
       const successRate = (responder.success_rate as number) ?? 0;
       if (totalResp > 10 && successRate < 0.5) {
-        suggestions.push(`Tell Claude: AutoResponder Success-Rate ist nur ${(successRate * 100).toFixed(0)}% — die Response-Rules brauchen Feintuning. Mehr domainspezifische Regeln oder kleinere Adjustment-Werte könnten helfen.`);
+        raw.push({
+          key: 'low_responder_success',
+          suggestion: `Tell Claude: AutoResponder Success-Rate ist nur ${(successRate * 100).toFixed(0)}% — Response-Rules brauchen Feintuning.`,
+          alternatives: [
+            'Tell Claude: AutoResponder lernt nicht aus Fehlern. Baue ein Feedback-System: wenn eine Response reverted wird, merke dir die Kombination (anomaly_type + rule) und blockiere sie beim nächsten Mal.',
+            'Tell Claude: Statt Rules manuell zu tunen — AutoResponder soll die ExperimentEngine nutzen um verschiedene Adjustment-Werte zu testen und die besten automatisch zu übernehmen.',
+          ],
+        });
       }
     }
 
-    // Check knowledge distillation
+    // Knowledge distillation
     const knowledge = summary.knowledge as Record<string, unknown> | null;
     if (knowledge) {
       const principles = (knowledge.total_principles as number) ?? 0;
       const antiPatterns = (knowledge.total_anti_patterns as number) ?? 0;
       if (principles === 0 && antiPatterns === 0 && this.cycleCount > 5) {
-        suggestions.push('Tell Claude: Kein destilliertes Wissen nach mehreren Cycles — der KnowledgeDistiller braucht mehr Journal-Einträge. Brain sollte mehr Events verarbeiten (Imports, Fehler, Solutions).');
+        raw.push({
+          key: 'no_knowledge',
+          suggestion: 'Tell Claude: Kein destilliertes Wissen — KnowledgeDistiller braucht mehr Journal-Einträge.',
+          alternatives: [
+            'Tell Claude: KnowledgeDistiller findet nichts weil die Journal-Einträge zu uniform sind. Alternativer Ansatz: der Distiller soll auch aus AutoResponder-Aktionen und Anomaly-Patterns Wissen extrahieren, nicht nur aus Journal-Text.',
+            'Tell Claude: Statt auf mehr Daten zu warten — den Distiller auf die vorhandenen Synapse-Gewichte ansetzen. Die stärksten Synapsen sind implizites Wissen das destilliert werden kann.',
+          ],
+        });
       }
     }
 
-    // Check dream engine
+    // Dream engine
     const dream = summary.dream as Record<string, unknown> | null;
     if (dream) {
       const totalDreams = (dream.total_dreams as number) ?? 0;
       if (totalDreams === 0 && this.cycleCount > 10) {
-        suggestions.push('Tell Claude: Dream Mode hat noch nie konsolidiert — der Idle-Threshold von 5 Minuten wird vielleicht nie erreicht. Einen manuellen Dream-Cycle triggern oder den Threshold verkürzen.');
+        raw.push({
+          key: 'no_dreams',
+          suggestion: 'Tell Claude: Dream Mode hat noch nie konsolidiert — Idle-Threshold wird nie erreicht.',
+          alternatives: [
+            'Tell Claude: Dream Mode wartet vergeblich auf Idle. Alternativer Trigger: nach jedem 10. Feedback-Cycle automatisch einen Mini-Dream-Cycle starten (nur Importance Decay + Synapse Pruning, kein Full Replay).',
+            'Tell Claude: Statt auf Idle zu warten — DreamEngine.consolidate() direkt im Orchestrator aufrufen, z.B. alle 20 Cycles. Brain muss nicht "schlafen" um zu konsolidieren.',
+          ],
+        });
       }
     }
 
-    // Check journal
+    // Journal
     const journal = summary.journal as Record<string, unknown> | null;
     if (journal) {
       const entries = (journal.total_entries as number) ?? 0;
       if (entries < 5 && this.cycleCount > 5) {
-        suggestions.push('Tell Claude: Das Journal ist fast leer — Brain sammelt zu wenig Erfahrungen. Mehr Projekte importieren und Fehler melden damit Brain lernen kann.');
+        raw.push({
+          key: 'empty_journal',
+          suggestion: 'Tell Claude: Journal ist fast leer — Brain sammelt zu wenig Erfahrungen.',
+          alternatives: [
+            'Tell Claude: Journal hat zu wenig Einträge von außen. Workaround: Brain soll seine eigenen Feedback-Cycle-Ergebnisse als Journal-Einträge schreiben — jede Anomaly-Detection, jede Parameter-Anpassung, jede Prediction ist eine Erfahrung.',
+            'Tell Claude: Statt auf externe Events zu warten — der Orchestrator soll am Ende jedes Cycles automatisch eine Reflection schreiben mit: was wurde erkannt, was wurde getan, was hat sich verändert.',
+          ],
+        });
       }
     }
 
-    // Check experiments
+    // Experiments
     const experiments = summary.experiments as unknown[];
     if ((!experiments || experiments.length === 0) && this.cycleCount > 3) {
-      suggestions.push('Tell Claude: Keine laufenden Experimente — Brain könnte A/B-Tests auf eigene Parameter machen (z.B. Smoothing-Alpha testen, verschiedene Similarity-Thresholds). Ein "AutoExperiment" Feature wäre wertvoll.');
+      raw.push({
+        key: 'no_experiments',
+        suggestion: 'Tell Claude: Keine Experimente — Brain könnte A/B-Tests auf eigene Parameter machen.',
+        alternatives: [
+          'Tell Claude: Brain experimentiert nicht. Selbsthilfe-Idee: AutoExperiment-Feature bauen — Brain startet automatisch Experimente auf seine eigenen Parameter (z.B. "Was passiert wenn ich den Anomaly-Threshold von 2.0 auf 1.5 senke?") und misst den Impact nach 5 Cycles.',
+          'Tell Claude: Statt auf manuelle Experimente zu warten — Brain soll den CounterfactualEngine nutzen um "What-If" Szenarien durchzuspielen und die vielversprechendsten automatisch als Experiment starten.',
+        ],
+      });
     }
 
-    // Self-awareness: suggest next capabilities
+    // Self-awareness (every 10 cycles, but also evolves)
     if (this.cycleCount % 10 === 0 && this.cycleCount > 0) {
-      suggestions.push('Tell Claude: Brain kann beobachten, vorhersagen und konsolidieren — aber noch nicht selbst handeln. Der nächste Schritt wäre ein "ActionEngine" die eigenständig Parameter anpasst, Imports triggert, oder Code-Verbesserungen vorschlägt.');
+      raw.push({
+        key: 'next_capability',
+        suggestion: 'Tell Claude: Brain kann beobachten, vorhersagen, reagieren und sich verbessern. Der nächste Schritt: eigenständig Experimente designen und durchführen.',
+        alternatives: [
+          'Tell Claude: Brain hat alle Beobachtungs-Tools — jetzt fehlt Autonomie. Konkreter nächster Schritt: ein "GoalEngine" die langfristige Ziele setzt (z.B. "Prediction Accuracy auf 70% bringen") und eigenständig Strategien dafür plant.',
+          'Tell Claude: Brain beobachtet sich schon gut. Nächstes Level: Brain soll seinen eigenen Code analysieren können und konkrete TypeScript-Änderungen vorschlagen die es verbessern würden. Ein "CodeSuggestionEngine" der PRs generiert.',
+        ],
+      });
     }
 
-    // Limit to max 3 per cycle to avoid spam
-    const result = suggestions.slice(0, 3);
+    // ── Apply frustration detection ──────────────────────
 
-    // Write to file so user can send them to Claude
+    const suggestions: string[] = [];
+    for (const item of raw) {
+      const history = this.suggestionHistory.get(item.key);
+      if (!history) {
+        // First time seeing this issue
+        this.suggestionHistory.set(item.key, { count: 1, firstCycle: this.cycleCount, lastCycle: this.cycleCount });
+        suggestions.push(item.suggestion);
+      } else {
+        history.count++;
+        history.lastCycle = this.cycleCount;
+
+        if (history.count <= this.stalledThreshold) {
+          // Still within patience — repeat original suggestion
+          suggestions.push(item.suggestion);
+        } else {
+          // Stalled! Try an alternative strategy
+          const altIndex = (history.count - this.stalledThreshold - 1) % item.alternatives.length;
+          const alt = item.alternatives[altIndex];
+          if (alt) {
+            const stalledNote = `[Vorschlag "${item.key}" wurde ${history.count}x ignoriert — versuche alternativen Ansatz]`;
+            suggestions.push(`${alt}\n   ${stalledNote}`);
+          }
+        }
+      }
+    }
+
+    // Clear resolved suggestions (issue no longer appears → reset counter)
+    const currentKeys = new Set(raw.map(r => r.key));
+    for (const [key] of this.suggestionHistory) {
+      if (!currentKeys.has(key)) {
+        this.suggestionHistory.delete(key);
+        this.log.info(`[orchestrator] Self-improvement: "${key}" resolved — removing from history`);
+      }
+    }
+
+    // Limit to max 3 per cycle
+    const result = suggestions.slice(0, 3);
     if (result.length > 0) {
       this.writeSuggestionsToFile(result);
     }
-
     return result;
   }
 
