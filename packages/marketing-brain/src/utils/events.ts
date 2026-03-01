@@ -16,6 +16,8 @@ export type MarketingEvents = {
   'memory:superseded': { oldId: number; newId: number };
   'session:started': { sessionId: number };
   'session:ended': { sessionId: number; summary: string };
+  'post:scheduled': { scheduledId: number; platform: string; scheduledAt: string };
+  'post:due': { scheduledId: number; platform: string; content: string };
 };
 
 export type MarketingEventName = keyof MarketingEvents;

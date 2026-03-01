@@ -21,6 +21,8 @@ import { InsightRepository } from './db/repositories/insight.repository.js';
 import { MemoryRepository } from './db/repositories/memory.repository.js';
 import { SessionRepository } from './db/repositories/session.repository.js';
 import { ABTestRepository } from './db/repositories/ab-test.repository.js';
+import { CompetitorRepository } from './db/repositories/competitor.repository.js';
+import { SchedulerRepository } from './db/repositories/scheduler.repository.js';
 
 // Services
 import { PostService } from './services/post.service.js';
@@ -35,6 +37,10 @@ import { InsightService } from './services/insight.service.js';
 import { MemoryService } from './services/memory.service.js';
 import { ABTestService } from './services/ab-test.service.js';
 import { CalendarService } from './services/calendar.service.js';
+import { CompetitorService } from './services/competitor.service.js';
+import { SchedulerService } from './services/scheduler.service.js';
+import { ContentGeneratorService } from './services/content-generator.service.js';
+import { PlatformAdapterService } from './services/platform-adapter.service.js';
 
 // Synapses
 import { SynapseManager } from './synapses/synapse-manager.js';
@@ -112,6 +118,8 @@ export class MarketingCore {
     const memoryRepo = new MemoryRepository(this.db);
     const sessionRepo = new SessionRepository(this.db);
     const abTestRepo = new ABTestRepository(this.db);
+    const competitorRepo = new CompetitorRepository(this.db);
+    const schedulerRepo = new SchedulerRepository(this.db);
 
     // 6. Synapse Manager
     const synapseManager = new SynapseManager(synapseRepo, config.synapses);
@@ -137,6 +145,10 @@ export class MarketingCore {
       ),
       insight: new InsightService(insightRepo, synapseManager),
       memory: memoryService,
+      competitor: new CompetitorService(competitorRepo),
+      scheduler: new SchedulerService(schedulerRepo, calendarService),
+      contentGenerator: new ContentGeneratorService(this.db, ruleRepo, templateRepo, calendarService),
+      platformAdapter: new PlatformAdapterService(),
       patternExtractor,
       abTest: abTestService,
       calendar: calendarService,

@@ -15,6 +15,10 @@ import type { LearningEngine } from '../learning/learning-engine.js';
 import type { PatternExtractor } from '../learning/pattern-extractor.js';
 import type { ABTestService } from '../services/ab-test.service.js';
 import type { CalendarService } from '../services/calendar.service.js';
+import type { CompetitorService } from '../services/competitor.service.js';
+import type { SchedulerService } from '../services/scheduler.service.js';
+import type { ContentGeneratorService } from '../services/content-generator.service.js';
+import type { PlatformAdapterService } from '../services/platform-adapter.service.js';
 import type { CrossBrainClient, CrossBrainSubscriptionManager } from '@timmeck/brain-core';
 import type { IpcServer } from '@timmeck/brain-core';
 
@@ -29,6 +33,10 @@ export interface Services {
   analytics: AnalyticsService;
   insight: InsightService;
   memory: MemoryService;
+  competitor: CompetitorService;
+  scheduler: SchedulerService;
+  contentGenerator: ContentGeneratorService;
+  platformAdapter: PlatformAdapterService;
   learning?: LearningEngine;
   patternExtractor?: PatternExtractor;
   abTest?: ABTestService;
@@ -217,6 +225,32 @@ export class IpcRouter {
         return s.calendar.getWeeklySchedule(p(params)?.platform);
       }],
 
+      // Competitors
+      ['competitor.add',           (params) => s.competitor.addCompetitor(p(params))],
+      ['competitor.list',          () => s.competitor.listCompetitors()],
+      ['competitor.remove',        (params) => s.competitor.removeCompetitor(p(params).id)],
+      ['competitor.recordPost',    (params) => s.competitor.recordPost(p(params))],
+      ['competitor.posts',         (params) => s.competitor.getCompetitorPosts(p(params).competitorId, p(params).limit)],
+      ['competitor.analyze',       (params) => s.competitor.analyzeCompetitor(p(params).competitorId ?? p(params).id)],
+      ['competitor.compare',       (params) => s.competitor.compareWithSelf(p(params).competitorId ?? p(params).id)],
+
+      // Scheduler
+      ['scheduler.schedule',       (params) => s.scheduler.schedulePost(p(params))],
+      ['scheduler.list',           () => s.scheduler.listScheduled()],
+      ['scheduler.pending',        () => s.scheduler.listPending()],
+      ['scheduler.cancel',         (params) => s.scheduler.cancelPost(p(params).id)],
+      ['scheduler.checkDue',       () => s.scheduler.checkDue()],
+      ['scheduler.reschedule',     (params) => s.scheduler.reschedule(p(params).id, p(params).scheduledAt)],
+
+      // Content Generator
+      ['content.generate',         (params) => s.contentGenerator.generateDraft(p(params).platform, p(params).topic)],
+      ['content.hashtags',         (params) => s.contentGenerator.suggestHashtags(p(params).platform, p(params).limit)],
+
+      // Platform Adapter
+      ['platform.adapt',           (params) => s.platformAdapter.adaptForPlatform(p(params).content, p(params).targetPlatform, p(params).sourceFormat)],
+      ['platform.crossAdapt',      (params) => s.platformAdapter.adaptCrossPlatform(p(params).content, p(params).sourcePlatform, p(params).targetPlatforms)],
+      ['platform.config',          (params) => s.platformAdapter.getPlatformConfig(p(params).platform)],
+
       // Cross-Brain Notifications
       ['cross-brain.notify',   (params) => {
         const { source, event, timestamp } = p(params);
@@ -241,7 +275,7 @@ export class IpcRouter {
       // Status (cross-brain)
       ['status',               () => ({
         name: 'marketing-brain',
-        version: '0.5.0',
+        version: '1.2.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

@@ -377,6 +377,199 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
 
   // === Cross-Brain Ecosystem Tools ===
 
+  // === Competitor Analysis ===
+
+  server.tool(
+    'marketing_competitor_add',
+    'Track a competitor account. Provide their name, platform, and handle to start monitoring.',
+    {
+      name: z.string().describe('Competitor name or brand'),
+      platform: z.string().describe('Platform (x, linkedin, reddit, bluesky)'),
+      handle: z.string().describe('Their handle/username on the platform'),
+      url: z.string().optional().describe('Profile URL'),
+      notes: z.string().optional().describe('Notes about this competitor'),
+    },
+    async (params) => {
+      const result = await call('competitor.add', params);
+      const msg = (result as { isNew: boolean }).isNew
+        ? `Competitor added: ${params.name} (@${params.handle} on ${params.platform})`
+        : `Competitor already tracked: ${params.name} (@${params.handle})`;
+      return { content: [{ type: 'text' as const, text: msg }] };
+    },
+  );
+
+  server.tool(
+    'marketing_competitor_list',
+    'List all tracked competitors.',
+    {},
+    async () => {
+      const result = await call('competitor.list', {});
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'marketing_competitor_post',
+    'Record a competitor post you observed. Track their content and engagement for analysis.',
+    {
+      competitor_id: z.number().describe('Competitor ID'),
+      platform: z.string().describe('Platform where the post was found'),
+      content: z.string().describe('Post content/text'),
+      url: z.string().optional().describe('Post URL'),
+      engagement: z.object({
+        likes: z.number().optional(),
+        comments: z.number().optional(),
+        shares: z.number().optional(),
+        impressions: z.number().optional(),
+      }).optional().describe('Observed engagement metrics'),
+    },
+    async (params) => {
+      const result = await call('competitor.recordPost', {
+        competitorId: params.competitor_id,
+        platform: params.platform,
+        content: params.content,
+        url: params.url,
+        engagement: params.engagement,
+      });
+      return { content: [{ type: 'text' as const, text: `Competitor post recorded (id: ${result})` }] };
+    },
+  );
+
+  server.tool(
+    'marketing_competitor_analysis',
+    'Analyze a competitor — posting frequency, engagement levels, content patterns.',
+    {
+      competitor_id: z.number().describe('Competitor ID to analyze'),
+    },
+    async ({ competitor_id }) => {
+      const result = await call('competitor.analyze', { competitorId: competitor_id });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'marketing_competitor_compare',
+    'Compare a competitor against your own performance — posting frequency, engagement, and verdict.',
+    {
+      competitor_id: z.number().describe('Competitor ID to compare against'),
+    },
+    async ({ competitor_id }) => {
+      const result = await call('competitor.compare', { competitorId: competitor_id });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  // === Content Generation ===
+
+  server.tool(
+    'marketing_generate_draft',
+    'Generate a content draft using learned patterns. Returns suggested format, optimal posting time, content guidelines, template, hashtags, and confidence.',
+    {
+      platform: z.string().describe('Target platform (x, linkedin, reddit, bluesky)'),
+      topic: z.string().optional().describe('Optional topic or theme for the draft'),
+    },
+    async (params) => {
+      const result = await call('content.generate', params);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'marketing_suggest_hashtags',
+    'Get top-performing hashtags for a platform based on historical engagement data.',
+    {
+      platform: z.string().describe('Platform to get hashtags for'),
+      limit: z.number().optional().describe('Max hashtags to return (default 10)'),
+    },
+    async (params) => {
+      const result = await call('content.hashtags', params);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  // === Scheduling ===
+
+  server.tool(
+    'marketing_schedule_post',
+    'Schedule a post for future publishing at an optimal time. If no time specified, the brain picks the best time based on learned patterns.',
+    {
+      platform: z.string().describe('Target platform'),
+      content: z.string().describe('Post content'),
+      format: z.string().optional().describe('Post format (text, image, video, etc.)'),
+      hashtags: z.string().optional().describe('Hashtags'),
+      scheduled_at: z.string().optional().describe('ISO date-time to publish (leave empty for auto-scheduling)'),
+      webhook_url: z.string().optional().describe('Webhook URL to notify when post is due'),
+    },
+    async (params) => {
+      const result = await call('scheduler.schedule', {
+        platform: params.platform,
+        content: params.content,
+        format: params.format,
+        hashtags: params.hashtags,
+        scheduled_at: params.scheduled_at,
+        webhook_url: params.webhook_url,
+      });
+      const r = result as { scheduledId: number; scheduledAt: string };
+      return { content: [{ type: 'text' as const, text: `Post scheduled (id: ${r.scheduledId}) for ${r.scheduledAt}` }] };
+    },
+  );
+
+  server.tool(
+    'marketing_schedule_list',
+    'List all scheduled posts (pending and published).',
+    {},
+    async () => {
+      const result = await call('scheduler.list', {});
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'marketing_schedule_cancel',
+    'Cancel a scheduled post.',
+    {
+      id: z.number().describe('Scheduled post ID to cancel'),
+    },
+    async ({ id }) => {
+      await call('scheduler.cancel', { id });
+      return { content: [{ type: 'text' as const, text: `Scheduled post #${id} cancelled.` }] };
+    },
+  );
+
+  // === Cross-Platform Optimization ===
+
+  server.tool(
+    'marketing_optimize_cross_platform',
+    'Adapt content for multiple platforms. Handles character limits, hashtag strategies, thread splitting, and format optimization.',
+    {
+      content: z.string().describe('Original post content'),
+      source_platform: z.string().describe('Platform the content was written for'),
+      target_platforms: z.array(z.string()).optional().describe('Platforms to adapt for (default: all others)'),
+    },
+    async (params) => {
+      const result = await call('platform.crossAdapt', {
+        content: params.content,
+        sourcePlatform: params.source_platform,
+        targetPlatforms: params.target_platforms,
+      });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'marketing_platform_config',
+    'Get platform-specific configuration (character limits, hashtag rules, supported formats).',
+    {
+      platform: z.string().describe('Platform name'),
+    },
+    async ({ platform }) => {
+      const result = await call('platform.config', { platform });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  // === Ecosystem ===
+
   server.tool(
     'marketing_ecosystem_status',
     'Get status of all brains in the ecosystem (brain, trading-brain, marketing-brain).',
