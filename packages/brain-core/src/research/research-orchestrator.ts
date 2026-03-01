@@ -12,6 +12,7 @@ import { ResearchJournal } from './journal.js';
 import type { CausalGraph } from '../causal/engine.js';
 import type { ResearchCycleReport } from './autonomous-scheduler.js';
 import type { DataMiner } from './data-miner.js';
+import type { DreamEngine } from '../dream/dream-engine.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ export class ResearchOrchestrator {
   readonly journal: ResearchJournal;
 
   private dataMiner: DataMiner | null = null;
+  private dreamEngine: DreamEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -72,6 +74,13 @@ export class ResearchOrchestrator {
     this.dataMiner = miner;
   }
 
+  /** Set the DreamEngine — wires journal + knowledgeDistiller into it. */
+  setDreamEngine(engine: DreamEngine): void {
+    this.dreamEngine = engine;
+    engine.setJournal(this.journal);
+    engine.setKnowledgeDistiller(this.knowledgeDistiller);
+  }
+
   /** Start the autonomous feedback loop timer. */
   start(intervalMs = 300_000): void {
     if (this.feedbackTimer) return;
@@ -88,6 +97,7 @@ export class ResearchOrchestrator {
       clearInterval(this.feedbackTimer);
       this.feedbackTimer = null;
     }
+    this.dreamEngine?.stop();
   }
 
   /**
@@ -95,6 +105,8 @@ export class ResearchOrchestrator {
    * Routes to: SelfObserver, AnomalyDetective, CrossDomain.
    */
   onEvent(eventType: string, data: Record<string, unknown> = {}): void {
+    this.dreamEngine?.recordActivity();
+
     this.selfObserver.record({
       category: categorize(eventType),
       event_type: eventType,
@@ -284,6 +296,7 @@ export class ResearchOrchestrator {
       knowledge: this.knowledgeDistiller.getSummary(),
       correlations: this.crossDomain.getCorrelations(10),
       strategy: this.adaptiveStrategy.getStatus(),
+      dream: this.dreamEngine?.getStatus() ?? null,
     };
   }
 }

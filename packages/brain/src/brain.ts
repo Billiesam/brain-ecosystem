@@ -63,7 +63,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, DreamEngine } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -256,7 +256,16 @@ export class BrainCore {
     });
     this.orchestrator.setDataMiner(dataMiner);
     dataMiner.bootstrap();
-    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped)');
+
+    // 11h. Dream Engine — offline memory consolidation
+    const dreamEngine = new DreamEngine(this.db!, { brainName: 'brain' });
+    if (this.embeddingEngine) {
+      dreamEngine.setEmbeddingEngine(this.embeddingEngine);
+    }
+    this.orchestrator.setDreamEngine(dreamEngine);
+    dreamEngine.start();
+    services.dreamEngine = dreamEngine;
+    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active)');
 
     // 12. IPC Server
     const router = new IpcRouter(services);

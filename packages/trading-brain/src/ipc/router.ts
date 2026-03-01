@@ -33,6 +33,7 @@ import type { KnowledgeDistiller } from '@timmeck/brain-core';
 import type { ResearchAgendaEngine } from '@timmeck/brain-core';
 import type { AnomalyDetective } from '@timmeck/brain-core';
 import type { ResearchJournal } from '@timmeck/brain-core';
+import type { DreamEngine } from '@timmeck/brain-core';
 
 const logger = getLogger();
 
@@ -70,6 +71,7 @@ export interface Services {
   researchAgenda?: ResearchAgendaEngine;
   anomalyDetective?: AnomalyDetective;
   journal?: ResearchJournal;
+  dreamEngine?: DreamEngine;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -377,9 +379,17 @@ export class IpcRouter {
       ['journal.search',           (params) => { if (!s.journal) throw new Error('Research journal not available'); return s.journal.search(p(params).query, p(params)?.limit); }],
       ['journal.reflect',          () => { if (!s.journal) throw new Error('Research journal not available'); return s.journal.reflect(); }],
 
+      // ─── Dream Mode ──────────────────────────────────────────
+      ['dream.start',              () => { if (!s.dreamEngine) throw new Error('Dream engine not available'); s.dreamEngine.start(); return { started: true }; }],
+      ['dream.stop',               () => { if (!s.dreamEngine) throw new Error('Dream engine not available'); s.dreamEngine.stop(); return { stopped: true }; }],
+      ['dream.status',             () => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.getStatus(); }],
+      ['dream.consolidate',        (params) => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.consolidate(p(params)?.trigger ?? 'manual'); }],
+      ['dream.history',            (params) => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.getHistory(p(params)?.limit); }],
+      ['dream.journal',            (params) => { if (!s.journal) throw new Error('Research journal not available'); return s.journal.search('dream', p(params)?.limit ?? 10); }],
+
       ['status', () => ({
         name: 'trading-brain',
-        version: '2.8.0',
+        version: '2.10.0',
         uptime: Math.floor(process.uptime()),
         pid: process.pid,
         methods: this.listMethods().length,

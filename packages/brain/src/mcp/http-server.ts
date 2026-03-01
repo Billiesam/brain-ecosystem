@@ -3,6 +3,7 @@ import type { IpcRouter } from '../ipc/router.js';
 import { registerToolsDirect } from './tools.js';
 import { registerResearchToolsDirect } from './research-tools.js';
 import { registerAdvancedResearchToolsDirect } from './advanced-research-tools.js';
+import { registerDreamToolsDirect } from './dream-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -12,11 +13,12 @@ export class McpHttpServer {
     this.inner = new CoreMcpHttpServer(
       port,
       router,
-      { name: 'brain', version: '3.8.0' },
+      { name: 'brain', version: '3.10.0' },
       (server, _r) => {
         registerToolsDirect(server, router);
         registerResearchToolsDirect(server, router);
         registerAdvancedResearchToolsDirect(server, router);
+        registerDreamToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

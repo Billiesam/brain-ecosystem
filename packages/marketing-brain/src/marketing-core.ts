@@ -65,7 +65,7 @@ import { createMarketingDashboardServer } from './dashboard/server.js';
 import { renderDashboard } from './dashboard/renderer.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, MarketingDataMinerAdapter } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, MarketingDataMinerAdapter, DreamEngine } from '@timmeck/brain-core';
 
 export class MarketingCore {
   private db: Database.Database | null = null;
@@ -232,7 +232,17 @@ export class MarketingCore {
     });
     this.orchestrator.setDataMiner(dataMiner);
     dataMiner.bootstrap();
-    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped)');
+
+    // 10h. Dream Engine — offline memory consolidation
+    const dreamEngine = new DreamEngine(this.db!, {
+      brainName: 'marketing-brain',
+      replayBatchSize: 15,
+      clusterSimilarityThreshold: 0.70,
+    });
+    this.orchestrator.setDreamEngine(dreamEngine);
+    dreamEngine.start();
+    services.dreamEngine = dreamEngine;
+    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active)');
 
     // 11. IPC Server
     const router = new IpcRouter(services);

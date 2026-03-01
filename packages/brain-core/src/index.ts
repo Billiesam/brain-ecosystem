@@ -167,3 +167,8 @@ export type { ResearchOrchestratorConfig } from './research/research-orchestrato
 export { DataMiner, runDataMinerMigration } from './research/data-miner.js';
 export type { DataMinerAdapter, DataMinerEngines, DataMinerState, MineResult, MinedObservation, MinedCausalEvent, MinedMetric, MinedHypothesisObservation, MinedCrossDomainEvent } from './research/data-miner.js';
 export { BrainDataMinerAdapter, TradingDataMinerAdapter, MarketingDataMinerAdapter } from './research/adapters/index.js';
+
+// ── Dream Mode ──────────────────────────────────────
+export { DreamEngine, runDreamMigration } from './dream/index.js';
+export { DreamConsolidator } from './dream/index.js';
+export type { DreamEngineConfig, DreamCycleReport, DreamStatus, DreamHistoryEntry, DreamTrigger, MemoryReplayResult, SynapsePruneResult, MemoryCompressionResult, MemoryCluster, ImportanceDecayResult } from './dream/index.js';
