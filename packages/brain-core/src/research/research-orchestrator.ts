@@ -12,6 +12,7 @@ import { KnowledgeDistiller } from './knowledge-distiller.js';
 import { ResearchAgendaEngine } from './agenda-engine.js';
 import { AnomalyDetective } from './anomaly-detective.js';
 import { ResearchJournal } from './journal.js';
+import { HypothesisEngine } from '../hypothesis/engine.js';
 import type { CausalGraph } from '../causal/engine.js';
 import type { ResearchCycleReport } from './autonomous-scheduler.js';
 import type { DataMiner } from './data-miner.js';
@@ -47,6 +48,7 @@ export class ResearchOrchestrator {
   readonly anomalyDetective: AnomalyDetective;
   readonly journal: ResearchJournal;
   readonly autoResponder: AutoResponder;
+  readonly hypothesisEngine: HypothesisEngine;
 
   private dataMiner: DataMiner | null = null;
   private dreamEngine: DreamEngine | null = null;
@@ -84,6 +86,7 @@ export class ResearchOrchestrator {
     this.autoResponder = new AutoResponder(db, { brainName: config.brainName });
     this.autoResponder.setAdaptiveStrategy(this.adaptiveStrategy);
     this.autoResponder.setJournal(this.journal);
+    this.hypothesisEngine = new HypothesisEngine(db, { minEvidence: 5, confirmThreshold: 0.05, rejectThreshold: 0.5 });
   }
 
   /** Set the DataMiner instance for DB-driven engine feeding. */
@@ -271,6 +274,16 @@ export class ResearchOrchestrator {
       }
     }
 
+    // 2c. Feed observations into HypothesisEngine for autonomous hypothesis generation
+    const now = Date.now();
+    this.hypothesisEngine.observe({ source: this.brainName, type: 'anomaly_count', value: anomalies.length, timestamp: now });
+    this.hypothesisEngine.observe({ source: this.brainName, type: 'insight_count', value: insights.length, timestamp: now });
+    if (anomalies.length > 0) {
+      for (const a of anomalies) {
+        this.hypothesisEngine.observe({ source: this.brainName, type: `anomaly:${a.metric}`, value: a.deviation, timestamp: now, metadata: { severity: a.severity } });
+      }
+    }
+
     // 3. Cross-domain correlation analysis
     ts?.emit('cross_domain', 'correlating', 'Analyzing cross-brain event correlations...');
     const correlations = this.crossDomain.analyze();
@@ -289,6 +302,9 @@ export class ResearchOrchestrator {
     } else {
       ts?.emit('cross_domain', 'correlating', 'No significant correlations this cycle');
     }
+
+    // 3b. Feed correlation data into HypothesisEngine
+    this.hypothesisEngine.observe({ source: this.brainName, type: 'correlation_count', value: significant.length, timestamp: now });
 
     // 4. Adaptive strategy: check for regressions and revert
     ts?.emit('adaptive_strategy', 'analyzing', 'Checking for strategy regressions...');
@@ -325,6 +341,41 @@ export class ResearchOrchestrator {
           );
           this.log.info(`[orchestrator] Experiment "${exp.name}": ${sig ? result.conclusion.direction : 'inconclusive'} (p=${result.conclusion.p_value.toFixed(4)}, d=${result.conclusion.effect_size.toFixed(2)})`);
         }
+      }
+    }
+
+    // 5b. Hypothesis generation + testing (every 3 cycles, same as agenda)
+    if (this.cycleCount % this.agendaEvery === 0) {
+      ts?.emit('hypothesis', 'hypothesizing', 'Generating hypotheses from observations...');
+      const generated = this.hypothesisEngine.generate();
+      if (generated.length > 0) {
+        ts?.emit('hypothesis', 'discovering', `Generated ${generated.length} hypothesis${generated.length > 1 ? 'es' : ''}: ${generated.map(h => h.statement.substring(0, 60)).join('; ')}`, 'notable');
+        this.log.info(`[orchestrator] Hypotheses generated: ${generated.length}`);
+      }
+      ts?.emit('hypothesis', 'analyzing', 'Testing pending hypotheses...');
+      const testResults = this.hypothesisEngine.testAll();
+      const confirmed = testResults.filter(r => r.newStatus === 'confirmed');
+      const rejected = testResults.filter(r => r.newStatus === 'rejected');
+      if (confirmed.length > 0 || rejected.length > 0) {
+        ts?.emit('hypothesis', 'discovering', `Tested ${testResults.length}: ${confirmed.length} confirmed, ${rejected.length} rejected`, confirmed.length > 0 ? 'notable' : 'routine');
+        for (const c of confirmed) {
+          const hyp = this.hypothesisEngine.get(c.hypothesisId);
+          if (hyp) {
+            this.journal.write({
+              type: 'discovery',
+              title: `Hypothesis confirmed: ${hyp.statement.substring(0, 80)}`,
+              content: `Hypothesis confirmed with p=${c.pValue.toFixed(4)}, confidence=${c.confidence.toFixed(3)}. Evidence: ${c.evidenceFor} for, ${c.evidenceAgainst} against.`,
+              tags: [this.brainName, 'hypothesis', 'confirmed', hyp.type],
+              references: [],
+              significance: c.confidence > 0.8 ? 'breakthrough' : 'notable',
+              data: { hypothesisId: c.hypothesisId, pValue: c.pValue, confidence: c.confidence },
+            });
+          }
+        }
+      } else if (testResults.length > 0) {
+        ts?.emit('hypothesis', 'analyzing', `Tested ${testResults.length} hypotheses — none conclusive yet`);
+      } else {
+        ts?.emit('hypothesis', 'analyzing', 'No hypotheses to test yet');
       }
     }
 
@@ -475,16 +526,19 @@ export class ResearchOrchestrator {
 
     // Knowledge distillation
     const knowledge = summary.knowledge as Record<string, unknown> | null;
+    const hypSummary = summary.hypotheses as Record<string, unknown> | null;
+    const totalHypotheses = (hypSummary?.total as number) ?? 0;
+    const confirmedHypotheses = (hypSummary?.confirmed as number) ?? 0;
     if (knowledge) {
-      const principles = (knowledge.total_principles as number) ?? 0;
-      const antiPatterns = (knowledge.total_anti_patterns as number) ?? 0;
-      if (principles === 0 && antiPatterns === 0 && this.cycleCount > 5) {
+      const principles = (knowledge.principles as number) ?? 0;
+      const antiPatterns = (knowledge.antiPatterns as number) ?? 0;
+      if (principles === 0 && antiPatterns === 0 && confirmedHypotheses === 0 && this.cycleCount > 10) {
         raw.push({
           key: 'no_knowledge',
-          suggestion: 'Tell Claude: Kein destilliertes Wissen — KnowledgeDistiller braucht mehr Journal-Einträge.',
+          suggestion: 'Tell Claude: Kein destilliertes Wissen und keine bestätigten Hypothesen — Brain braucht mehr Observations. Importiere Projekte damit mehr Domain-Events fließen.',
           alternatives: [
-            'Tell Claude: KnowledgeDistiller findet nichts weil die Journal-Einträge zu uniform sind. Alternativer Ansatz: der Distiller soll auch aus AutoResponder-Aktionen und Anomaly-Patterns Wissen extrahieren, nicht nur aus Journal-Text.',
-            'Tell Claude: Statt auf mehr Daten zu warten — den Distiller auf die vorhandenen Synapse-Gewichte ansetzen. Die stärksten Synapsen sind implizites Wissen das destilliert werden kann.',
+            'Tell Claude: Hypothesen werden generiert aber noch nicht bestätigt. Brain braucht mehr Cycles mit variierenden Daten um Patterns statistisch zu bestätigen.',
+            'Tell Claude: Brain generiert schon Hypothesen aus eigenen Metriken. Geduld — nach genug Cycles werden die ersten bestätigt und der KnowledgeDistiller kann Wissen extrahieren.',
           ],
         });
       }
@@ -720,6 +774,7 @@ export class ResearchOrchestrator {
       dream: this.dreamEngine?.getStatus() ?? null,
       prediction: this.predictionEngine?.getSummary() ?? null,
       autoResponder: this.autoResponder.getStatus(),
+      hypotheses: this.hypothesisEngine.getSummary(),
     };
   }
 }
