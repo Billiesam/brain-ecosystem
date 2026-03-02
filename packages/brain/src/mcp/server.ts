@@ -17,12 +17,13 @@ import { registerUnifiedTools } from './unified-tools.js';
 import { registerNarrativeTools } from './narrative-tools.js';
 import { registerCuriosityTools } from './curiosity-tools.js';
 import { registerEmergenceTools } from './emergence-tools.js';
+import { registerDebateTools } from './debate-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
     name: 'brain',
-    version: '3.24.0',
+    version: '3.25.0',
     entryPoint: path.resolve(import.meta.dirname, '../index.ts'),
     registerTools: (server, ipc) => {
       registerTools(server, ipc);
@@ -42,6 +43,7 @@ export async function startMcpServer(): Promise<void> {
       registerNarrativeTools(server, ipc);
       registerCuriosityTools(server, ipc);
       registerEmergenceTools(server, ipc);
+      registerDebateTools(server, ipc);
     },
     registerPrompts,
   });

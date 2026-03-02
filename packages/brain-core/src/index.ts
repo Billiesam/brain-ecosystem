@@ -240,6 +240,14 @@ export type {
   ExplorationRecord, BanditArm, CuriosityStatus, ExplorationDecision,
 } from './curiosity/index.js';
 
+// ── Debate Engine ──────────────────────────────────────
+export { DebateEngine, runDebateMigration } from './debate/index.js';
+export type {
+  DebateEngineConfig, DebateDataSources,
+  Debate, DebateStatus, DebatePerspective, DebateArgument,
+  DebateSynthesis, DebateConflict, DebateEngineStatus,
+} from './debate/index.js';
+
 // ── Unified Dashboard ──────────────────────────────────
 export { UnifiedDashboardServer } from './unified/index.js';
 export type { UnifiedDashboardOptions } from './unified/index.js';

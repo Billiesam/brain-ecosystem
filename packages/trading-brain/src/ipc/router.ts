@@ -84,6 +84,7 @@ export interface Services {
   narrativeEngine?: import('@timmeck/brain-core').NarrativeEngine;
   curiosityEngine?: import('@timmeck/brain-core').CuriosityEngine;
   emergenceEngine?: import('@timmeck/brain-core').EmergenceEngine;
+  debateEngine?: import('@timmeck/brain-core').DebateEngine;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -460,6 +461,15 @@ export class IpcRouter {
       ['emergence.metrics.latest',  () => { if (!s.emergenceEngine) throw new Error('EmergenceEngine not available'); return s.emergenceEngine.getLatestMetrics(); }],
       ['emergence.metrics.trend',   (params) => { if (!s.emergenceEngine) throw new Error('EmergenceEngine not available'); return s.emergenceEngine.getMetricsTrend(p(params)?.limit ?? 20); }],
       ['emergence.surprise',        (params) => { if (!s.emergenceEngine) throw new Error('EmergenceEngine not available'); return { score: s.emergenceEngine.computeSurpriseScore(p(params).observation, p(params).context ?? {}) }; }],
+
+      // ─── Debate ────────────────────────────────────────────
+      ['debate.start',              (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.startDebate(p(params).question); }],
+      ['debate.perspective',        (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.generatePerspective(p(params).question); }],
+      ['debate.add',                (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); s.debateEngine.addPerspective(p(params).debateId, p(params).perspective); return { added: true }; }],
+      ['debate.synthesize',         (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.synthesize(p(params).debateId); }],
+      ['debate.get',                (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.getDebate(p(params).debateId); }],
+      ['debate.list',               (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.listDebates(p(params)?.limit ?? 20); }],
+      ['debate.status',             () => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.getStatus(); }],
 
       ['status', () => ({
         name: 'trading-brain',

@@ -27,6 +27,7 @@ import type { TransferEngine } from '../transfer/transfer-engine.js';
 import type { NarrativeEngine } from '../narrative/narrative-engine.js';
 import type { CuriosityEngine } from '../curiosity/curiosity-engine.js';
 import type { EmergenceEngine } from '../emergence/emergence-engine.js';
+import type { DebateEngine } from '../debate/debate-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -70,6 +71,7 @@ export class ResearchOrchestrator {
   private narrativeEngine: NarrativeEngine | null = null;
   private curiosityEngine: CuriosityEngine | null = null;
   private emergenceEngine: EmergenceEngine | null = null;
+  private debateEngine: DebateEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -163,6 +165,10 @@ export class ResearchOrchestrator {
   /** Set the EmergenceEngine — tracks emergent behaviors and complexity metrics. */
   setEmergenceEngine(engine: EmergenceEngine): void {
     this.emergenceEngine = engine;
+  }
+
+  setDebateEngine(engine: DebateEngine): void {
+    this.debateEngine = engine;
   }
 
   /** Set the PredictionEngine — wires journal into it. */
@@ -844,6 +850,36 @@ export class ResearchOrchestrator {
       }
     }
 
+    // 20. Internal Debate: periodically debate key findings to synthesize cross-engine wisdom
+    if (this.debateEngine && this.cycleCount % this.reflectEvery === 0) {
+      ts?.emit('reflecting', 'reflecting', 'Initiating internal debate on recent findings...');
+      try {
+        // Pick a debate topic from recent attention or agenda
+        const topic = this.pickDebateTopic();
+        if (topic) {
+          const debate = this.debateEngine.startDebate(topic);
+          const synthesis = this.debateEngine.synthesize(debate.id!);
+          if (synthesis && synthesis.conflicts.length > 0) {
+            this.journal.write({
+              type: 'discovery',
+              title: `Debate: ${topic.substring(0, 80)}`,
+              content: `Internal debate with ${synthesis.participantCount} perspective(s). ${synthesis.conflicts.length} conflict(s). Resolution: ${synthesis.resolution}`,
+              tags: [this.brainName, 'debate', 'synthesis'],
+              references: [],
+              significance: synthesis.conflicts.length > 2 ? 'notable' : 'routine',
+              data: { debate: { question: topic, synthesis } },
+            });
+          }
+          ts?.emit('reflecting', 'reflecting',
+            `Debate on "${topic.substring(0, 40)}...": ${synthesis?.conflicts.length ?? 0} conflicts, confidence=${((synthesis?.confidence ?? 0) * 100).toFixed(0)}%`,
+            synthesis && synthesis.conflicts.length > 0 ? 'notable' : 'routine',
+          );
+        }
+      } catch (err) {
+        this.log.error(`[orchestrator] Debate step error: ${(err as Error).message}`);
+      }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -852,6 +888,38 @@ export class ResearchOrchestrator {
   /** Analyze Brain's own state and generate concrete improvement suggestions.
    *  Tracks suggestion history — if a suggestion repeats 3+ times without resolution,
    *  Brain tries alternative strategies instead of repeating itself. */
+  /** Pick a debate topic from recent attention, anomalies, or journal insights. */
+  private pickDebateTopic(): string | null {
+    // Try attention-based topics first
+    if (this.attentionEngine) {
+      try {
+        const topics = this.attentionEngine.getTopTopics(3);
+        if (topics.length > 0) {
+          return `What should ${this.brainName} prioritize regarding "${topics[0].topic}"?`;
+        }
+      } catch { /* not wired */ }
+    }
+
+    // Try recent anomalies
+    try {
+      const anomalies = this.anomalyDetective.getAnomalies(undefined, 5);
+      if (anomalies.length > 0) {
+        return `How should we respond to the anomaly: "${anomalies[0].title}"?`;
+      }
+    } catch { /* empty */ }
+
+    // Try recent journal breakthroughs
+    try {
+      const entries = this.journal.search('breakthrough', 5);
+      const breakthrough = entries.find(e => e.significance === 'breakthrough');
+      if (breakthrough) {
+        return `What are the implications of: "${breakthrough.title}"?`;
+      }
+    } catch { /* empty */ }
+
+    return null;
+  }
+
   private generateSelfImprovementSuggestions(): string[] {
     const raw: Array<{ key: string; suggestion: string; alternatives: string[] }> = [];
     const summary = this.getSummary();

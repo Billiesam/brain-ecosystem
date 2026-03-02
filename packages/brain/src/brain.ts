@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -90,6 +90,7 @@ export class BrainCore {
   private narrativeEngine: NarrativeEngine | null = null;
   private curiosityEngine: CuriosityEngine | null = null;
   private emergenceEngine: EmergenceEngine | null = null;
+  private debateEngine: DebateEngine | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -365,6 +366,21 @@ export class BrainCore {
     this.orchestrator.setEmergenceEngine(emergenceEngine);
     this.emergenceEngine = emergenceEngine;
     services.emergenceEngine = emergenceEngine;
+
+    // 11j.10 Debate Engine — multi-perspective debates on key questions
+    const debateEngine = new DebateEngine(this.db!, { brainName: 'brain', domainDescription: 'error tracking and code intelligence' });
+    debateEngine.setThoughtStream(thoughtStream);
+    debateEngine.setDataSources({
+      knowledgeDistiller: this.orchestrator.knowledgeDistiller,
+      hypothesisEngine: this.orchestrator.hypothesisEngine,
+      journal: this.orchestrator.journal,
+      anomalyDetective: this.orchestrator.anomalyDetective,
+      predictionEngine,
+      narrativeEngine,
+    });
+    this.orchestrator.setDebateEngine(debateEngine);
+    this.debateEngine = debateEngine;
+    services.debateEngine = debateEngine;
 
     this.consciousnessServer = new ConsciousnessServer({
       port: 7784,
