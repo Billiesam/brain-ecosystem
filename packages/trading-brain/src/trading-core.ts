@@ -53,7 +53,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine } from '@timmeck/brain-core';
 
 export class TradingCore {
   private db: Database.Database | null = null;
@@ -70,6 +70,7 @@ export class TradingCore {
   private consciousnessServer: ConsciousnessServer | null = null;
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
+  private narrativeEngine: NarrativeEngine | null = null;
   private config: TradingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -292,6 +293,21 @@ export class TradingCore {
     this.orchestrator.setTransferEngine(this.transferEngine);
     services.transferEngine = this.transferEngine;
 
+    // 12k. Narrative Engine — natural language explanations of Brain knowledge
+    this.narrativeEngine = new NarrativeEngine(this.db!, { brainName: 'trading-brain' });
+    this.narrativeEngine.setDataSources({
+      knowledgeDistiller: this.orchestrator.knowledgeDistiller,
+      hypothesisEngine: researchScheduler.hypothesisEngine,
+      journal: this.orchestrator.journal,
+      predictionEngine,
+      experimentEngine: this.orchestrator.experimentEngine,
+      anomalyDetective: this.orchestrator.anomalyDetective,
+      attentionEngine: this.attentionEngine,
+      transferEngine: this.transferEngine,
+    });
+    this.orchestrator.setNarrativeEngine(this.narrativeEngine);
+    services.narrativeEngine = this.narrativeEngine;
+
     logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7785)');
 
     // 13. IPC Server
@@ -388,6 +404,7 @@ export class TradingCore {
     this.orchestrator = null;
     this.consciousnessServer = null;
     this.attentionEngine = null;
+    this.narrativeEngine = null;
     this.subscriptionManager = null;
     this.correlator = null;
   }

@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -87,6 +87,7 @@ export class BrainCore {
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
   private unifiedServer: UnifiedDashboardServer | null = null;
+  private narrativeEngine: NarrativeEngine | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -309,6 +310,23 @@ export class BrainCore {
     this.orchestrator.setTransferEngine(transferEngine);
     this.transferEngine = transferEngine;
     services.transferEngine = transferEngine;
+
+    // 11j.7 Narrative Engine — brain explains itself in natural language
+    const narrativeEngine = new NarrativeEngine(this.db!, { brainName: 'brain' });
+    narrativeEngine.setThoughtStream(thoughtStream);
+    narrativeEngine.setDataSources({
+      knowledgeDistiller: this.orchestrator.knowledgeDistiller,
+      hypothesisEngine: this.orchestrator.hypothesisEngine,
+      journal: this.orchestrator.journal,
+      predictionEngine: predictionEngine,
+      experimentEngine: this.orchestrator.experimentEngine,
+      anomalyDetective: this.orchestrator.anomalyDetective,
+      attentionEngine,
+      transferEngine,
+    });
+    this.orchestrator.setNarrativeEngine(narrativeEngine);
+    this.narrativeEngine = narrativeEngine;
+    services.narrativeEngine = narrativeEngine;
 
     this.consciousnessServer = new ConsciousnessServer({
       port: 7784,
@@ -570,6 +588,7 @@ export class BrainCore {
     this.consciousnessServer = null;
     this.codegenServer = null;
     this.unifiedServer = null;
+    this.narrativeEngine = null;
     this.subscriptionManager = null;
     this.correlator = null;
     this.ecosystemService = null;

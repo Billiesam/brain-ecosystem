@@ -96,6 +96,7 @@ export interface Services {
   attentionEngine?: import('@timmeck/brain-core').AttentionEngine;
   transferEngine?: import('@timmeck/brain-core').TransferEngine;
   unifiedServer?: import('@timmeck/brain-core').UnifiedDashboardServer;
+  narrativeEngine?: import('@timmeck/brain-core').NarrativeEngine;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -519,6 +520,14 @@ export class IpcRouter {
       ['transfer.rules',          () => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.getRules(); }],
       ['transfer.history',        (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.getTransferHistory(p(params)?.limit ?? 50); }],
       ['transfer.analyze',        () => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.analyze(); }],
+
+      // ─── Narrative Engine ──────────────────────────────────
+      ['narrative.explain',        (params) => { if (!s.narrativeEngine) throw new Error('NarrativeEngine not available'); return s.narrativeEngine.explain(p(params).topic); }],
+      ['narrative.ask',            (params) => { if (!s.narrativeEngine) throw new Error('NarrativeEngine not available'); return s.narrativeEngine.ask(p(params).question); }],
+      ['narrative.contradictions', () => { if (!s.narrativeEngine) throw new Error('NarrativeEngine not available'); return s.narrativeEngine.findContradictions(); }],
+      ['narrative.digest',         (params) => { if (!s.narrativeEngine) throw new Error('NarrativeEngine not available'); return s.narrativeEngine.generateDigest(p(params)?.days ?? 7); }],
+      ['narrative.confidence',     (params) => { if (!s.narrativeEngine) throw new Error('NarrativeEngine not available'); return s.narrativeEngine.getConfidenceReport(p(params)?.topic); }],
+      ['narrative.status',         () => { if (!s.narrativeEngine) throw new Error('NarrativeEngine not available'); return s.narrativeEngine.getStatus(); }],
 
       // ─── Unified Dashboard ─────────────────────────────────
       ['unified.clients',         () => { return { clients: s.unifiedServer?.getClientCount() ?? 0, port: 7788 }; }],

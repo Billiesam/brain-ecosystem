@@ -24,6 +24,7 @@ import type { CodeGenerator } from '../codegen/code-generator.js';
 import type { CodeMiner } from '../codegen/code-miner.js';
 import type { AttentionEngine } from '../attention/attention-engine.js';
 import type { TransferEngine } from '../transfer/transfer-engine.js';
+import type { NarrativeEngine } from '../narrative/narrative-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -64,6 +65,7 @@ export class ResearchOrchestrator {
   private codeMiner: CodeMiner | null = null;
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
+  private narrativeEngine: NarrativeEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -142,6 +144,11 @@ export class ResearchOrchestrator {
   /** Set the TransferEngine — cross-domain knowledge transfer. */
   setTransferEngine(engine: TransferEngine): void {
     this.transferEngine = engine;
+  }
+
+  /** Set the NarrativeEngine — brain explains itself in natural language. */
+  setNarrativeEngine(engine: NarrativeEngine): void {
+    this.narrativeEngine = engine;
   }
 
   /** Set the PredictionEngine — wires journal into it. */
@@ -927,6 +934,7 @@ export class ResearchOrchestrator {
       codeMiner: this.codeMiner?.getSummary() ?? null,
       attention: this.attentionEngine?.getStatus() ?? null,
       transfer: this.transferEngine?.getStatus() ?? null,
+      narrative: this.narrativeEngine?.getStatus() ?? null,
     };
   }
 }

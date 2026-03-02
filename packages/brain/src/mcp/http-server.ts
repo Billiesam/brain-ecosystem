@@ -14,6 +14,7 @@ import { registerCodegenToolsDirect } from './codegen-tools.js';
 import { registerAttentionToolsDirect } from './attention-tools.js';
 import { registerTransferToolsDirect } from './transfer-tools.js';
 import { registerUnifiedToolsDirect } from './unified-tools.js';
+import { registerNarrativeToolsDirect } from './narrative-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -23,7 +24,7 @@ export class McpHttpServer {
     this.inner = new CoreMcpHttpServer(
       port,
       router,
-      { name: 'brain', version: '3.18.0' },
+      { name: 'brain', version: '3.22.0' },
       (server, _r) => {
         registerToolsDirect(server, router);
         registerResearchToolsDirect(server, router);
@@ -39,6 +40,7 @@ export class McpHttpServer {
         registerAttentionToolsDirect(server, router);
         registerTransferToolsDirect(server, router);
         registerUnifiedToolsDirect(server, router);
+        registerNarrativeToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

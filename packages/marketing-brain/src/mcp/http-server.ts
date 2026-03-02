@@ -9,6 +9,7 @@ import { registerPredictionToolsDirect } from './prediction-tools.js';
 import { registerResponderToolsDirect } from './responder-tools.js';
 import { registerAttentionToolsDirect } from './attention-tools.js';
 import { registerTransferToolsDirect } from './transfer-tools.js';
+import { registerNarrativeToolsDirect } from './narrative-tools.js';
 
 export class McpHttpServer {
   private inner: CoreMcpHttpServer;
@@ -17,7 +18,7 @@ export class McpHttpServer {
     this.inner = new CoreMcpHttpServer(
       port,
       router,
-      { name: 'marketing-brain', version: '1.15.0' },
+      { name: 'marketing-brain', version: '1.18.0' },
       (server, _r) => {
         registerToolsDirect(server, router);
         registerResearchToolsDirect(server, router);
@@ -28,6 +29,7 @@ export class McpHttpServer {
         registerResponderToolsDirect(server, router);
         registerAttentionToolsDirect(server, router);
         registerTransferToolsDirect(server, router);
+        registerNarrativeToolsDirect(server, router);
       },
     );
   }

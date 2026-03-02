@@ -216,6 +216,14 @@ export type {
   CrossDomainRule, TransferStatus,
 } from './transfer/index.js';
 
+// ── Narrative Engine ──────────────────────────────────
+export { NarrativeEngine } from './narrative/index.js';
+export type {
+  NarrativeEngineConfig, NarrativeEngineDataSources,
+  Narrative, Contradiction, WeeklyDigest, DigestSection,
+  ConfidenceReport, ConfidenceFactor, NarrativeAnswer,
+} from './narrative/index.js';
+
 // ── Unified Dashboard ──────────────────────────────────
 export { UnifiedDashboardServer } from './unified/index.js';
 export type { UnifiedDashboardOptions } from './unified/index.js';
