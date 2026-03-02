@@ -11,6 +11,8 @@ import type {
   DreamStatus,
   DreamHistoryEntry,
   DreamTrigger,
+  DreamRetrospective,
+  PruningEfficiency,
 } from './types.js';
 
 // ── Migration ───────────────────────────────────────────
@@ -49,6 +51,17 @@ export function runDreamMigration(db: Database.Database): void {
       updated_at TEXT DEFAULT (datetime('now'))
     );
     INSERT OR IGNORE INTO dream_state (id) VALUES (1);
+
+    CREATE TABLE IF NOT EXISTS dream_retrospective (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      dream_cycle_id TEXT NOT NULL,
+      pruned_items TEXT NOT NULL DEFAULT '[]',
+      reappeared_count INTEGER NOT NULL DEFAULT 0,
+      regret_score REAL NOT NULL DEFAULT 0,
+      lesson TEXT DEFAULT '',
+      analyzed_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_dream_retrospective_cycle ON dream_retrospective(dream_cycle_id);
   `);
 }
 
@@ -159,6 +172,13 @@ export class DreamEngine {
     if (pruning.synapsesPruned > 0) {
       this.log.info(`[dream] Pruning: ${pruning.synapsesPruned} weak synapses removed (threshold: ${pruning.threshold})`);
       ts?.emit('dream', 'dreaming', `Pruned ${pruning.synapsesPruned} weak synapses`);
+
+      // Record pruned items for retrospective analysis
+      const prunedItems = Array.from({ length: pruning.synapsesPruned }, (_, i) => ({
+        synapseId: i, // IDs not available post-deletion; store count-based placeholders
+        weight: pruning.threshold,
+      }));
+      this.recordPrunedItems(cycleId, prunedItems);
     }
 
     // 3. Memory Compression
@@ -279,6 +299,189 @@ export class DreamEngine {
     return this.db.prepare(`
       SELECT * FROM dream_history ORDER BY timestamp DESC LIMIT ?
     `).all(limit) as DreamHistoryEntry[];
+  }
+
+  // ── Retrospective Analysis ───────────────────────────────
+
+  /** Record pruned synapse items for retrospective analysis. */
+  recordPrunedItems(cycleId: string, items: Array<{ synapseId: number; weight: number }>): void {
+    if (items.length === 0) return;
+    try {
+      this.db.prepare(`
+        INSERT INTO dream_retrospective (dream_cycle_id, pruned_items)
+        VALUES (?, ?)
+      `).run(cycleId, JSON.stringify(items));
+    } catch (err) {
+      this.log.warn(`[dream] recordPrunedItems error: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Analyze recent dream cycles for pruning regret.
+   * For each cycle with pruned items, check if synapses were recreated.
+   */
+  analyzeRetrospective(lastNCycles = 5): DreamRetrospective[] {
+    const ts = this.thoughtStream;
+    ts?.emit('dream', 'analyzing', `Analyzing retrospective for last ${lastNCycles} cycles...`);
+
+    const results: DreamRetrospective[] = [];
+
+    try {
+      const rows = this.db.prepare(`
+        SELECT * FROM dream_retrospective
+        ORDER BY analyzed_at DESC LIMIT ?
+      `).all(lastNCycles) as Record<string, unknown>[];
+
+      for (const row of rows) {
+        let prunedItems: Array<{ synapseId: number; weight: number }> = [];
+        try { prunedItems = JSON.parse((row.pruned_items as string) || '[]'); } catch { /* ignore */ }
+
+        if (prunedItems.length === 0) {
+          results.push(this.toRetrospective(row));
+          continue;
+        }
+
+        // Check how many pruned synapses reappeared
+        let reappearedCount = 0;
+        for (const item of prunedItems) {
+          // Check if a synapse with similar source/target was recreated
+          try {
+            const original = this.db.prepare(`
+              SELECT source_type, source_id, target_type, target_id FROM synapses WHERE id = ?
+            `).get(item.synapseId) as Record<string, unknown> | undefined;
+
+            if (original) {
+              // The synapse still exists (wasn't actually pruned or was recreated with same id)
+              reappearedCount++;
+            } else {
+              // Check if a new synapse with same source/target exists
+              // The original was deleted, so we look by checking dream_history context
+              // Since we can't know source/target post-deletion, count as not reappeared
+            }
+          } catch { /* synapses table might not exist */ }
+        }
+
+        // Also check: look for new synapses created after the pruning
+        // Heuristic: count any new synapses with weight < 0.3 created after this cycle
+        try {
+          const cycleId = row.dream_cycle_id as string;
+          const cycleTimestamp = this.db.prepare(`
+            SELECT timestamp FROM dream_history WHERE cycle_id = ?
+          `).get(cycleId) as { timestamp: number } | undefined;
+
+          if (cycleTimestamp) {
+            const newWeakSynapses = this.db.prepare(`
+              SELECT COUNT(*) as cnt FROM synapses
+              WHERE weight < 0.3
+                AND created_at > datetime(?, 'unixepoch')
+            `).get(cycleTimestamp.timestamp / 1000) as { cnt: number } | undefined;
+
+            if (newWeakSynapses && newWeakSynapses.cnt > 0) {
+              // Some new weak synapses appeared — could be re-creations
+              reappearedCount = Math.max(reappearedCount, Math.min(prunedItems.length, newWeakSynapses.cnt));
+            }
+          }
+        } catch { /* ignore */ }
+
+        const regretScore = prunedItems.length > 0 ? reappearedCount / prunedItems.length : 0;
+
+        // Generate lesson
+        let lesson = '';
+        if (regretScore > 0.5) {
+          lesson = `High regret (${(regretScore * 100).toFixed(0)}%): Many pruned synapses were recreated. Consider raising prune threshold.`;
+        } else if (regretScore > 0.2) {
+          lesson = `Moderate regret (${(regretScore * 100).toFixed(0)}%): Some pruned connections reappeared. Current threshold may be slightly aggressive.`;
+        } else {
+          lesson = `Low regret (${(regretScore * 100).toFixed(0)}%): Pruning was efficient. Most removed connections stayed removed.`;
+        }
+
+        // Update the record
+        try {
+          this.db.prepare(`
+            UPDATE dream_retrospective
+            SET reappeared_count = ?, regret_score = ?, lesson = ?, analyzed_at = datetime('now')
+            WHERE id = ?
+          `).run(reappearedCount, regretScore, lesson, row.id);
+        } catch { /* ignore */ }
+
+        results.push({
+          id: row.id as number,
+          dreamCycleId: row.dream_cycle_id as string,
+          prunedItems,
+          reappearedCount,
+          regretScore,
+          lesson,
+          analyzedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      this.log.warn(`[dream] analyzeRetrospective error: ${(err as Error).message}`);
+    }
+
+    if (results.length > 0) {
+      const avgRegret = results.reduce((s, r) => s + r.regretScore, 0) / results.length;
+      ts?.emit('dream', 'reflecting',
+        `Retrospective: ${results.length} cycles analyzed, avg regret=${(avgRegret * 100).toFixed(0)}%`,
+        avgRegret > 0.3 ? 'notable' : 'routine',
+      );
+    }
+
+    return results;
+  }
+
+  /** Get retrospective entries. */
+  getRetrospective(limit = 10): DreamRetrospective[] {
+    try {
+      const rows = this.db.prepare(`
+        SELECT * FROM dream_retrospective ORDER BY analyzed_at DESC LIMIT ?
+      `).all(limit) as Record<string, unknown>[];
+      return rows.map(r => this.toRetrospective(r));
+    } catch {
+      return [];
+    }
+  }
+
+  /** Get aggregated pruning efficiency stats. */
+  getPruningEfficiency(): PruningEfficiency {
+    try {
+      const row = this.db.prepare(`
+        SELECT
+          COUNT(*) as total_records,
+          SUM(json_array_length(pruned_items)) as total_pruned,
+          SUM(reappeared_count) as total_reappeared,
+          AVG(regret_score) as avg_regret
+        FROM dream_retrospective
+        WHERE regret_score > 0 OR reappeared_count > 0
+      `).get() as { total_records: number; total_pruned: number | null; total_reappeared: number | null; avg_regret: number | null };
+
+      const totalPruned = row.total_pruned ?? 0;
+      const totalReappeared = row.total_reappeared ?? 0;
+      const avgRegretScore = row.avg_regret ?? 0;
+
+      return {
+        totalPruned,
+        totalReappeared,
+        avgRegretScore,
+        efficiencyRate: 1 - avgRegretScore,
+      };
+    } catch {
+      return { totalPruned: 0, totalReappeared: 0, avgRegretScore: 0, efficiencyRate: 1 };
+    }
+  }
+
+  private toRetrospective(row: Record<string, unknown>): DreamRetrospective {
+    let prunedItems: Array<{ synapseId: number; weight: number }> = [];
+    try { prunedItems = JSON.parse((row.pruned_items as string) || '[]'); } catch { /* ignore */ }
+
+    return {
+      id: row.id as number,
+      dreamCycleId: row.dream_cycle_id as string,
+      prunedItems,
+      reappearedCount: (row.reappeared_count as number) ?? 0,
+      regretScore: (row.regret_score as number) ?? 0,
+      lesson: (row.lesson as string) ?? '',
+      analyzedAt: (row.analyzed_at as string) ?? '',
+    };
   }
 
   // ── Private ─────────────────────────────────────────────

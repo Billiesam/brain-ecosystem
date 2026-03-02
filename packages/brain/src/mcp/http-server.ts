@@ -19,6 +19,7 @@ import { registerCuriosityToolsDirect } from './curiosity-tools.js';
 import { registerEmergenceToolsDirect } from './emergence-tools.js';
 import { registerDebateToolsDirect } from './debate-tools.js';
 import { registerMetacognitionToolsDirect } from './metacognition-tools.js';
+import { registerSelfawareToolsDirect } from './selfaware-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -49,6 +50,7 @@ export class McpHttpServer {
         registerEmergenceToolsDirect(server, router);
         registerDebateToolsDirect(server, router);
         registerMetacognitionToolsDirect(server, router);
+        registerSelfawareToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

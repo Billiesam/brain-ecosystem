@@ -117,7 +117,7 @@ export type { HyperParameter, LearningSnapshot, ParameterRecommendation, MetaLea
 
 // ── Causal Inference ─────────────────────────────────────
 export { CausalGraph, runCausalMigration } from './causal/engine.js';
-export type { CausalEvent, CausalEdge, CausalPath, CausalAnalysis } from './causal/engine.js';
+export type { CausalEvent, CausalEdge, CausalPath, CausalAnalysis, CausalIntervention, StrengthEvolution } from './causal/engine.js';
 
 // ── Hypothesis Engine ────────────────────────────────────
 export { HypothesisEngine, runHypothesisMigration } from './hypothesis/engine.js';
@@ -175,7 +175,7 @@ export { BrainDataMinerAdapter, TradingDataMinerAdapter, MarketingDataMinerAdapt
 // ── Dream Mode ──────────────────────────────────────
 export { DreamEngine, runDreamMigration } from './dream/index.js';
 export { DreamConsolidator } from './dream/index.js';
-export type { DreamEngineConfig, DreamCycleReport, DreamStatus, DreamHistoryEntry, DreamTrigger, MemoryReplayResult, SynapsePruneResult, MemoryCompressionResult, MemoryCluster, ImportanceDecayResult } from './dream/index.js';
+export type { DreamEngineConfig, DreamCycleReport, DreamStatus, DreamHistoryEntry, DreamTrigger, MemoryReplayResult, SynapsePruneResult, MemoryCompressionResult, MemoryCluster, ImportanceDecayResult, DreamRetrospective, PruningEfficiency } from './dream/index.js';
 
 // ── Consciousness ───────────────────────────────────
 export { ThoughtStream, ConsciousnessServer } from './consciousness/index.js';
@@ -201,6 +201,7 @@ export type {
   CodeGeneratorConfig, GenerationTrigger, GenerationStatus,
   GenerationRequest, GenerationResult, GenerationRecord, CodeGeneratorSummary,
 } from './codegen/index.js';
+export type { SelfImprovementProposal } from './codegen/index.js';
 
 // ── Attention Engine ──────────────────────────────────
 export { AttentionEngine } from './attention/index.js';
@@ -214,6 +215,7 @@ export { TransferEngine } from './transfer/index.js';
 export type {
   TransferEngineConfig, Analogy, TransferRecord,
   CrossDomainRule, TransferStatus,
+  CrossBrainDialogue, DialogueStats,
 } from './transfer/index.js';
 
 // ── Narrative Engine ──────────────────────────────────
@@ -237,7 +239,7 @@ export { CuriosityEngine, runCuriosityMigration } from './curiosity/index.js';
 export type {
   CuriosityEngineConfig, CuriosityDataSources,
   KnowledgeGap, GapType, CuriosityQuestion, QuestionType,
-  ExplorationRecord, BanditArm, CuriosityStatus, ExplorationDecision,
+  ExplorationRecord, BanditArm, BlindSpot, CuriosityStatus, ExplorationDecision,
 } from './curiosity/index.js';
 
 // ── Debate Engine ──────────────────────────────────────
@@ -246,6 +248,7 @@ export type {
   DebateEngineConfig, DebateDataSources,
   Debate, DebateStatus, DebatePerspective, DebateArgument,
   DebateSynthesis, DebateConflict, DebateEngineStatus,
+  PrincipleChallenge,
 } from './debate/index.js';
 
 // ── Meta-Cognition ──────────────────────────────────────
@@ -253,10 +256,23 @@ export { ParameterRegistry, runParameterRegistryMigration } from './metacognitio
 export type { ParameterDefinition, ParameterChange, ParameterSnapshot, RegisteredParameter } from './metacognition/index.js';
 
 export { MetaCognitionLayer, runMetaCognitionMigration } from './metacognition/index.js';
-export type { EngineGrade, EngineMetric, EngineReportCard, FrequencyAdjustment, MetaCognitionStatus } from './metacognition/index.js';
+export type { EngineGrade, EngineMetric, EngineReportCard, FrequencyAdjustment, MetaCognitionStatus, MetaTrend, TrendDirection, LongTermAnalysis, SeasonalPattern } from './metacognition/index.js';
 
 export { AutoExperimentEngine, runAutoExperimentMigration } from './metacognition/index.js';
 export type { AutoExperiment, AutoExperimentStatus, ExperimentCandidate, AutoExperimentEngineStatus } from './metacognition/index.js';
+
+export { SelfTestEngine, runSelfTestMigration } from './metacognition/index.js';
+export type { SelfTest, UnderstandingReport, SelfTestStatus } from './metacognition/index.js';
+
+export { TeachEngine, runTeachEngineMigration } from './metacognition/index.js';
+export type { TeachingPackage, TeachEngineStatus } from './metacognition/index.js';
+
+export { SimulationEngine, runSimulationMigration } from './metacognition/index.js';
+export type { Simulation, SimulationOutcome, SimulationStatus } from './metacognition/index.js';
+
+// ── DataScout ──────────────────────────────────────────
+export { DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter } from './research/data-scout.js';
+export type { ScoutDiscovery, ScoutAdapter, DataScoutStatus } from './research/data-scout.js';
 
 // ── Unified Dashboard ──────────────────────────────────
 export { UnifiedDashboardServer } from './unified/index.js';

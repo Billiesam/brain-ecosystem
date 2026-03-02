@@ -5,4 +5,6 @@ export type {
   TransferRecord,
   CrossDomainRule,
   TransferStatus,
+  CrossBrainDialogue,
+  DialogueStats,
 } from './transfer-engine.js';

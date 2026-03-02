@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -435,6 +435,41 @@ export class BrainCore {
     autoExperimentEngine.setPredictionEngine(predictionEngine);
     this.orchestrator.setAutoExperimentEngine(autoExperimentEngine);
     services.autoExperimentEngine = autoExperimentEngine;
+
+    // 11j.12 SelfTestEngine — validates Brain's own understanding
+    const selfTestEngine = new SelfTestEngine(this.db!);
+    selfTestEngine.setKnowledgeDistiller(this.orchestrator.knowledgeDistiller);
+    selfTestEngine.setPredictionEngine(predictionEngine);
+    selfTestEngine.setHypothesisEngine(researchScheduler.hypothesisEngine);
+    selfTestEngine.setThoughtStream(thoughtStream);
+    this.orchestrator.setSelfTestEngine(selfTestEngine);
+    services.selfTestEngine = selfTestEngine;
+
+    // 11j.13 TeachEngine — packages knowledge for other brains
+    const teachEngine = new TeachEngine(this.db!);
+    teachEngine.setKnowledgeDistiller(this.orchestrator.knowledgeDistiller);
+    teachEngine.setHypothesisEngine(researchScheduler.hypothesisEngine);
+    teachEngine.setJournal(this.orchestrator.journal);
+    teachEngine.setThoughtStream(thoughtStream);
+    this.orchestrator.setTeachEngine(teachEngine);
+    services.teachEngine = teachEngine;
+
+    // 11j.14 DataScout — discovers external data sources
+    runDataScoutMigration(this.db!);
+    const dataScout = new DataScout(this.db!);
+    dataScout.setThoughtStream(thoughtStream);
+    this.orchestrator.setDataScout(dataScout);
+    services.dataScout = dataScout;
+
+    // 11j.15 SimulationEngine — what-if scenario simulations
+    runSimulationMigration(this.db!);
+    const simulationEngine = new SimulationEngine(this.db!);
+    simulationEngine.setPredictionEngine(predictionEngine);
+    simulationEngine.setCausalGraph(researchScheduler.causalGraph);
+    simulationEngine.setMetaCognitionLayer(metaCognitionLayer);
+    simulationEngine.setThoughtStream(thoughtStream);
+    this.orchestrator.setSimulationEngine(simulationEngine);
+    services.simulationEngine = simulationEngine;
 
     this.consciousnessServer = new ConsciousnessServer({
       port: 7784,

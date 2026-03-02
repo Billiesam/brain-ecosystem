@@ -11,4 +11,6 @@ export type {
   MemoryCompressionResult,
   MemoryCluster,
   ImportanceDecayResult,
+  DreamRetrospective,
+  PruningEfficiency,
 } from './types.js';

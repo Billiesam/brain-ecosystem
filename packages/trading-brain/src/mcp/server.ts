@@ -14,6 +14,7 @@ import { registerCuriosityTools } from './curiosity-tools.js';
 import { registerEmergenceTools } from './emergence-tools.js';
 import { registerDebateTools } from './debate-tools.js';
 import { registerMetacognitionTools } from './metacognition-tools.js';
+import { registerSelfawareTools } from './selfaware-tools.js';
 
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
@@ -35,6 +36,7 @@ export async function startMcpServer(): Promise<void> {
       registerEmergenceTools(server, ipc);
       registerDebateTools(server, ipc);
       registerMetacognitionTools(server, ipc);
+      registerSelfawareTools(server, ipc);
     },
   });
 }

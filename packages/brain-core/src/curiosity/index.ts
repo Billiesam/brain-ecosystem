@@ -8,6 +8,7 @@ export type {
   QuestionType,
   ExplorationRecord,
   BanditArm,
+  BlindSpot,
   CuriosityStatus,
   ExplorationDecision,
 } from './curiosity-engine.js';

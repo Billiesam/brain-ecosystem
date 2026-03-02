@@ -92,6 +92,10 @@ export interface Services {
   parameterRegistry?: import('@timmeck/brain-core').ParameterRegistry;
   metaCognitionLayer?: import('@timmeck/brain-core').MetaCognitionLayer;
   autoExperimentEngine?: import('@timmeck/brain-core').AutoExperimentEngine;
+  selfTestEngine?: import('@timmeck/brain-core').SelfTestEngine;
+  teachEngine?: import('@timmeck/brain-core').TeachEngine;
+  dataScout?: import('@timmeck/brain-core').DataScout;
+  simulationEngine?: import('@timmeck/brain-core').SimulationEngine;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -535,6 +539,73 @@ export class IpcRouter {
       // ─── Parameter Registry ────────────────────
       ['parameter.list',           (params) => { if (!s.parameterRegistry) throw new Error('ParameterRegistry not available'); return s.parameterRegistry.list(p(params)?.engine); }],
       ['parameter.history',        (params) => { if (!s.parameterRegistry) throw new Error('ParameterRegistry not available'); return s.parameterRegistry.getRecentChanges(p(params)?.limit ?? 20); }],
+
+      // ─── Blind Spots ──────────────────────────────────────────
+      ['blindspot.detect',        () => { if (!s.curiosityEngine) throw new Error('CuriosityEngine not available'); return s.curiosityEngine.detectBlindSpots(); }],
+      ['blindspot.list',          (params) => { if (!s.curiosityEngine) throw new Error('CuriosityEngine not available'); return s.curiosityEngine.getBlindSpots(p(params)?.limit ?? 10); }],
+      ['blindspot.resolve',       (params) => { if (!s.curiosityEngine) throw new Error('CuriosityEngine not available'); return s.curiosityEngine.resolveBlindSpot(p(params).id); }],
+
+      // ─── Meta Trends ──────────────────────────────────────────
+      ['metatrend.record',        (params) => { if (!s.metaCognitionLayer) throw new Error('MetaCognitionLayer not available'); return s.metaCognitionLayer.recordTrend(p(params).cycle, p(params).stats); }],
+      ['metatrend.get',           (params) => { if (!s.metaCognitionLayer) throw new Error('MetaCognitionLayer not available'); return s.metaCognitionLayer.getMetaTrend(p(params)?.windowCycles); }],
+      ['metatrend.longterm',      (params) => { if (!s.metaCognitionLayer) throw new Error('MetaCognitionLayer not available'); return s.metaCognitionLayer.getLongTermAnalysis(p(params)?.days); }],
+      ['metatrend.seasonal',      () => { if (!s.metaCognitionLayer) throw new Error('MetaCognitionLayer not available'); return s.metaCognitionLayer.detectSeasonalPatterns(); }],
+
+      // ─── Creative Hypotheses ──────────────────────────────────
+      ['hypothesis.creative',     (params) => { if (!s.hypothesis) throw new Error('Hypothesis engine not available'); return s.hypothesis.generateCreative(p(params)?.count); }],
+      ['hypothesis.creative_stats', () => { if (!s.hypothesis) throw new Error('Hypothesis engine not available'); return s.hypothesis.getCreativeStats(); }],
+
+      // ─── Challenges (Advocatus Diaboli) ─────────────────────
+      ['challenge.principle',     (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.challenge(p(params).statement); }],
+      ['challenge.history',       (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.getChallengeHistory(p(params)?.limit); }],
+      ['challenge.vulnerable',    (params) => { if (!s.debateEngine) throw new Error('DebateEngine not available'); return s.debateEngine.getMostVulnerable(p(params)?.limit); }],
+
+      // ─── Dream Retrospective ──────────────────────────────────
+      ['dream.retrospective',     (params) => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.analyzeRetrospective(p(params)?.lastNCycles); }],
+      ['dream.retrospective.list', (params) => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.getRetrospective(p(params)?.limit); }],
+      ['dream.pruning_efficiency', () => { if (!s.dreamEngine) throw new Error('Dream engine not available'); return s.dreamEngine.getPruningEfficiency(); }],
+
+      // ─── Cross-Brain Dialogue ──────────────────────────────────
+      ['dialogue.ask',            (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.formulateQuestion(p(params).topic); }],
+      ['dialogue.answer',         (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.answerQuestion(p(params).question); }],
+      ['dialogue.record',         (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.recordDialogue(p(params).source, p(params).target, p(params).question, p(params).answer, p(params).context); }],
+      ['dialogue.rate',           (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); s.transferEngine.rateDialogue(p(params).id, p(params).usefulness); return { rated: true }; }],
+      ['dialogue.history',        (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.getDialogueHistory(p(params)?.peer, p(params)?.limit); }],
+      ['dialogue.stats',          () => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.getDialogueStats(); }],
+
+      // ─── Causal Interventions ──────────────────────────────────
+      ['causal.confounders',      (params) => { if (!s.causal) throw new Error('Causal engine not available'); return s.causal.detectConfounders(p(params).cause, p(params).effect); }],
+      ['causal.evolution',        (params) => { if (!s.causal) throw new Error('Causal engine not available'); return s.causal.trackStrengthEvolution(p(params).cause, p(params).effect, p(params)?.windowDays); }],
+      ['causal.validate',         (params) => { if (!s.causal) throw new Error('Causal engine not available'); return s.causal.validateChain(p(params).chain); }],
+
+      // ─── Emergence Explain ──────────────────────────────────────
+      ['emergence.explain',       (params) => { if (!s.emergenceEngine) throw new Error('EmergenceEngine not available'); return s.emergenceEngine.explain(p(params).eventId); }],
+
+      // ─── Self-Test ──────────────────────────────────────────────
+      ['selftest.principle',      (params) => { if (!s.selfTestEngine) throw new Error('SelfTestEngine not available'); return s.selfTestEngine.testPrinciple(p(params).statement); }],
+      ['selftest.all',            () => { if (!s.selfTestEngine) throw new Error('SelfTestEngine not available'); return s.selfTestEngine.testAll(); }],
+      ['selftest.report',         () => { if (!s.selfTestEngine) throw new Error('SelfTestEngine not available'); return s.selfTestEngine.getUnderstandingReport(); }],
+      ['selftest.status',         () => { if (!s.selfTestEngine) throw new Error('SelfTestEngine not available'); return s.selfTestEngine.getStatus(); }],
+
+      // ─── Teach ──────────────────────────────────────────────────
+      ['teach.create',            (params) => { if (!s.teachEngine) throw new Error('TeachEngine not available'); return s.teachEngine.createPackage(p(params).targetBrain); }],
+      ['teach.get',               (params) => { if (!s.teachEngine) throw new Error('TeachEngine not available'); return s.teachEngine.getPackage(p(params).id); }],
+      ['teach.list',              (params) => { if (!s.teachEngine) throw new Error('TeachEngine not available'); return s.teachEngine.listPackages(p(params)?.limit); }],
+      ['teach.rate',              (params) => { if (!s.teachEngine) throw new Error('TeachEngine not available'); s.teachEngine.rateEffectiveness(p(params).id, p(params).score); return { rated: true }; }],
+      ['teach.status',            () => { if (!s.teachEngine) throw new Error('TeachEngine not available'); return s.teachEngine.getStatus(); }],
+
+      // ─── Scout ──────────────────────────────────────────────────
+      ['scout.run',               async () => { if (!s.dataScout) throw new Error('DataScout not available'); return s.dataScout.scout(); }],
+      ['scout.discoveries',       (params) => { if (!s.dataScout) throw new Error('DataScout not available'); return s.dataScout.getDiscoveries(p(params)?.source, p(params)?.limit); }],
+      ['scout.import',            (params) => { if (!s.dataScout) throw new Error('DataScout not available'); s.dataScout.markImported(p(params).id); return { imported: true }; }],
+      ['scout.status',            () => { if (!s.dataScout) throw new Error('DataScout not available'); return s.dataScout.getStatus(); }],
+
+      // ─── Simulation ─────────────────────────────────────────────
+      ['simulation.run',          (params) => { if (!s.simulationEngine) throw new Error('SimulationEngine not available'); return s.simulationEngine.simulate(p(params).scenario); }],
+      ['simulation.whatif',       (params) => { if (!s.simulationEngine) throw new Error('SimulationEngine not available'); return s.simulationEngine.whatIf(p(params).metric, p(params).multiplier); }],
+      ['simulation.validate',     (params) => { if (!s.simulationEngine) throw new Error('SimulationEngine not available'); return s.simulationEngine.validateSimulation(p(params).id, p(params).outcomes); }],
+      ['simulation.list',         (params) => { if (!s.simulationEngine) throw new Error('SimulationEngine not available'); return s.simulationEngine.listSimulations(p(params)?.limit); }],
+      ['simulation.status',       () => { if (!s.simulationEngine) throw new Error('SimulationEngine not available'); return s.simulationEngine.getStatus(); }],
 
       ['status',               () => ({
         name: 'marketing-brain',

@@ -35,11 +35,46 @@ export interface FrequencyAdjustment {
   created_at?: string;
 }
 
+export interface MetaTrend {
+  cycle: number;
+  learningRate: number;
+  discoveryRate: number;
+  knowledgeQuality: number;
+  gapClosureRate: number;
+  totalPrinciples: number;
+  totalHypotheses: number;
+  predictionAccuracy: number;
+  emergenceCount: number;
+  timestamp: string;
+}
+
+export type TrendDirection = 'rising' | 'falling' | 'stagnating';
+
+export interface LongTermAnalysis {
+  days: number;
+  avgLearningRate: number;
+  avgDiscoveryRate: number;
+  avgKnowledgeQuality: number;
+  avgGapClosureRate: number;
+  trendDirection: TrendDirection;
+  peakLearningRate: number;
+  peakDiscoveryRate: number;
+}
+
+export interface SeasonalPattern {
+  metric: string;
+  peakHour: number;
+  peakDayOfWeek: number;
+  avgAtPeak: number;
+}
+
 export interface MetaCognitionStatus {
   totalEngines: number;
   reportCards: EngineReportCard[];
   recentAdjustments: FrequencyAdjustment[];
   cycleMetrics: number;
+  latestTrend: MetaTrend | null;
+  trendDirection: TrendDirection;
 }
 
 // ── Migration ───────────────────────────────────────────
@@ -81,6 +116,21 @@ export function runMetaCognitionMigration(db: Database.Database): void {
       reason TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS meta_trends (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cycle INTEGER NOT NULL,
+      learning_rate REAL NOT NULL DEFAULT 0,
+      discovery_rate REAL NOT NULL DEFAULT 0,
+      knowledge_quality REAL NOT NULL DEFAULT 0,
+      gap_closure_rate REAL NOT NULL DEFAULT 0,
+      total_principles INTEGER NOT NULL DEFAULT 0,
+      total_hypotheses INTEGER NOT NULL DEFAULT 0,
+      prediction_accuracy REAL NOT NULL DEFAULT 0,
+      emergence_count INTEGER NOT NULL DEFAULT 0,
+      timestamp TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_meta_trends_cycle ON meta_trends(cycle);
   `);
 }
 
@@ -268,6 +318,209 @@ export class MetaCognitionLayer {
     `).all(engine, limit) as EngineReportCard[];
   }
 
+  // ── Meta-Trends ────────────────────────────────────────
+
+  /** Record a trend data point for the current cycle. */
+  recordTrend(cycle: number, stats: {
+    newPrinciples: number;
+    newHypotheses: number;
+    predictionAccuracy: number;
+    closedGaps: number;
+    totalPrinciples: number;
+    totalHypotheses: number;
+    emergenceCount: number;
+  }): void {
+    const learningRate = cycle > 0 ? stats.newPrinciples / cycle : 0;
+    const discoveryRate = cycle > 0 ? stats.newHypotheses / cycle : 0;
+    const knowledgeQuality = stats.totalPrinciples > 0
+      ? Math.min(1, stats.predictionAccuracy * 0.5 + (stats.totalPrinciples / Math.max(stats.totalHypotheses, 1)) * 0.5)
+      : 0;
+    const gapClosureRate = cycle > 0 ? stats.closedGaps / cycle : 0;
+
+    this.db.prepare(`
+      INSERT INTO meta_trends (cycle, learning_rate, discovery_rate, knowledge_quality, gap_closure_rate,
+        total_principles, total_hypotheses, prediction_accuracy, emergence_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      cycle, learningRate, discoveryRate, knowledgeQuality, gapClosureRate,
+      stats.totalPrinciples, stats.totalHypotheses, stats.predictionAccuracy, stats.emergenceCount,
+    );
+
+    this.log.debug(`[metacognition] Recorded trend for cycle ${cycle}: lr=${learningRate.toFixed(4)}, dr=${discoveryRate.toFixed(4)}`);
+  }
+
+  /** Get trend data from the last N cycles. */
+  getMetaTrend(windowCycles = 20): MetaTrend[] {
+    const rows = this.db.prepare(`
+      SELECT cycle, learning_rate, discovery_rate, knowledge_quality, gap_closure_rate,
+        total_principles, total_hypotheses, prediction_accuracy, emergence_count, timestamp
+      FROM meta_trends ORDER BY cycle DESC LIMIT ?
+    `).all(windowCycles) as Array<Record<string, unknown>>;
+
+    return rows.map(r => this.toMetaTrend(r)).reverse(); // Chronological order
+  }
+
+  /** Long-term analysis: aggregate over a time period and determine trend direction. */
+  getLongTermAnalysis(days = 7): LongTermAnalysis {
+    const rows = this.db.prepare(`
+      SELECT learning_rate, discovery_rate, knowledge_quality, gap_closure_rate
+      FROM meta_trends
+      WHERE timestamp >= datetime('now', '-' || ? || ' days')
+      ORDER BY cycle ASC
+    `).all(days) as Array<Record<string, unknown>>;
+
+    if (rows.length === 0) {
+      return {
+        days,
+        avgLearningRate: 0,
+        avgDiscoveryRate: 0,
+        avgKnowledgeQuality: 0,
+        avgGapClosureRate: 0,
+        trendDirection: 'stagnating',
+        peakLearningRate: 0,
+        peakDiscoveryRate: 0,
+      };
+    }
+
+    let sumLR = 0, sumDR = 0, sumKQ = 0, sumGCR = 0;
+    let peakLR = 0, peakDR = 0;
+
+    for (const r of rows) {
+      const lr = r.learning_rate as number;
+      const dr = r.discovery_rate as number;
+      const kq = r.knowledge_quality as number;
+      const gcr = r.gap_closure_rate as number;
+      sumLR += lr;
+      sumDR += dr;
+      sumKQ += kq;
+      sumGCR += gcr;
+      peakLR = Math.max(peakLR, lr);
+      peakDR = Math.max(peakDR, dr);
+    }
+
+    const n = rows.length;
+    const avgLR = sumLR / n;
+    const avgDR = sumDR / n;
+    const avgKQ = sumKQ / n;
+    const avgGCR = sumGCR / n;
+
+    // Determine direction by comparing first half vs second half
+    const mid = Math.floor(n / 2);
+    let trendDirection: TrendDirection = 'stagnating';
+
+    if (mid > 0 && n - mid > 0) {
+      let firstHalfAvg = 0, secondHalfAvg = 0;
+      for (let i = 0; i < mid; i++) {
+        firstHalfAvg += (rows[i]!.knowledge_quality as number);
+      }
+      firstHalfAvg /= mid;
+      for (let i = mid; i < n; i++) {
+        secondHalfAvg += (rows[i]!.knowledge_quality as number);
+      }
+      secondHalfAvg /= (n - mid);
+
+      const diff = secondHalfAvg - firstHalfAvg;
+      if (diff > 0.05) trendDirection = 'rising';
+      else if (diff < -0.05) trendDirection = 'falling';
+      else trendDirection = 'stagnating';
+    }
+
+    return {
+      days,
+      avgLearningRate: avgLR,
+      avgDiscoveryRate: avgDR,
+      avgKnowledgeQuality: avgKQ,
+      avgGapClosureRate: avgGCR,
+      trendDirection,
+      peakLearningRate: peakLR,
+      peakDiscoveryRate: peakDR,
+    };
+  }
+
+  /** Detect seasonal patterns: which hours/days produce the best metrics. */
+  detectSeasonalPatterns(): SeasonalPattern[] {
+    const patterns: SeasonalPattern[] = [];
+    const metrics = ['learning_rate', 'discovery_rate', 'knowledge_quality', 'gap_closure_rate'];
+
+    for (const metric of metrics) {
+      // Peak hour of day
+      const hourPeak = this.db.prepare(`
+        SELECT CAST(strftime('%H', timestamp) AS INTEGER) as hour, AVG(${metric}) as avg_val
+        FROM meta_trends
+        GROUP BY hour
+        ORDER BY avg_val DESC
+        LIMIT 1
+      `).get() as { hour: number; avg_val: number } | undefined;
+
+      // Peak day of week (0=Sunday, 6=Saturday)
+      const dayPeak = this.db.prepare(`
+        SELECT CAST(strftime('%w', timestamp) AS INTEGER) as dow, AVG(${metric}) as avg_val
+        FROM meta_trends
+        GROUP BY dow
+        ORDER BY avg_val DESC
+        LIMIT 1
+      `).get() as { dow: number; avg_val: number } | undefined;
+
+      if (hourPeak && dayPeak) {
+        patterns.push({
+          metric: metric.replace(/_/g, ' '),
+          peakHour: hourPeak.hour,
+          peakDayOfWeek: dayPeak.dow,
+          avgAtPeak: hourPeak.avg_val,
+        });
+      }
+    }
+
+    return patterns;
+  }
+
+  // ── Meta-Trend Helpers ─────────────────────────────────
+
+  private toMetaTrend(row: Record<string, unknown>): MetaTrend {
+    return {
+      cycle: row.cycle as number,
+      learningRate: row.learning_rate as number,
+      discoveryRate: row.discovery_rate as number,
+      knowledgeQuality: row.knowledge_quality as number,
+      gapClosureRate: row.gap_closure_rate as number,
+      totalPrinciples: row.total_principles as number,
+      totalHypotheses: row.total_hypotheses as number,
+      predictionAccuracy: row.prediction_accuracy as number,
+      emergenceCount: row.emergence_count as number,
+      timestamp: row.timestamp as string,
+    };
+  }
+
+  private getLatestTrend(): MetaTrend | null {
+    const row = this.db.prepare(`
+      SELECT cycle, learning_rate, discovery_rate, knowledge_quality, gap_closure_rate,
+        total_principles, total_hypotheses, prediction_accuracy, emergence_count, timestamp
+      FROM meta_trends ORDER BY cycle DESC LIMIT 1
+    `).get() as Record<string, unknown> | undefined;
+    return row ? this.toMetaTrend(row) : null;
+  }
+
+  private getCurrentTrendDirection(): TrendDirection {
+    const rows = this.db.prepare(`
+      SELECT knowledge_quality FROM meta_trends ORDER BY cycle DESC LIMIT 10
+    `).all() as Array<{ knowledge_quality: number }>;
+
+    if (rows.length < 4) return 'stagnating';
+
+    const mid = Math.floor(rows.length / 2);
+    // rows are DESC, so first half = recent, second half = older
+    let recentAvg = 0, olderAvg = 0;
+    for (let i = 0; i < mid; i++) recentAvg += rows[i]!.knowledge_quality;
+    recentAvg /= mid;
+    for (let i = mid; i < rows.length; i++) olderAvg += rows[i]!.knowledge_quality;
+    olderAvg /= (rows.length - mid);
+
+    const diff = recentAvg - olderAvg;
+    if (diff > 0.05) return 'rising';
+    if (diff < -0.05) return 'falling';
+    return 'stagnating';
+  }
+
   /** Get status summary. */
   getStatus(): MetaCognitionStatus {
     const cards = this.getLatestReportCards();
@@ -282,6 +535,8 @@ export class MetaCognitionLayer {
       reportCards: cards,
       recentAdjustments: recentAdj,
       cycleMetrics: totalMetrics,
+      latestTrend: this.getLatestTrend(),
+      trendDirection: this.getCurrentTrendDirection(),
     };
   }
 

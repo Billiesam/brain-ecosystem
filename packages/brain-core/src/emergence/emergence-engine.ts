@@ -7,6 +7,7 @@ import type { ResearchJournal } from '../research/journal.js';
 import type { AnomalyDetective } from '../research/anomaly-detective.js';
 import type { ExperimentEngine } from '../research/experiment-engine.js';
 import type { CuriosityEngine } from '../curiosity/curiosity-engine.js';
+import type { CausalGraph } from '../causal/engine.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ export interface EmergenceDataSources {
   anomalyDetective?: AnomalyDetective;
   experimentEngine?: ExperimentEngine;
   curiosityEngine?: CuriosityEngine;
+  causalGraph?: CausalGraph;
   /** Function that returns synapse network stats from the brain's DB. */
   getNetworkStats?: () => NetworkSnapshot;
 }
@@ -124,6 +126,13 @@ export function runEmergenceMigration(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_emergence_metrics_cycle ON emergence_metrics(cycle);
   `);
+
+  // Add explanation column if not exists (safe migration)
+  try {
+    db.exec('ALTER TABLE emergence_events ADD COLUMN explanation TEXT DEFAULT NULL');
+  } catch {
+    // Column already exists — ignore
+  }
 }
 
 // ── Engine ──────────────────────────────────────────────
@@ -374,6 +383,121 @@ export class EmergenceEngine {
       topEvents: this.getEvents(5),
       uptime: Date.now() - this.startTime,
     };
+  }
+
+  // ── Explanation Methods ────────────────────────────────
+
+  /**
+   * Explain an emergence event by tracing it through journal, hypotheses,
+   * engine metrics, and causal edges in a +-1h window.
+   * Caches the explanation in the `explanation` column.
+   */
+  explain(eventId: number): { eventId: number; explanation: string; evidence: { journal: number; hypotheses: number; metrics: number; causalEdges: number } } | null {
+    const row = this.db.prepare('SELECT * FROM emergence_events WHERE id = ?').get(eventId) as Record<string, unknown> | undefined;
+    if (!row) return null;
+
+    const event = this.toEvent(row);
+    const eventTime = new Date(event.timestamp).getTime();
+    const windowMs = 60 * 60 * 1000; // 1 hour
+    const keywords = event.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+
+    const parts: string[] = [];
+    let journalCount = 0;
+    let hypothesesCount = 0;
+    let metricsCount = 0;
+    let causalEdgesCount = 0;
+
+    // 1. Search journal entries in +-1h window
+    if (this.sources.journal) {
+      try {
+        const entries = this.sources.journal.search(keywords.slice(0, 3).join(' '), 50);
+        for (const entry of entries) {
+          const entryTime = new Date(entry.created_at || '').getTime();
+          if (Math.abs(entryTime - eventTime) <= windowMs) {
+            journalCount++;
+            if (journalCount <= 3) {
+              parts.push(`Journal: "${entry.title}" (${entry.type})`);
+            }
+          }
+        }
+        if (journalCount > 3) parts.push(`...and ${journalCount - 3} more journal entries`);
+      } catch { /* not wired */ }
+    }
+
+    // 2. Find hypotheses matching event keywords
+    if (this.sources.hypothesisEngine) {
+      try {
+        const hypotheses = this.sources.hypothesisEngine.list(undefined, 50);
+        for (const h of hypotheses) {
+          const matchesKeyword = keywords.some(kw => h.statement.toLowerCase().includes(kw));
+          if (matchesKeyword) {
+            hypothesesCount++;
+            if (hypothesesCount <= 3) {
+              parts.push(`Hypothesis: "${h.statement.substring(0, 80)}" [${h.status}]`);
+            }
+          }
+        }
+        if (hypothesesCount > 3) parts.push(`...and ${hypothesesCount - 3} more hypotheses`);
+      } catch { /* not wired */ }
+    }
+
+    // 3. Get engine metrics changes around that time
+    try {
+      const metrics = this.db.prepare(`
+        SELECT * FROM emergence_metrics
+        WHERE timestamp BETWEEN datetime(?, '-1 hour') AND datetime(?, '+1 hour')
+        ORDER BY cycle
+      `).all(event.timestamp, event.timestamp) as Array<Record<string, unknown>>;
+      metricsCount = metrics.length;
+      if (metrics.length > 0) {
+        const first = metrics[0]!;
+        const last = metrics[metrics.length - 1]!;
+        const phiChange = (last.integration_phi as number) - (first.integration_phi as number);
+        const entropyChange = (last.knowledge_entropy as number) - (first.knowledge_entropy as number);
+        if (phiChange !== 0 || entropyChange !== 0) {
+          parts.push(`Metrics: Phi changed by ${phiChange > 0 ? '+' : ''}${phiChange.toFixed(3)}, entropy by ${entropyChange > 0 ? '+' : ''}${entropyChange.toFixed(2)} bits`);
+        }
+      }
+    } catch { /* no metrics */ }
+
+    // 4. Get causal edges that could explain this
+    if (this.sources.causalGraph) {
+      try {
+        for (const kw of keywords.slice(0, 5)) {
+          const causes = this.sources.causalGraph.getCauses(kw);
+          const effects = this.sources.causalGraph.getEffects(kw);
+          for (const edge of [...causes, ...effects]) {
+            causalEdgesCount++;
+            if (causalEdgesCount <= 3) {
+              parts.push(`Causal: ${edge.cause} → ${edge.effect} (strength=${edge.strength.toFixed(2)})`);
+            }
+          }
+        }
+        if (causalEdgesCount > 3) parts.push(`...and ${causalEdgesCount - 3} more causal edges`);
+      } catch { /* not wired */ }
+    }
+
+    // Build explanation
+    const explanation = parts.length > 0
+      ? `Emergence event "${event.title}" (type=${event.type}, surprise=${(event.surpriseScore * 100).toFixed(0)}%):\n` +
+        parts.map(p => `  - ${p}`).join('\n') +
+        `\nEvidence: ${journalCount} journal entries, ${hypothesesCount} hypotheses, ${metricsCount} metric snapshots, ${causalEdgesCount} causal edges.`
+      : `Emergence event "${event.title}" — no supporting evidence found in the +-1h window.`;
+
+    // Cache in DB
+    this.db.prepare('UPDATE emergence_events SET explanation = ? WHERE id = ?').run(explanation, eventId);
+
+    return {
+      eventId,
+      explanation,
+      evidence: { journal: journalCount, hypotheses: hypothesesCount, metrics: metricsCount, causalEdges: causalEdgesCount },
+    };
+  }
+
+  /** Get cached explanation for an emergence event, or null if not yet explained. */
+  getExplanation(eventId: number): string | null {
+    const row = this.db.prepare('SELECT explanation FROM emergence_events WHERE id = ?').get(eventId) as { explanation: string | null } | undefined;
+    return row?.explanation ?? null;
   }
 
   // ── Private: Detection Methods ────────────────────────

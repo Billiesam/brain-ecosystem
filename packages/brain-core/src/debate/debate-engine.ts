@@ -80,7 +80,21 @@ export interface DebateEngineStatus {
   avgConfidence: number;
   avgParticipants: number;
   recentDebates: Debate[];
+  totalChallenges: number;
+  vulnerablePrinciples: PrincipleChallenge[];
   uptime: number;
+}
+
+export interface PrincipleChallenge {
+  id?: number;
+  principleId: number | null;
+  principleStatement: string;
+  challengeArguments: string[];
+  supportingEvidence: string[];
+  contradictingEvidence: string[];
+  resilienceScore: number;
+  outcome: 'pending' | 'survived' | 'weakened' | 'disproved';
+  challengedAt: string;
 }
 
 // ── Migration ───────────────────────────────────────────
@@ -109,6 +123,19 @@ export function runDebateMigration(db: Database.Database): void {
       FOREIGN KEY (debate_id) REFERENCES debates(id)
     );
     CREATE INDEX IF NOT EXISTS idx_debate_perspectives_debate ON debate_perspectives(debate_id);
+
+    CREATE TABLE IF NOT EXISTS principle_challenges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      principle_id INTEGER,
+      principle_statement TEXT NOT NULL,
+      challenge_arguments TEXT NOT NULL DEFAULT '[]',
+      supporting_evidence TEXT NOT NULL DEFAULT '[]',
+      contradicting_evidence TEXT NOT NULL DEFAULT '[]',
+      resilience_score REAL NOT NULL DEFAULT 0.5,
+      outcome TEXT NOT NULL DEFAULT 'pending',
+      challenged_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_principle_challenges_resilience ON principle_challenges(resilience_score);
   `);
 }
 
@@ -133,6 +160,10 @@ export class DebateEngine {
   private readonly stmtTotalDebates: Database.Statement;
   private readonly stmtOpenDebates: Database.Statement;
   private readonly stmtSynthesizedDebates: Database.Statement;
+  private readonly stmtInsertChallenge: Database.Statement;
+  private readonly stmtGetChallengeHistory: Database.Statement;
+  private readonly stmtGetMostVulnerable: Database.Statement;
+  private readonly stmtTotalChallenges: Database.Statement;
 
   constructor(db: Database.Database, config: DebateEngineConfig) {
     this.db = db;
@@ -153,6 +184,10 @@ export class DebateEngine {
     this.stmtTotalDebates = db.prepare('SELECT COUNT(*) as cnt FROM debates');
     this.stmtOpenDebates = db.prepare('SELECT COUNT(*) as cnt FROM debates WHERE status = \'open\' OR status = \'deliberating\'');
     this.stmtSynthesizedDebates = db.prepare('SELECT COUNT(*) as cnt FROM debates WHERE status = \'synthesized\' OR status = \'closed\'');
+    this.stmtInsertChallenge = db.prepare('INSERT INTO principle_challenges (principle_id, principle_statement, challenge_arguments, supporting_evidence, contradicting_evidence, resilience_score, outcome) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    this.stmtGetChallengeHistory = db.prepare('SELECT * FROM principle_challenges ORDER BY challenged_at DESC LIMIT ?');
+    this.stmtGetMostVulnerable = db.prepare('SELECT * FROM principle_challenges ORDER BY resilience_score ASC LIMIT ?');
+    this.stmtTotalChallenges = db.prepare('SELECT COUNT(*) as cnt FROM principle_challenges');
 
     this.log.debug(`[DebateEngine] Initialized for ${this.config.brainName}`);
   }
@@ -408,6 +443,141 @@ export class DebateEngine {
     return synthesis;
   }
 
+  // ── Advocatus Diaboli: Principle Challenges ──────────
+
+  /**
+   * Challenge a principle by searching for contradicting evidence.
+   * Returns a PrincipleChallenge with a resilience score.
+   */
+  challenge(principleStatement: string): PrincipleChallenge {
+    this.ts?.emit('debate', 'analyzing', `Challenging principle: "${principleStatement.substring(0, 60)}..."`, 'notable');
+
+    const keywords = this.extractKeywords(principleStatement);
+    const contradictingEvidence: string[] = [];
+    const supportingEvidence: string[] = [];
+    let principleId: number | null = null;
+
+    // 1. Search for contradicting rejected hypotheses
+    if (this.sources.hypothesisEngine) {
+      try {
+        const rejected = this.sources.hypothesisEngine.list('rejected', 50);
+        for (const h of rejected) {
+          if (this.isRelevant(h.statement, keywords)) {
+            contradictingEvidence.push(`Rejected hypothesis: ${h.statement}`);
+          }
+        }
+      } catch { /* not wired */ }
+    }
+
+    // 2. Search for failed predictions that match the principle
+    if (this.sources.predictionEngine) {
+      try {
+        const predictions = this.sources.predictionEngine.list(undefined, 'wrong', 30);
+        for (const p of predictions) {
+          if (this.isRelevant(`${p.reasoning} ${p.metric} ${p.domain}`, keywords)) {
+            contradictingEvidence.push(`Failed prediction: ${p.metric} — ${p.reasoning}`);
+          }
+        }
+      } catch { /* not wired */ }
+    }
+
+    // 3. Search anomalies that contradict the principle
+    if (this.sources.anomalyDetective) {
+      try {
+        const anomalies = this.sources.anomalyDetective.getAnomalies(undefined, 30);
+        for (const a of anomalies) {
+          if (this.isRelevant(`${a.title} ${a.metric}`, keywords)) {
+            contradictingEvidence.push(`Anomaly: ${a.title} (deviation: ${a.deviation.toFixed(2)})`);
+          }
+        }
+      } catch { /* not wired */ }
+    }
+
+    // 4. Collect supporting evidence from confirmed hypotheses
+    if (this.sources.hypothesisEngine) {
+      try {
+        const confirmed = this.sources.hypothesisEngine.list('confirmed', 50);
+        for (const h of confirmed) {
+          if (this.isRelevant(h.statement, keywords)) {
+            supportingEvidence.push(`Confirmed hypothesis: ${h.statement}`);
+          }
+        }
+      } catch { /* not wired */ }
+    }
+
+    // 4b. Supporting evidence from matching principles
+    if (this.sources.knowledgeDistiller) {
+      try {
+        const pkg = this.sources.knowledgeDistiller.getPackage(this.config.brainName);
+        for (const p of pkg.principles) {
+          if (this.isRelevant(p.statement, keywords)) {
+            supportingEvidence.push(`Principle: ${p.statement} (confidence: ${p.confidence.toFixed(2)})`);
+            if (principleId === null) principleId = Number(p.id) || null;
+          }
+        }
+      } catch { /* not wired */ }
+    }
+
+    // 5. Calculate resilience score
+    const resilienceScore = supportingEvidence.length / (supportingEvidence.length + contradictingEvidence.length + 0.01);
+
+    // 6. Determine outcome
+    let outcome: PrincipleChallenge['outcome'];
+    if (resilienceScore > 0.7) {
+      outcome = 'survived';
+    } else if (resilienceScore > 0.4) {
+      outcome = 'weakened';
+    } else {
+      outcome = 'disproved';
+    }
+
+    // 7. Build challenge arguments summary
+    const challengeArguments = [
+      ...contradictingEvidence.slice(0, 5).map(e => `Against: ${e}`),
+      ...supportingEvidence.slice(0, 5).map(e => `For: ${e}`),
+    ];
+
+    // Persist
+    const info = this.stmtInsertChallenge.run(
+      principleId,
+      principleStatement,
+      JSON.stringify(challengeArguments),
+      JSON.stringify(supportingEvidence),
+      JSON.stringify(contradictingEvidence),
+      resilienceScore,
+      outcome,
+    );
+
+    this.ts?.emit('debate', 'discovering',
+      `Challenge result: ${outcome} (resilience=${(resilienceScore * 100).toFixed(0)}%, ${supportingEvidence.length} supporting, ${contradictingEvidence.length} contradicting)`,
+      outcome === 'disproved' ? 'breakthrough' : 'notable',
+    );
+
+    return {
+      id: Number(info.lastInsertRowid),
+      principleId,
+      principleStatement,
+      challengeArguments,
+      supportingEvidence,
+      contradictingEvidence,
+      resilienceScore,
+      outcome,
+      challengedAt: new Date().toISOString(),
+    };
+  }
+
+  /** Get recent principle challenges. */
+  getChallengeHistory(limit = 20): PrincipleChallenge[] {
+    const rows = this.stmtGetChallengeHistory.all(limit) as Record<string, unknown>[];
+    return rows.map(r => this.toPrincipleChallenge(r));
+  }
+
+  /** Get most vulnerable principles (lowest resilience scores). */
+  getMostVulnerable(limit = 5): PrincipleChallenge[] {
+    const rows = this.stmtGetMostVulnerable.all(limit) as Record<string, unknown>[];
+    return rows.map(r => this.toPrincipleChallenge(r));
+  }
+
   // ── Query Methods ────────────────────────────────────
 
   getDebate(id: number): Debate | null {
@@ -444,6 +614,9 @@ export class DebateEngine {
       ? syntheses.reduce((s, syn) => s + syn.participantCount, 0) / syntheses.length
       : 0;
 
+    const totalChallenges = (this.stmtTotalChallenges.get() as { cnt: number }).cnt;
+    const vulnerablePrinciples = this.getMostVulnerable(3);
+
     return {
       totalDebates: total,
       openDebates: open,
@@ -451,6 +624,8 @@ export class DebateEngine {
       avgConfidence,
       avgParticipants,
       recentDebates: recent,
+      totalChallenges,
+      vulnerablePrinciples,
       uptime: Date.now() - this.startTime,
     };
   }
@@ -715,6 +890,27 @@ export class DebateEngine {
       confidence: row.confidence as number,
       relevance: row.relevance as number,
       created_at: row.created_at as string,
+    };
+  }
+
+  private toPrincipleChallenge(row: Record<string, unknown>): PrincipleChallenge {
+    let challengeArguments: string[] = [];
+    let supportingEvidence: string[] = [];
+    let contradictingEvidence: string[] = [];
+    try { challengeArguments = JSON.parse((row.challenge_arguments as string) || '[]'); } catch { /* ignore */ }
+    try { supportingEvidence = JSON.parse((row.supporting_evidence as string) || '[]'); } catch { /* ignore */ }
+    try { contradictingEvidence = JSON.parse((row.contradicting_evidence as string) || '[]'); } catch { /* ignore */ }
+
+    return {
+      id: row.id as number,
+      principleId: (row.principle_id as number) ?? null,
+      principleStatement: row.principle_statement as string,
+      challengeArguments,
+      supportingEvidence,
+      contradictingEvidence,
+      resilienceScore: row.resilience_score as number,
+      outcome: row.outcome as PrincipleChallenge['outcome'],
+      challengedAt: row.challenged_at as string,
     };
   }
 }

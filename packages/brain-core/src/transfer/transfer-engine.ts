@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { getLogger } from '../utils/logger.js';
 import type { ThoughtStream } from '../consciousness/thought-stream.js';
 import type { Principle, AntiPattern, Strategy, KnowledgeDistiller } from '../research/knowledge-distiller.js';
+import type { NarrativeEngine } from '../narrative/narrative-engine.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -67,8 +68,27 @@ export interface TransferStatus {
   avgEffectiveness: number;
   totalRules: number;
   activeRules: number;
+  totalDialogues: number;
   recentAnalogies: Analogy[];
   recentTransfers: TransferRecord[];
+}
+
+export interface CrossBrainDialogue {
+  id?: number;
+  sourceBrain: string;
+  targetBrain: string;
+  question: string;
+  answer: string;
+  usefulnessScore: number;
+  context: string;
+  askedAt: string;
+  answeredAt: string | null;
+}
+
+export interface DialogueStats {
+  totalDialogues: number;
+  avgUsefulness: number;
+  byPeer: Array<{ peer: string; count: number; avgUsefulness: number }>;
 }
 
 // ── Engine ──────────────────────────────────────────────
@@ -77,6 +97,7 @@ export class TransferEngine {
   private db: Database.Database;
   private brainName: string;
   private thoughtStream: ThoughtStream | null = null;
+  private narrativeEngine: NarrativeEngine | null = null;
   private log = getLogger();
 
   // Knowledge sources from peer brains
@@ -104,6 +125,11 @@ export class TransferEngine {
   /** Register a peer brain's KnowledgeDistiller for cross-domain analysis. */
   registerPeerDistiller(brainName: string, distiller: KnowledgeDistiller): void {
     this.peerDistillers.set(brainName, distiller);
+  }
+
+  /** Set the NarrativeEngine for answering cross-brain questions. */
+  setNarrativeEngine(engine: NarrativeEngine): void {
+    this.narrativeEngine = engine;
   }
 
   // ── Analogy Finding ───────────────────────────────────
@@ -391,6 +417,8 @@ export class TransferEngine {
 
     const recentTransfers = transfers.slice(0, 10).map(this.rowToTransfer);
 
+    const dialogueCount = (this.db.prepare('SELECT COUNT(*) as c FROM cross_brain_dialogues').get() as { c: number }).c;
+
     return {
       totalAnalogies: analogyCount,
       totalTransfers: transfers.length,
@@ -401,6 +429,7 @@ export class TransferEngine {
       avgEffectiveness: avgEff,
       totalRules: rules.length,
       activeRules: rules.filter(r => r.enabled).length,
+      totalDialogues: dialogueCount,
       recentAnalogies,
       recentTransfers,
     };
@@ -679,6 +708,19 @@ export class TransferEngine {
         created_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_tr_source ON transfer_rules(source_brain, source_event);
+
+      CREATE TABLE IF NOT EXISTS cross_brain_dialogues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_brain TEXT NOT NULL,
+        target_brain TEXT NOT NULL,
+        question TEXT NOT NULL,
+        answer TEXT DEFAULT '',
+        usefulness_score REAL DEFAULT 0,
+        context TEXT DEFAULT '',
+        asked_at TEXT DEFAULT (datetime('now')),
+        answered_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_dialogues_brains ON cross_brain_dialogues(source_brain, target_brain);
     `);
   }
 
@@ -748,4 +790,146 @@ export class TransferEngine {
 
     this.log.info(`[transfer] Seeded ${defaults.length} default cross-domain rules`);
   }
+
+  // ── Cross-Brain Dialogues ───────────────────────────────
+
+  /** Formulate a question about a topic from this brain's perspective. */
+  formulateQuestion(topic: string): string {
+    const domainDescriptions: Record<string, string> = {
+      brain: 'code quality and error patterns',
+      'trading-brain': 'trading signals and risk management',
+      'marketing-brain': 'content performance and audience engagement',
+    };
+    const domain = domainDescriptions[this.brainName] ?? this.brainName;
+    return `How does "${topic}" affect ${domain}? What patterns have you observed?`;
+  }
+
+  /** Answer a question using local knowledge (NarrativeEngine or principles). */
+  answerQuestion(question: string): string {
+    // Try NarrativeEngine first
+    if (this.narrativeEngine) {
+      try {
+        const answer = this.narrativeEngine.ask(question);
+        if (answer.answer && answer.answer.length > 10) {
+          return answer.answer;
+        }
+      } catch { /* fallback */ }
+    }
+
+    // Fallback: search local principles for relevant statements
+    try {
+      const principles = this.getLocalPrinciples();
+      const lower = question.toLowerCase();
+      const keywords = lower.split(/\s+/).filter(w => w.length > 3);
+
+      const relevant = principles.filter(p =>
+        keywords.some(k => p.statement.toLowerCase().includes(k)),
+      );
+
+      if (relevant.length > 0) {
+        const parts = relevant.slice(0, 3).map(p =>
+          `${p.statement} (confidence: ${(p.confidence * 100).toFixed(0)}%)`,
+        );
+        return `Based on ${this.brainName} knowledge: ${parts.join('. ')}.`;
+      }
+    } catch { /* ignore */ }
+
+    return `${this.brainName} has no specific knowledge about this topic yet.`;
+  }
+
+  /** Record a dialogue between two brains. */
+  recordDialogue(sourceBrain: string, targetBrain: string, question: string, answer: string, context = ''): CrossBrainDialogue {
+    const info = this.db.prepare(`
+      INSERT INTO cross_brain_dialogues (source_brain, target_brain, question, answer, context, answered_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(sourceBrain, targetBrain, question, answer, context);
+
+    this.thoughtStream?.emit('transfer', 'correlating',
+      `Dialogue: ${sourceBrain} → ${targetBrain}: "${question.substring(0, 50)}..."`,
+      'routine',
+    );
+
+    return {
+      id: Number(info.lastInsertRowid),
+      sourceBrain,
+      targetBrain,
+      question,
+      answer,
+      usefulnessScore: 0,
+      context,
+      askedAt: new Date().toISOString(),
+      answeredAt: new Date().toISOString(),
+    };
+  }
+
+  /** Rate the usefulness of a dialogue. */
+  rateDialogue(id: number, usefulness: number): void {
+    this.db.prepare(
+      'UPDATE cross_brain_dialogues SET usefulness_score = ? WHERE id = ?',
+    ).run(usefulness, id);
+  }
+
+  /** Get dialogue history, optionally filtered by peer brain. */
+  getDialogueHistory(peerBrain?: string, limit = 20): CrossBrainDialogue[] {
+    let rows: Record<string, unknown>[];
+    if (peerBrain) {
+      rows = this.db.prepare(`
+        SELECT * FROM cross_brain_dialogues
+        WHERE source_brain = ? OR target_brain = ?
+        ORDER BY asked_at DESC LIMIT ?
+      `).all(peerBrain, peerBrain, limit) as Record<string, unknown>[];
+    } else {
+      rows = this.db.prepare(`
+        SELECT * FROM cross_brain_dialogues
+        ORDER BY asked_at DESC LIMIT ?
+      `).all(limit) as Record<string, unknown>[];
+    }
+    return rows.map(r => this.toDialogue(r));
+  }
+
+  /** Get dialogue statistics. */
+  getDialogueStats(): DialogueStats {
+    const totalRow = this.db.prepare(
+      'SELECT COUNT(*) as cnt, AVG(usefulness_score) as avg_useful FROM cross_brain_dialogues',
+    ).get() as { cnt: number; avg_useful: number | null };
+
+    const peerRows = this.db.prepare(`
+      SELECT
+        CASE
+          WHEN source_brain = ? THEN target_brain
+          ELSE source_brain
+        END as peer,
+        COUNT(*) as cnt,
+        AVG(usefulness_score) as avg_useful
+      FROM cross_brain_dialogues
+      WHERE source_brain = ? OR target_brain = ?
+      GROUP BY peer
+      ORDER BY cnt DESC
+    `).all(this.brainName, this.brainName, this.brainName) as Array<{ peer: string; cnt: number; avg_useful: number | null }>;
+
+    return {
+      totalDialogues: totalRow.cnt,
+      avgUsefulness: totalRow.avg_useful ?? 0,
+      byPeer: peerRows.map(r => ({
+        peer: r.peer,
+        count: r.cnt,
+        avgUsefulness: r.avg_useful ?? 0,
+      })),
+    };
+  }
+
+  private toDialogue = (row: unknown): CrossBrainDialogue => {
+    const r = row as Record<string, unknown>;
+    return {
+      id: r.id as number,
+      sourceBrain: r.source_brain as string,
+      targetBrain: r.target_brain as string,
+      question: r.question as string,
+      answer: (r.answer as string) ?? '',
+      usefulnessScore: (r.usefulness_score as number) ?? 0,
+      context: (r.context as string) ?? '',
+      askedAt: r.asked_at as string,
+      answeredAt: (r.answered_at as string) ?? null,
+    };
+  };
 }

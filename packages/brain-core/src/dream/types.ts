@@ -104,3 +104,20 @@ export interface ImportanceDecayResult {
   memoriesArchived: number;
   avgDecay: number;
 }
+
+export interface DreamRetrospective {
+  id?: number;
+  dreamCycleId: string;
+  prunedItems: Array<{ synapseId: number; weight: number }>;
+  reappearedCount: number;
+  regretScore: number;
+  lesson: string;
+  analyzedAt: string;
+}
+
+export interface PruningEfficiency {
+  totalPruned: number;
+  totalReappeared: number;
+  avgRegretScore: number;
+  efficiencyRate: number;
+}

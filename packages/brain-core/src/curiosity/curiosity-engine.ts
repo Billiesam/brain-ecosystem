@@ -89,6 +89,18 @@ export interface BanditArm {
   lastPulled: number | null;
 }
 
+export interface BlindSpot {
+  id?: number;
+  topic: string;
+  hypothesisCount: number;
+  predictionCount: number;
+  journalCount: number;
+  experimentCount: number;
+  severity: number;
+  detectedAt: string;
+  resolvedAt: string | null;
+}
+
 export interface CuriosityStatus {
   totalGaps: number;
   activeGaps: number;
@@ -98,6 +110,8 @@ export interface CuriosityStatus {
   explorationRate: number;      // explore / (explore + exploit)
   topGaps: KnowledgeGap[];
   topArms: BanditArm[];
+  blindSpots: number;
+  topBlindSpots: BlindSpot[];
   uptime: number;
 }
 
@@ -151,6 +165,19 @@ export function runCuriosityMigration(db: Database.Database): void {
       timestamp TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_curiosity_explorations_topic ON curiosity_explorations(topic);
+
+    CREATE TABLE IF NOT EXISTS blind_spots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      topic TEXT NOT NULL,
+      hypothesis_count INTEGER NOT NULL DEFAULT 0,
+      prediction_count INTEGER NOT NULL DEFAULT 0,
+      journal_count INTEGER NOT NULL DEFAULT 0,
+      experiment_count INTEGER NOT NULL DEFAULT 0,
+      severity REAL NOT NULL DEFAULT 0,
+      detected_at TEXT DEFAULT (datetime('now')),
+      resolved_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_blind_spots_severity ON blind_spots(severity DESC);
   `);
 }
 
@@ -179,6 +206,11 @@ export class CuriosityEngine {
   private readonly stmtGetExplorations: Database.Statement;
   private readonly stmtGetTopicStats: Database.Statement;
   private readonly stmtTotalExplorations: Database.Statement;
+  private readonly stmtInsertBlindSpot: Database.Statement;
+  private readonly stmtUpdateBlindSpot: Database.Statement;
+  private readonly stmtGetBlindSpots: Database.Statement;
+  private readonly stmtResolveBlindSpot: Database.Statement;
+  private readonly stmtBlindSpotCount: Database.Statement;
 
   constructor(db: Database.Database, config: CuriosityEngineConfig) {
     this.db = db;
@@ -230,6 +262,17 @@ export class CuriosityEngine {
       GROUP BY topic
     `);
     this.stmtTotalExplorations = db.prepare('SELECT COUNT(*) as cnt FROM curiosity_explorations');
+    this.stmtInsertBlindSpot = db.prepare(`
+      INSERT OR REPLACE INTO blind_spots (topic, hypothesis_count, prediction_count, journal_count, experiment_count, severity, detected_at, resolved_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL)
+    `);
+    this.stmtUpdateBlindSpot = db.prepare(`
+      UPDATE blind_spots SET hypothesis_count = ?, prediction_count = ?, journal_count = ?, experiment_count = ?, severity = ?
+      WHERE id = ?
+    `);
+    this.stmtGetBlindSpots = db.prepare('SELECT * FROM blind_spots WHERE resolved_at IS NULL ORDER BY severity DESC LIMIT ?');
+    this.stmtResolveBlindSpot = db.prepare("UPDATE blind_spots SET resolved_at = datetime('now') WHERE id = ?");
+    this.stmtBlindSpotCount = db.prepare('SELECT COUNT(*) as cnt FROM blind_spots WHERE resolved_at IS NULL');
 
     this.log.debug(`[CuriosityEngine] Initialized for ${this.config.brainName}`);
   }
@@ -538,6 +581,132 @@ export class CuriosityEngine {
     return surprises.sort((a, b) => b.deviation - a.deviation);
   }
 
+  // ── Core: Blind Spot Detection ──────────────────────
+
+  /**
+   * Detect blind spots: topics that exist across attention/journal/hypotheses/experiments
+   * but have very low coverage in one or more of those dimensions.
+   * severity = 1 - avg(normalized counts). Topics with severity > 0.7 are blind spots.
+   */
+  detectBlindSpots(): BlindSpot[] {
+    this.ts?.emit('curiosity', 'analyzing', 'Scanning for blind spots...', 'routine');
+
+    const blindSpots: BlindSpot[] = [];
+    const topicsToCheck = this.gatherTopics();
+
+    // Gather counts per topic across all data sources
+    const topicData: Map<string, { hypotheses: number; predictions: number; journal: number; experiments: number }> = new Map();
+
+    for (const topic of topicsToCheck) {
+      const data = { hypotheses: 0, predictions: 0, journal: 0, experiments: 0 };
+
+      // Count hypotheses mentioning this topic
+      if (this.sources.hypothesisEngine) {
+        try {
+          const all = this.sources.hypothesisEngine.list(undefined, 100);
+          data.hypotheses = all.filter(h =>
+            h.statement.toLowerCase().includes(topic.toLowerCase()),
+          ).length;
+        } catch { /* not wired */ }
+      }
+
+      // Count journal entries (via narrative engine)
+      if (this.sources.narrativeEngine) {
+        try {
+          const explanation = this.sources.narrativeEngine.explain(topic);
+          data.journal = explanation.sources?.length ?? 0;
+        } catch { /* not wired */ }
+      }
+
+      // Count experiments
+      if (this.sources.experimentEngine) {
+        try {
+          const allExps = this.sources.experimentEngine.list(undefined, 100);
+          data.experiments = allExps.filter(e =>
+            e.name.toLowerCase().includes(topic.toLowerCase()) ||
+            e.hypothesis.toLowerCase().includes(topic.toLowerCase()),
+          ).length;
+        } catch { /* not wired */ }
+      }
+
+      // Count predictions (from hypotheses with type 'prediction' or tested status)
+      if (this.sources.hypothesisEngine) {
+        try {
+          const all = this.sources.hypothesisEngine.list(undefined, 100);
+          data.predictions = all.filter(h =>
+            h.statement.toLowerCase().includes(topic.toLowerCase()) &&
+            (h.status === 'confirmed' || h.status === 'rejected'),
+          ).length;
+        } catch { /* not wired */ }
+      }
+
+      topicData.set(topic, data);
+    }
+
+    // Find max counts for normalization
+    let maxHypotheses = 0, maxPredictions = 0, maxJournal = 0, maxExperiments = 0;
+    for (const data of topicData.values()) {
+      maxHypotheses = Math.max(maxHypotheses, data.hypotheses);
+      maxPredictions = Math.max(maxPredictions, data.predictions);
+      maxJournal = Math.max(maxJournal, data.journal);
+      maxExperiments = Math.max(maxExperiments, data.experiments);
+    }
+
+    // Normalize and compute severity
+    for (const [topic, data] of topicData) {
+      const normHypotheses = maxHypotheses > 0 ? data.hypotheses / maxHypotheses : 0;
+      const normPredictions = maxPredictions > 0 ? data.predictions / maxPredictions : 0;
+      const normJournal = maxJournal > 0 ? data.journal / maxJournal : 0;
+      const normExperiments = maxExperiments > 0 ? data.experiments / maxExperiments : 0;
+
+      const avgNormalized = (normHypotheses + normPredictions + normJournal + normExperiments) / 4;
+      const severity = 1 - avgNormalized;
+
+      if (severity > 0.7) {
+        // Check if already exists (by topic)
+        const existing = this.db.prepare('SELECT id FROM blind_spots WHERE topic = ? AND resolved_at IS NULL').get(topic) as { id: number } | undefined;
+
+        if (existing) {
+          this.stmtUpdateBlindSpot.run(data.hypotheses, data.predictions, data.journal, data.experiments, severity, existing.id);
+        } else {
+          this.stmtInsertBlindSpot.run(topic, data.hypotheses, data.predictions, data.journal, data.experiments, severity);
+        }
+
+        blindSpots.push({
+          topic,
+          hypothesisCount: data.hypotheses,
+          predictionCount: data.predictions,
+          journalCount: data.journal,
+          experimentCount: data.experiments,
+          severity,
+          detectedAt: new Date().toISOString(),
+          resolvedAt: null,
+        });
+      }
+    }
+
+    if (blindSpots.length > 0) {
+      this.ts?.emit('curiosity', 'discovering',
+        `Found ${blindSpots.length} blind spot(s)`,
+        blindSpots.some(b => b.severity > 0.9) ? 'notable' : 'routine',
+      );
+    }
+
+    return blindSpots.sort((a, b) => b.severity - a.severity);
+  }
+
+  /** Get unresolved blind spots sorted by severity. */
+  getBlindSpots(limit = 10): BlindSpot[] {
+    const rows = this.stmtGetBlindSpots.all(limit) as Record<string, unknown>[];
+    return rows.map(r => this.toBlindSpot(r));
+  }
+
+  /** Mark a blind spot as resolved. */
+  resolveBlindSpot(id: number): boolean {
+    const changes = this.stmtResolveBlindSpot.run(id).changes;
+    return changes > 0;
+  }
+
   // ── Query Methods ────────────────────────────────────
 
   getGaps(limit = 10): KnowledgeGap[] {
@@ -594,6 +763,8 @@ export class CuriosityEngine {
     ).get() as { cnt: number }).cnt;
     const total = exploreCount + exploitCount;
 
+    const blindSpotCount = (this.stmtBlindSpotCount.get() as { cnt: number }).cnt;
+
     return {
       totalGaps: totalGaps.cnt,
       activeGaps: activeGaps.cnt,
@@ -603,6 +774,8 @@ export class CuriosityEngine {
       explorationRate: total > 0 ? exploreCount / total : 0,
       topGaps: this.getGaps(5),
       topArms: this.getArms().sort((a, b) => b.averageReward - a.averageReward).slice(0, 5),
+      blindSpots: blindSpotCount,
+      topBlindSpots: this.getBlindSpots(5),
       uptime: Date.now() - this.startTime,
     };
   }
@@ -895,6 +1068,20 @@ export class CuriosityEngine {
       answer: (row.answer as string) || null,
       askedAt: row.asked_at as string,
       answeredAt: (row.answered_at as string) || null,
+    };
+  }
+
+  private toBlindSpot(row: Record<string, unknown>): BlindSpot {
+    return {
+      id: row.id as number,
+      topic: row.topic as string,
+      hypothesisCount: (row.hypothesis_count as number) || 0,
+      predictionCount: (row.prediction_count as number) || 0,
+      journalCount: (row.journal_count as number) || 0,
+      experimentCount: (row.experiment_count as number) || 0,
+      severity: row.severity as number,
+      detectedAt: row.detected_at as string,
+      resolvedAt: (row.resolved_at as string) || null,
     };
   }
 }

@@ -31,6 +31,10 @@ import type { DebateEngine } from '../debate/debate-engine.js';
 import type { ParameterRegistry } from '../metacognition/parameter-registry.js';
 import type { MetaCognitionLayer } from '../metacognition/meta-cognition-layer.js';
 import type { AutoExperimentEngine } from '../metacognition/auto-experiment-engine.js';
+import type { SelfTestEngine } from '../metacognition/self-test-engine.js';
+import type { TeachEngine } from '../metacognition/teach-engine.js';
+import type { DataScout } from './data-scout.js';
+import type { SimulationEngine } from '../metacognition/simulation-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -78,6 +82,10 @@ export class ResearchOrchestrator {
   private parameterRegistry: ParameterRegistry | null = null;
   private metaCognitionLayer: MetaCognitionLayer | null = null;
   private autoExperimentEngine: AutoExperimentEngine | null = null;
+  private selfTestEngine: SelfTestEngine | null = null;
+  private teachEngine: TeachEngine | null = null;
+  private dataScout: DataScout | null = null;
+  private simulationEngine: SimulationEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -193,6 +201,18 @@ export class ResearchOrchestrator {
   setAutoExperimentEngine(engine: AutoExperimentEngine): void {
     this.autoExperimentEngine = engine;
   }
+
+  /** Set the SelfTestEngine — tests understanding depth of principles. */
+  setSelfTestEngine(engine: SelfTestEngine): void { this.selfTestEngine = engine; }
+
+  /** Set the TeachEngine — generates onboarding packages for new brains. */
+  setTeachEngine(engine: TeachEngine): void { this.teachEngine = engine; }
+
+  /** Set the DataScout — actively scouts external data sources. */
+  setDataScout(scout: DataScout): void { this.dataScout = scout; }
+
+  /** Set the SimulationEngine — runs what-if scenarios. */
+  setSimulationEngine(engine: SimulationEngine): void { this.simulationEngine = engine; }
 
   /** Set the PredictionEngine — wires journal into it. */
   setPredictionEngine(engine: PredictionEngine): void {
@@ -967,6 +987,210 @@ export class ResearchOrchestrator {
       }
     }
 
+    // Step 23: Blind Spot Detection (every 5 cycles)
+    if (this.curiosityEngine && this.cycleCount % 5 === 0) {
+      try {
+        ts?.emit('orchestrator', 'analyzing', 'Step 23: Detecting blind spots...', 'routine');
+        const blindSpots = this.curiosityEngine.detectBlindSpots();
+        for (const bs of blindSpots) {
+          this.journal.write({
+            type: 'discovery',
+            title: `Blind spot: "${bs.topic}" (severity=${(bs.severity * 100).toFixed(0)}%)`,
+            content: `Knowledge blind spot detected. Hypotheses: ${bs.hypothesisCount}, Predictions: ${bs.predictionCount}, Journal: ${bs.journalCount}, Experiments: ${bs.experimentCount}`,
+            tags: ['blind-spot', bs.topic],
+            references: [],
+            significance: bs.severity > 0.85 ? 'notable' : 'routine',
+            data: { blindSpot: bs },
+          });
+          this.researchAgenda.ask(
+            `Investigate blind spot: ${bs.topic} — severity ${(bs.severity * 100).toFixed(0)}%, needs more research`,
+            'knowledge_gap',
+          );
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('blind_spot_detector', this.cycleCount, { insights: blindSpots.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 23 error: ${(err as Error).message}`); }
+    }
+
+    // Step 24: Creative Hypotheses (every 10 cycles)
+    if (this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('orchestrator', 'hypothesizing', 'Step 24: Generating creative hypotheses...', 'routine');
+        const creative = this.hypothesisEngine.generateCreative(3);
+        for (const h of creative) {
+          this.journal.write({
+            type: 'insight',
+            title: `Creative hypothesis: ${h.statement.substring(0, 80)}`,
+            content: `Source: ${h.source}, Type: ${h.type}`,
+            tags: ['creative-hypothesis', h.source],
+            references: [],
+            significance: 'routine',
+            data: { hypothesis: h },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('creative_hypotheses', this.cycleCount, { insights: creative.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 24 error: ${(err as Error).message}`); }
+    }
+
+    // Step 25: Advocatus Diaboli — challenge a random confirmed principle (every 10 cycles)
+    if (this.debateEngine && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('orchestrator', 'reflecting', 'Step 25: Challenging a principle...', 'routine');
+        const principles = this.knowledgeDistiller.getPrinciples(undefined, 20);
+        if (principles.length > 0) {
+          const randomPrinciple = principles[Math.floor(Math.random() * principles.length)];
+          const challenge = this.debateEngine.challenge(randomPrinciple.statement);
+          this.journal.write({
+            type: 'reflection',
+            title: `Principle challenged: resilience=${(challenge.resilienceScore * 100).toFixed(0)}% → ${challenge.outcome}`,
+            content: `"${challenge.principleStatement.substring(0, 100)}" — Supporting: ${challenge.supportingEvidence.length}, Contradicting: ${challenge.contradictingEvidence.length}`,
+            tags: ['challenge', challenge.outcome],
+            references: [],
+            significance: challenge.outcome === 'disproved' ? 'notable' : 'routine',
+            data: { challenge },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('advocatus_diaboli', this.cycleCount, { insights: 1 });
+      } catch (err) { this.log.warn(`[orchestrator] Step 25 error: ${(err as Error).message}`); }
+    }
+
+    // Step 26: Dream Retrospective — analyze pruning regret (every 20 cycles)
+    if (this.dreamEngine && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('orchestrator', 'reflecting', 'Step 26: Analyzing dream retrospective...', 'routine');
+        const retrospectives = this.dreamEngine.analyzeRetrospective(5);
+        for (const r of retrospectives) {
+          if (r.regretScore > 0.3) {
+            this.journal.write({
+              type: 'reflection',
+              title: `Dream regret: ${(r.regretScore * 100).toFixed(0)}% of pruned items reappeared`,
+              content: r.lesson,
+              tags: ['dream', 'retrospective'],
+              references: [],
+              significance: r.regretScore > 0.5 ? 'notable' : 'routine',
+              data: { retrospective: r },
+            });
+          }
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('dream_retrospective', this.cycleCount, { insights: retrospectives.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 26 error: ${(err as Error).message}`); }
+    }
+
+    // Step 27: Cross-Brain Dialogue — formulate and answer questions across domains (every 10 cycles)
+    if (this.transferEngine && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('orchestrator', 'correlating', 'Step 27: Cross-brain dialogue...', 'routine');
+        let topic = 'general knowledge';
+        if (this.attentionEngine) {
+          const topTopics = this.attentionEngine.getTopTopics(5);
+          if (topTopics.length > 0) topic = topTopics[0].topic;
+        }
+        const question = this.transferEngine.formulateQuestion(topic);
+        const answer = this.transferEngine.answerQuestion(question);
+        this.transferEngine.recordDialogue(this.brainName, 'self', question, answer, `cycle:${this.cycleCount}`);
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('cross_brain_dialogue', this.cycleCount, { insights: 1 });
+      } catch (err) { this.log.warn(`[orchestrator] Step 27 error: ${(err as Error).message}`); }
+    }
+
+    // Step 28: Self-Test — test understanding depth of principles (every 10 cycles)
+    if (this.selfTestEngine && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('orchestrator', 'analyzing', 'Step 28: Self-testing principles...', 'routine');
+        const results = this.selfTestEngine.testAll();
+        const shallow = results.filter(r => r.understandingDepth < 0.3);
+        for (const s of shallow) {
+          this.researchAgenda.ask(
+            `Deepen understanding: "${s.principleStatement.substring(0, 60)}" — shallow depth (${(s.understandingDepth * 100).toFixed(0)}%), need more predictions/experiments`,
+            'knowledge_gap',
+          );
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('self_test', this.cycleCount, { insights: results.length, journal_entries: shallow.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 28 error: ${(err as Error).message}`); }
+    }
+
+    // Step 29: DataScout — scout external data sources (every 20 cycles)
+    if (this.dataScout && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('orchestrator', 'exploring', 'Step 29: Scouting external data...', 'routine');
+        const discoveries = await this.dataScout.scout();
+        for (const d of discoveries.slice(0, 3)) {
+          this.journal.write({
+            type: 'discovery',
+            title: `Scout: ${d.title}`,
+            content: `Source: ${d.source}, Relevance: ${(d.relevanceScore * 100).toFixed(0)}%. ${d.description.substring(0, 200)}`,
+            tags: ['scout', d.source],
+            references: [],
+            significance: d.relevanceScore > 0.7 ? 'notable' : 'routine',
+            data: { discovery: d },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('data_scout', this.cycleCount, { insights: discoveries.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 29 error: ${(err as Error).message}`); }
+    }
+
+    // Step 30: Emergence Explanation — explain unexplained emergence events (every 5 cycles)
+    if (this.emergenceEngine && this.cycleCount % 5 === 0) {
+      try {
+        ts?.emit('orchestrator', 'analyzing', 'Step 30: Explaining recent emergence events...', 'routine');
+        const events = this.emergenceEngine.getEvents(5);
+        let explained = 0;
+        for (const e of events) {
+          if (!e.id) continue;
+          const existing = this.emergenceEngine.getExplanation(e.id);
+          if (!existing) {
+            this.emergenceEngine.explain(e.id);
+            explained++;
+          }
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('emergence_explain', this.cycleCount, { insights: explained });
+      } catch (err) { this.log.warn(`[orchestrator] Step 30 error: ${(err as Error).message}`); }
+    }
+
+    // Step 31: Meta-Trends — record system-wide trend data every cycle
+    if (this.metaCognitionLayer) {
+      try {
+        const totalPrinciples = this.knowledgeDistiller.getPrinciples(undefined, 1000).length;
+        const hypothesisSummary = this.hypothesisEngine.getSummary();
+        const totalHypotheses = hypothesisSummary.total ?? 0;
+        const predictionAccuracy = 0; // Will be filled if prediction engine available
+        let closedGaps = 0;
+        if (this.curiosityEngine) {
+          const status = this.curiosityEngine.getStatus();
+          closedGaps = status.totalGaps - status.activeGaps;
+        }
+        const emergenceCount = this.emergenceEngine ? this.emergenceEngine.getStatus().totalEvents : 0;
+
+        this.metaCognitionLayer.recordTrend(this.cycleCount, {
+          newPrinciples: totalPrinciples,
+          newHypotheses: totalHypotheses,
+          predictionAccuracy,
+          closedGaps,
+          totalPrinciples,
+          totalHypotheses,
+          emergenceCount,
+        });
+      } catch (err) { this.log.warn(`[orchestrator] Step 31 error: ${(err as Error).message}`); }
+    }
+
+    // Step 32: Simulation — run what-if scenarios (every 20 cycles)
+    if (this.simulationEngine && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('orchestrator', 'hypothesizing', 'Step 32: Running what-if simulations...', 'routine');
+        const scenarios = ['error_rate doubles', 'learning_rate halves', 'prediction_accuracy increases by 20%'];
+        const scenario = scenarios[this.cycleCount % scenarios.length];
+        const sim = this.simulationEngine.simulate(scenario);
+        this.journal.write({
+          type: 'insight',
+          title: `Simulation: "${scenario}"`,
+          content: `Predicted ${sim.predictedOutcomes.length} outcomes. ${sim.predictedOutcomes.map(o => `${o.metric}: ${o.direction} (${(o.confidence * 100).toFixed(0)}%)`).join(', ')}`,
+          tags: ['simulation', 'what-if'],
+          references: [],
+          significance: 'routine',
+          data: { simulation: sim },
+        });
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('simulation', this.cycleCount, { predictions: sim.predictedOutcomes.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 32 error: ${(err as Error).message}`); }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -1538,6 +1762,10 @@ export class ResearchOrchestrator {
       metacognition: this.metaCognitionLayer?.getStatus() ?? null,
       autoExperiment: this.autoExperimentEngine?.getStatus(this.cycleCount) ?? null,
       parameterRegistry: this.parameterRegistry?.getStatus() ?? null,
+      selfTest: this.selfTestEngine?.getStatus() ?? null,
+      teach: this.teachEngine?.getStatus() ?? null,
+      dataScout: this.dataScout?.getStatus() ?? null,
+      simulation: this.simulationEngine?.getStatus() ?? null,
     };
   }
 }

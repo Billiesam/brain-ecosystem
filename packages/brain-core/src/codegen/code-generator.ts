@@ -9,6 +9,17 @@ import type {
   GenerationRecord, GenerationStatus, CodeGeneratorSummary,
 } from './types.js';
 
+// ── Types ────────────────────────────────────────────────
+
+export interface SelfImprovementProposal {
+  id?: number;
+  engine: string;
+  problemDescription: string;
+  proposedChange: string;
+  status: 'proposed' | 'approved' | 'rejected' | 'implemented';
+  createdAt: string;
+}
+
 // ── Migration ────────────────────────────────────────────
 
 export function runCodeGeneratorMigration(db: Database.Database): void {
@@ -36,6 +47,16 @@ export function runCodeGeneratorMigration(db: Database.Database): void {
       completed_at TEXT,
       reviewed_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS self_improvement_proposals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      engine TEXT NOT NULL,
+      problem_description TEXT NOT NULL,
+      proposed_change TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'proposed',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_self_improvement_status ON self_improvement_proposals(status);
   `);
 }
 
@@ -249,6 +270,64 @@ export class CodeGenerator {
       avg_generation_time_ms: Math.round(avgTime),
       approval_rate: reviewed > 0 ? approved / reviewed : 0,
       last_generation_at: last.t,
+    };
+  }
+
+  // ── Self-Improvement Proposals ──────────────────────────
+
+  /** Propose a self-improvement: tracks what could be changed, no auto-apply. */
+  proposeSelfImprovement(engine: string, problem: string, proposedChange: string): SelfImprovementProposal {
+    const result = this.db.prepare(`
+      INSERT INTO self_improvement_proposals (engine, problem_description, proposed_change, status)
+      VALUES (?, ?, ?, 'proposed')
+    `).run(engine, problem, proposedChange);
+
+    this.thoughtStream?.emit('code_generator', 'analyzing',
+      `Self-improvement proposal: ${engine} — ${problem.substring(0, 60)}`, 'notable');
+
+    return {
+      id: Number(result.lastInsertRowid),
+      engine,
+      problemDescription: problem,
+      proposedChange: proposedChange,
+      status: 'proposed',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  /** List self-improvement proposals, optionally filtered by status. */
+  listProposals(status?: string, limit = 20): SelfImprovementProposal[] {
+    const rows = status
+      ? this.db.prepare('SELECT * FROM self_improvement_proposals WHERE status = ? ORDER BY id DESC LIMIT ?').all(status, limit) as Array<Record<string, unknown>>
+      : this.db.prepare('SELECT * FROM self_improvement_proposals ORDER BY id DESC LIMIT ?').all(limit) as Array<Record<string, unknown>>;
+    return rows.map(r => this.toProposal(r));
+  }
+
+  /** Approve a self-improvement proposal. */
+  approveProposal(id: number): SelfImprovementProposal | null {
+    this.db.prepare('UPDATE self_improvement_proposals SET status = ? WHERE id = ?').run('approved', id);
+    const row = this.db.prepare('SELECT * FROM self_improvement_proposals WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    this.thoughtStream?.emit('code_generator', 'discovering', `Self-improvement #${id} approved`, 'notable');
+    return this.toProposal(row);
+  }
+
+  /** Reject a self-improvement proposal. */
+  rejectProposal(id: number): SelfImprovementProposal | null {
+    this.db.prepare('UPDATE self_improvement_proposals SET status = ? WHERE id = ?').run('rejected', id);
+    const row = this.db.prepare('SELECT * FROM self_improvement_proposals WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return this.toProposal(row);
+  }
+
+  private toProposal(row: Record<string, unknown>): SelfImprovementProposal {
+    return {
+      id: row.id as number,
+      engine: row.engine as string,
+      problemDescription: row.problem_description as string,
+      proposedChange: row.proposed_change as string,
+      status: row.status as SelfImprovementProposal['status'],
+      createdAt: row.created_at as string,
     };
   }
 

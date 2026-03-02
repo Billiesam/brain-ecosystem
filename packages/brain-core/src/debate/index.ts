@@ -9,4 +9,5 @@ export type {
   DebateSynthesis,
   DebateConflict,
   DebateEngineStatus,
+  PrincipleChallenge,
 } from './debate-engine.js';

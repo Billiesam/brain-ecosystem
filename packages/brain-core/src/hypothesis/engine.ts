@@ -316,6 +316,219 @@ export class HypothesisEngine {
     };
   }
 
+  // ── Creative Hypothesis Generation ──────────────
+
+  /**
+   * Generate "wild" hypotheses using creative strategies.
+   * These push the boundaries of what the system considers possible.
+   * Each gets a source like 'creative_inversion', 'creative_combination', etc.
+   */
+  generateCreative(count = 3): Hypothesis[] {
+    const generated: Hypothesis[] = [];
+    const strategies = [
+      () => this.creativeInversion(),
+      () => this.creativeCombination(),
+      () => this.creativeAnalogy(),
+      () => this.creativeNegation(),
+      () => this.creativeRandomWalk(),
+    ];
+
+    // Rotate through strategies to fill the requested count
+    for (let i = 0; i < count; i++) {
+      const strategy = strategies[i % strategies.length]!;
+      const hypothesis = strategy();
+      if (hypothesis) {
+        generated.push(hypothesis);
+      }
+    }
+
+    if (generated.length > 0) {
+      this.logger.info(`Generated ${generated.length} creative hypotheses`);
+    }
+
+    return generated;
+  }
+
+  /** Get statistics about creative hypotheses. */
+  getCreativeStats(): { total: number; confirmed: number; rejected: number; pendingRate: number } {
+    const rows = this.db.prepare(`
+      SELECT status, COUNT(*) as count FROM hypotheses
+      WHERE source LIKE 'creative_%'
+      GROUP BY status
+    `).all() as { status: string; count: number }[];
+
+    let total = 0, confirmed = 0, rejected = 0, pending = 0;
+    for (const { status, count } of rows) {
+      total += count;
+      if (status === 'confirmed') confirmed = count;
+      else if (status === 'rejected') rejected = count;
+      else pending += count; // proposed, testing, inconclusive
+    }
+
+    return {
+      total,
+      confirmed,
+      rejected,
+      pendingRate: total > 0 ? pending / total : 0,
+    };
+  }
+
+  // ── Creative Strategies ──────────────────────────
+
+  /**
+   * Strategy 1: Inversion — take a confirmed hypothesis and invert it.
+   * "What if the opposite of X is true?"
+   */
+  private creativeInversion(): Hypothesis | null {
+    const confirmed = this.db.prepare(
+      "SELECT * FROM hypotheses WHERE status = 'confirmed' ORDER BY RANDOM() LIMIT 1",
+    ).get() as any;
+
+    if (!confirmed) return null;
+
+    const original = confirmed.statement as string;
+    const statement = `What if the opposite is true: NOT "${original}"?`;
+
+    // Check for duplicate
+    const existing = this.db.prepare(
+      "SELECT id FROM hypotheses WHERE statement = ? AND status != 'rejected'",
+    ).get(statement) as { id: number } | undefined;
+    if (existing) return null;
+
+    return this.propose({
+      statement,
+      type: 'creative',
+      source: 'creative_inversion',
+      variables: JSON.parse(confirmed.variables),
+      condition: { type: 'correlation', params: { strategy: 'inversion', originalId: confirmed.id } },
+    });
+  }
+
+  /**
+   * Strategy 2: Combination — merge 2 random confirmed hypotheses.
+   * "Combined insight: X AND Y may be related"
+   */
+  private creativeCombination(): Hypothesis | null {
+    const pair = this.db.prepare(
+      "SELECT * FROM hypotheses WHERE status = 'confirmed' ORDER BY RANDOM() LIMIT 2",
+    ).all() as any[];
+
+    if (pair.length < 2) return null;
+
+    const h1 = pair[0]!;
+    const h2 = pair[1]!;
+    const statement = `Combined insight: "${h1.statement}" AND "${h2.statement}" may be related`;
+
+    const existing = this.db.prepare(
+      "SELECT id FROM hypotheses WHERE statement = ? AND status != 'rejected'",
+    ).get(statement) as { id: number } | undefined;
+    if (existing) return null;
+
+    const vars1 = JSON.parse(h1.variables) as string[];
+    const vars2 = JSON.parse(h2.variables) as string[];
+    const combinedVars = [...new Set([...vars1, ...vars2])];
+
+    return this.propose({
+      statement,
+      type: 'creative',
+      source: 'creative_combination',
+      variables: combinedVars,
+      condition: { type: 'correlation', params: { strategy: 'combination', sourceIds: [h1.id, h2.id] } },
+    });
+  }
+
+  /**
+   * Strategy 3: Analogy — take a pattern from one observation type and apply to another.
+   * "By analogy: 'X' might also apply to Y events"
+   */
+  private creativeAnalogy(): Hypothesis | null {
+    const confirmed = this.db.prepare(
+      "SELECT * FROM hypotheses WHERE status = 'confirmed' ORDER BY RANDOM() LIMIT 1",
+    ).get() as any;
+
+    if (!confirmed) return null;
+
+    const variables = JSON.parse(confirmed.variables) as string[];
+    const sourceType = variables[0] || 'unknown';
+
+    // Find a different observation type
+    const otherTypes = this.db.prepare(
+      'SELECT DISTINCT type FROM observations WHERE type != ? ORDER BY RANDOM() LIMIT 1',
+    ).get(sourceType) as { type: string } | undefined;
+
+    const targetType = otherTypes?.type || 'other_domain';
+    const statement = `By analogy: "${confirmed.statement}" might also apply to ${targetType} events`;
+
+    const existing = this.db.prepare(
+      "SELECT id FROM hypotheses WHERE statement = ? AND status != 'rejected'",
+    ).get(statement) as { id: number } | undefined;
+    if (existing) return null;
+
+    return this.propose({
+      statement,
+      type: 'creative',
+      source: 'creative_analogy',
+      variables: [sourceType, targetType],
+      condition: { type: 'correlation', params: { strategy: 'analogy', originalId: confirmed.id, targetType } },
+    });
+  }
+
+  /**
+   * Strategy 4: Negation — pick a principle-like confirmed hypothesis and negate it.
+   * "What if [established principle] is wrong?"
+   */
+  private creativeNegation(): Hypothesis | null {
+    const principle = this.db.prepare(
+      "SELECT * FROM hypotheses WHERE status = 'confirmed' AND confidence > 0.7 ORDER BY RANDOM() LIMIT 1",
+    ).get() as any;
+
+    if (!principle) return null;
+
+    const statement = `What if "${principle.statement}" is actually wrong?`;
+
+    const existing = this.db.prepare(
+      "SELECT id FROM hypotheses WHERE statement = ? AND status != 'rejected'",
+    ).get(statement) as { id: number } | undefined;
+    if (existing) return null;
+
+    return this.propose({
+      statement,
+      type: 'creative',
+      source: 'creative_negation',
+      variables: JSON.parse(principle.variables),
+      condition: { type: 'correlation', params: { strategy: 'negation', originalId: principle.id } },
+    });
+  }
+
+  /**
+   * Strategy 5: Random Walk — connect two random unrelated observations.
+   * "There might be a hidden connection between X and Y"
+   */
+  private creativeRandomWalk(): Hypothesis | null {
+    const observations = this.db.prepare(
+      'SELECT DISTINCT type FROM observations ORDER BY RANDOM() LIMIT 2',
+    ).all() as { type: string }[];
+
+    if (observations.length < 2) return null;
+
+    const typeA = observations[0]!.type;
+    const typeB = observations[1]!.type;
+    const statement = `There might be a hidden connection between "${typeA}" and "${typeB}" events`;
+
+    const existing = this.db.prepare(
+      "SELECT id FROM hypotheses WHERE statement = ? AND status != 'rejected'",
+    ).get(statement) as { id: number } | undefined;
+    if (existing) return null;
+
+    return this.propose({
+      statement,
+      type: 'creative',
+      source: 'creative_random_walk',
+      variables: [typeA, typeB],
+      condition: { type: 'correlation', params: { strategy: 'random_walk', typeA, typeB } },
+    });
+  }
+
   // ── Hypothesis Generation Strategies ──────────────
 
   private generateTemporalHypotheses(): Hypothesis[] {

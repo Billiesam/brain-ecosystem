@@ -32,6 +32,25 @@ export interface CausalAnalysis {
   roots: string[];      // events that cause others but are not caused
   leaves: string[];     // events that are caused but don't cause others
   strongestChain: CausalPath | null;
+  interventionsCount: number;
+}
+
+export interface CausalIntervention {
+  id?: number;
+  cause: string;
+  effect: string;
+  interventionType: string;
+  expectedDirection: string;
+  actualDirection: string | null;
+  confounders: string[];
+  validated: boolean;
+  timestamp: string;
+}
+
+export interface StrengthEvolution {
+  cause: string;
+  effect: string;
+  dataPoints: Array<{ timestamp: string; strength: number; confidence: number }>;
 }
 
 // ── Migration ───────────────────────────────────────────
@@ -63,6 +82,19 @@ export function runCausalMigration(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_causal_events_type ON causal_events(type);
     CREATE INDEX IF NOT EXISTS idx_causal_events_timestamp ON causal_events(timestamp);
     CREATE INDEX IF NOT EXISTS idx_causal_edges_strength ON causal_edges(strength DESC);
+
+    CREATE TABLE IF NOT EXISTS causal_interventions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cause TEXT NOT NULL,
+      effect TEXT NOT NULL,
+      intervention_type TEXT NOT NULL DEFAULT 'manual',
+      expected_direction TEXT NOT NULL DEFAULT 'increase',
+      actual_direction TEXT DEFAULT NULL,
+      confounders TEXT NOT NULL DEFAULT '[]',
+      validated INTEGER NOT NULL DEFAULT 0,
+      timestamp TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_causal_interventions_cause ON causal_interventions(cause, effect);
   `);
 }
 
@@ -263,12 +295,16 @@ export class CausalGraph {
     const roots = this.findRoots(edges);
     const leaves = this.findLeaves(edges);
     const chains = this.findChains();
+    const interventionsCount = (this.db.prepare(
+      'SELECT COUNT(*) as cnt FROM causal_interventions',
+    ).get() as { cnt: number }).cnt;
 
     return {
       edges,
       roots,
       leaves,
       strongestChain: chains.length > 0 ? chains[0]! : null,
+      interventionsCount,
     };
   }
 
@@ -284,7 +320,163 @@ export class CausalGraph {
     `).all() as any[];
   }
 
+  // ── Confounder & Intervention Methods ──────────────
+
+  /**
+   * Detect confounders for a cause→effect pair.
+   * A confounder is any node C where C→cause AND C→effect edges exist (shared parent).
+   */
+  detectConfounders(cause: string, effect: string): string[] {
+    const rows = this.db.prepare(`
+      SELECT DISTINCT e1.cause AS confounder
+      FROM causal_edges e1
+      JOIN causal_edges e2 ON e1.cause = e2.cause
+      WHERE e1.effect = ? AND e2.effect = ? AND e1.cause != ? AND e1.cause != ?
+    `).all(cause, effect, cause, effect) as Array<{ confounder: string }>;
+    return rows.map(r => r.confounder);
+  }
+
+  /**
+   * Track how the causal strength between two event types evolved over time.
+   * Splits recent events by day, runs Granger test on each day's subset.
+   */
+  trackStrengthEvolution(cause: string, effect: string, windowDays = 7): StrengthEvolution {
+    const windowMs = windowDays * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - windowMs;
+
+    const causeEvents = this.db.prepare(
+      'SELECT timestamp FROM causal_events WHERE type = ? AND timestamp >= ? ORDER BY timestamp',
+    ).all(cause, cutoff) as Array<{ timestamp: number }>;
+
+    const effectEvents = this.db.prepare(
+      'SELECT timestamp FROM causal_events WHERE type = ? AND timestamp >= ? ORDER BY timestamp',
+    ).all(effect, cutoff) as Array<{ timestamp: number }>;
+
+    // Group by day
+    const dayMs = 24 * 60 * 60 * 1000;
+    const dayBuckets = new Map<number, { causes: Array<{ timestamp: number }>; effects: Array<{ timestamp: number }> }>();
+
+    for (const ev of causeEvents) {
+      const day = Math.floor(ev.timestamp / dayMs);
+      if (!dayBuckets.has(day)) dayBuckets.set(day, { causes: [], effects: [] });
+      dayBuckets.get(day)!.causes.push(ev);
+    }
+    for (const ev of effectEvents) {
+      const day = Math.floor(ev.timestamp / dayMs);
+      if (!dayBuckets.has(day)) dayBuckets.set(day, { causes: [], effects: [] });
+      dayBuckets.get(day)!.effects.push(ev);
+    }
+
+    const dataPoints: Array<{ timestamp: string; strength: number; confidence: number }> = [];
+    const sortedDays = [...dayBuckets.keys()].sort((a, b) => a - b);
+
+    for (const day of sortedDays) {
+      const bucket = dayBuckets.get(day)!;
+      if (bucket.causes.length < 2 || bucket.effects.length < 2) continue;
+
+      // Simple follow-count analysis per day
+      let followCount = 0;
+      for (const c of bucket.causes) {
+        for (const e of bucket.effects) {
+          const lag = e.timestamp - c.timestamp;
+          if (lag > 0 && lag <= this.maxWindowMs) {
+            followCount++;
+            break;
+          }
+          if (lag > this.maxWindowMs) break;
+        }
+      }
+
+      const strength = bucket.causes.length > 0 ? followCount / bucket.causes.length : 0;
+      const confidence = 1 - 1 / (1 + followCount / 5);
+      const ts = new Date(day * dayMs).toISOString();
+      dataPoints.push({ timestamp: ts, strength, confidence });
+    }
+
+    return { cause, effect, dataPoints };
+  }
+
+  /**
+   * Validate a causal chain: checks if each consecutive pair still has a significant edge.
+   * Returns which links are weak or missing.
+   */
+  validateChain(chain: string[]): { valid: boolean; weakLinks: string[] } {
+    const weakLinks: string[] = [];
+
+    for (let i = 0; i < chain.length - 1; i++) {
+      const from = chain[i]!;
+      const to = chain[i + 1]!;
+
+      const edge = this.db.prepare(
+        'SELECT strength, confidence FROM causal_edges WHERE cause = ? AND effect = ?',
+      ).get(from, to) as { strength: number; confidence: number } | undefined;
+
+      if (!edge || edge.strength < 0.1 || edge.confidence < 0.3) {
+        weakLinks.push(`${from} → ${to}`);
+      }
+    }
+
+    return { valid: weakLinks.length === 0, weakLinks };
+  }
+
+  /**
+   * Record an intervention: a deliberate change to test a causal relationship.
+   * Confounders are auto-detected from the causal graph.
+   */
+  recordIntervention(
+    cause: string,
+    effect: string,
+    expectedDirection: string,
+    actualDirection: string | null,
+  ): CausalIntervention {
+    const confounders = this.detectConfounders(cause, effect);
+    const validated = actualDirection !== null && actualDirection === expectedDirection;
+
+    const result = this.db.prepare(`
+      INSERT INTO causal_interventions (cause, effect, intervention_type, expected_direction, actual_direction, confounders, validated)
+      VALUES (?, ?, 'manual', ?, ?, ?, ?)
+    `).run(cause, effect, expectedDirection, actualDirection, JSON.stringify(confounders), validated ? 1 : 0);
+
+    this.logger.info(`[CausalGraph] Intervention recorded: ${cause} → ${effect} (expected=${expectedDirection}, actual=${actualDirection})`);
+
+    return {
+      id: Number(result.lastInsertRowid),
+      cause,
+      effect,
+      interventionType: 'manual',
+      expectedDirection,
+      actualDirection,
+      confounders,
+      validated,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /** Get recent intervention history. */
+  getInterventionHistory(limit = 20): CausalIntervention[] {
+    const rows = this.db.prepare(
+      'SELECT * FROM causal_interventions ORDER BY id DESC LIMIT ?',
+    ).all(limit) as Array<Record<string, unknown>>;
+    return rows.map(r => this.toIntervention(r));
+  }
+
   // ── Private helpers ─────────────────────────────────
+
+  private toIntervention(row: Record<string, unknown>): CausalIntervention {
+    let confounders: string[] = [];
+    try { confounders = JSON.parse((row.confounders as string) || '[]'); } catch { /* ignore */ }
+    return {
+      id: row.id as number,
+      cause: row.cause as string,
+      effect: row.effect as string,
+      interventionType: row.intervention_type as string,
+      expectedDirection: row.expected_direction as string,
+      actualDirection: (row.actual_direction as string) ?? null,
+      confounders,
+      validated: (row.validated as number) === 1,
+      timestamp: row.timestamp as string,
+    };
+  }
 
   private getEventTypes(): string[] {
     const rows = this.db.prepare(
