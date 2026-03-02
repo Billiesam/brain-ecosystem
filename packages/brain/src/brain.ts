@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -86,6 +86,7 @@ export class BrainCore {
   private codegenServer: CodegenServer | null = null;
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
+  private unifiedServer: UnifiedDashboardServer | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -355,7 +356,60 @@ export class BrainCore {
     this.consciousnessServer.start();
     services.consciousnessServer = this.consciousnessServer;
     services.thoughtStream = thoughtStream;
-    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7784)');
+
+    // 11j.7 Unified Dashboard — single pane of glass for the ecosystem
+    this.unifiedServer = new UnifiedDashboardServer({
+      port: 7788,
+      thoughtStream,
+      getOverview: () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const summary = this.orchestrator?.getSummary() as Record<string, any> | undefined;
+        const transferStatus = this.transferEngine?.getStatus();
+        const attStatus = this.attentionEngine?.getStatus();
+        return {
+          healthScore: typeof summary?.cycleCount === 'number' ? Math.min(100, 50 + summary.cycleCount) : null,
+          brains: {
+            brain: {
+              status: this.db ? 'running' : 'stopped',
+              cycle: summary?.cycleCount ?? 0,
+              principles: summary?.knowledge?.totalPrinciples ?? 0,
+              hypotheses: summary?.hypothesis?.total ?? 0,
+              experiments: summary?.experiment?.total ?? 0,
+              focus: attStatus?.currentContext ?? 'unknown',
+            },
+          },
+          transfer: transferStatus,
+          attention: attStatus,
+        };
+      },
+      getTransferStatus: () => {
+        if (!this.transferEngine) return null;
+        const status = this.transferEngine.getStatus();
+        return {
+          ...status,
+          analogies: this.transferEngine.getAnalogies(20),
+          rules: this.transferEngine.getRules(),
+          history: this.transferEngine.getTransferHistory(30),
+          transferScore: this.transferEngine.getTransferScore(),
+        };
+      },
+      getAttentionStatus: () => {
+        if (!this.attentionEngine) return null;
+        return this.attentionEngine.getStatus();
+      },
+      getNotifications: () => {
+        return thoughtStream.getRecent(100).filter(
+          (t: { significance?: string }) => t.significance === 'breakthrough' || t.significance === 'notable',
+        );
+      },
+      onTriggerFeedback: () => {
+        this.orchestrator?.runFeedbackCycle();
+      },
+    });
+    this.unifiedServer.start();
+    services.unifiedServer = this.unifiedServer;
+
+    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7784, Unified on :7788)');
 
     // 11k. Signal Scanner — GitHub/HN/Crypto signal tracking
     if (config.scanner.enabled) {
@@ -492,6 +546,7 @@ export class BrainCore {
 
     this.subscriptionManager?.disconnectAll();
     this.attentionEngine?.stop();
+    this.unifiedServer?.stop();
     this.codegenServer?.stop();
     this.consciousnessServer?.stop();
     this.orchestrator?.stop();
@@ -514,6 +569,7 @@ export class BrainCore {
     this.orchestrator = null;
     this.consciousnessServer = null;
     this.codegenServer = null;
+    this.unifiedServer = null;
     this.subscriptionManager = null;
     this.correlator = null;
     this.ecosystemService = null;

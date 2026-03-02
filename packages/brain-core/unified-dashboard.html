@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain Ecosystem — Unified Dashboard</title>
+<style>
+  :root {
+    --bg-primary: #06080f;
+    --bg-secondary: #0c1017;
+    --bg-card: rgba(14, 18, 30, 0.85);
+    --border: rgba(100, 120, 180, 0.15);
+    --text-primary: #e8ecf4;
+    --text-secondary: #8090b0;
+    --text-muted: #506080;
+    --cyan: #00e5ff;
+    --green: #00ff88;
+    --magenta: #ff0090;
+    --gold: #ffd700;
+    --purple: #b388ff;
+    --orange: #ff9100;
+    --red: #ff3d3d;
+    --blue: #448aff;
+    --sidebar-width: 220px;
+    --header-height: 52px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* ── Sidebar ──────────────────────────────────── */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+  }
+
+  .sidebar-brand {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-brand .logo {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--cyan) 0%, transparent 70%);
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  .sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; }
+
+  .nav-section {
+    padding: 8px 16px 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+    font-size: 12.5px;
+  }
+
+  .nav-item:hover {
+    background: rgba(0, 229, 255, 0.05);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active {
+    background: rgba(0, 229, 255, 0.08);
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+  }
+
+  .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .connection-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+    margin-right: 6px;
+    transition: background 0.3s;
+  }
+
+  .connection-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ── Header ───────────────────────────────────── */
+  .header {
+    position: fixed;
+    left: var(--sidebar-width);
+    top: 0; right: 0;
+    height: var(--header-height);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 90;
+  }
+
+  .header-title { font-size: 15px; font-weight: 600; }
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(0, 229, 255, 0.08);
+    color: var(--cyan);
+    font-family: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: rgba(0, 229, 255, 0.18); border-color: var(--cyan); }
+
+  .health-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .health-badge.healthy { background: rgba(0, 255, 136, 0.1); color: var(--green); border: 1px solid rgba(0, 255, 136, 0.3); }
+  .health-badge.degraded { background: rgba(255, 145, 0, 0.1); color: var(--orange); border: 1px solid rgba(255, 145, 0, 0.3); }
+  .health-badge.critical { background: rgba(255, 61, 61, 0.1); color: var(--red); border: 1px solid rgba(255, 61, 61, 0.3); }
+
+  /* ── Main Content ─────────────────────────────── */
+  .main {
+    margin-left: var(--sidebar-width);
+    margin-top: var(--header-height);
+    height: calc(100vh - var(--header-height));
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .main::-webkit-scrollbar { width: 5px; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Cards ────────────────────────────────────── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.3s;
+  }
+  .card:hover { border-color: rgba(100, 120, 180, 0.3); }
+
+  .card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-value {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .card-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── Stat Grid ────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Brain Cards ──────────────────────────────── */
+  .brain-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .brain-card { position: relative; overflow: hidden; }
+  .brain-card .glow {
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .brain-card.brain .glow { background: var(--cyan); }
+  .brain-card.trading .glow { background: var(--green); }
+  .brain-card.marketing .glow { background: var(--magenta); }
+
+  .brain-card .brain-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brain-card.brain .brain-name { color: var(--cyan); }
+  .brain-card.trading .brain-name { color: var(--green); }
+  .brain-card.marketing .brain-name { color: var(--magenta); }
+
+  .brain-stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 12px;
+  }
+  .brain-stat-row .label { color: var(--text-secondary); }
+  .brain-stat-row .value { color: var(--text-primary); font-weight: 500; }
+
+  .brain-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .brain-status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .brain-status-dot.stopped { background: var(--red); }
+  .brain-status-dot.unknown { background: var(--text-muted); }
+
+  .dash-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .dash-link:hover { color: var(--cyan); }
+
+  /* ── Notification Feed ────────────────────────── */
+  .notification-feed {
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  .notification-feed::-webkit-scrollbar { width: 4px; }
+  .notification-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .notif-item {
+    display: flex;
+    gap: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(100, 120, 180, 0.06);
+    transition: background 0.2s;
+    animation: slideIn 0.3s ease;
+  }
+  .notif-item:hover { background: rgba(255, 255, 255, 0.02); }
+  .notif-item.breakthrough { border-left: 3px solid var(--gold); }
+  .notif-item.notable { border-left: 3px solid var(--purple); }
+  .notif-item.routine { border-left: 3px solid transparent; }
+
+  .notif-time { font-size: 10px; color: var(--text-muted); white-space: nowrap; min-width: 55px; padding-top: 2px; }
+  .notif-engine {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(0, 229, 255, 0.1);
+    color: var(--cyan);
+    white-space: nowrap;
+    height: fit-content;
+  }
+  .notif-content { flex: 1; font-size: 12px; color: var(--text-secondary); }
+
+  /* ── Transfer View ─────────────────────────────── */
+  .rule-list { display: flex; flex-direction: column; gap: 6px; }
+  .rule-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .rule-arrow { color: var(--cyan); font-weight: bold; }
+  .rule-enabled { color: var(--green); }
+  .rule-disabled { color: var(--red); }
+
+  .analogy-item {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    border-left: 3px solid var(--purple);
+  }
+  .analogy-narrative { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .analogy-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 12px; }
+
+  /* ── Attention View ────────────────────────────── */
+  .topic-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .topic-name { min-width: 120px; color: var(--text-secondary); }
+  .topic-bar-fill {
+    height: 16px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--cyan), var(--blue));
+    transition: width 0.5s;
+    min-width: 2px;
+  }
+  .topic-score { min-width: 50px; text-align: right; color: var(--text-muted); font-size: 11px; }
+
+  .context-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  .context-badge.debugging { background: rgba(255, 61, 61, 0.15); color: var(--red); }
+  .context-badge.coding { background: rgba(0, 229, 255, 0.15); color: var(--cyan); }
+  .context-badge.reviewing { background: rgba(179, 136, 255, 0.15); color: var(--purple); }
+  .context-badge.trading { background: rgba(0, 255, 136, 0.15); color: var(--green); }
+  .context-badge.publishing { background: rgba(255, 145, 0, 0.15); color: var(--orange); }
+  .context-badge.monitoring { background: rgba(68, 138, 255, 0.15); color: var(--blue); }
+
+  /* ── Engines Table ──────────────────────────────── */
+  .engine-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .engine-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .engine-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .engine-dot.active { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .engine-dot.idle { background: var(--text-muted); }
+
+  /* ── Two Column Layout ───────────────────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* ── Transfer History Table ──────────────────── */
+  .transfer-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .transfer-table th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .transfer-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(100, 120, 180, 0.06);
+    color: var(--text-secondary);
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .status-badge.pending { background: rgba(255, 215, 0, 0.15); color: var(--gold); }
+  .status-badge.applied { background: rgba(0, 229, 255, 0.15); color: var(--cyan); }
+  .status-badge.validated { background: rgba(0, 255, 136, 0.15); color: var(--green); }
+  .status-badge.rejected { background: rgba(255, 61, 61, 0.15); color: var(--red); }
+
+  /* ── Animations ──────────────────────────────── */
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Responsive ──────────────────────────────── */
+  @media (max-width: 1000px) {
+    .brain-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ Sidebar ═══════ -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo"></div>
+    Brain Ecosystem
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Dashboard</div>
+    <div class="nav-item active" data-page="overview">
+      <span class="nav-icon">&#9741;</span> Overview
+    </div>
+    <div class="nav-item" data-page="notifications">
+      <span class="nav-icon">&#9888;</span> Notifications
+    </div>
+    <div class="nav-section">Intelligence</div>
+    <div class="nav-item" data-page="attention">
+      <span class="nav-icon">&#9678;</span> Attention
+    </div>
+    <div class="nav-item" data-page="transfer">
+      <span class="nav-icon">&#8644;</span> Transfer
+    </div>
+    <div class="nav-item" data-page="engines">
+      <span class="nav-icon">&#9881;</span> Engines
+    </div>
+    <div class="nav-section">Links</div>
+    <a class="nav-item" href="http://localhost:7784" target="_blank" style="text-decoration:none">
+      <span class="nav-icon" style="color:var(--cyan)">&#9679;</span> Brain :7784
+    </a>
+    <a class="nav-item" href="http://localhost:7785" target="_blank" style="text-decoration:none">
+      <span class="nav-icon" style="color:var(--green)">&#9679;</span> Trading :7785
+    </a>
+    <a class="nav-item" href="http://localhost:7786" target="_blank" style="text-decoration:none">
+      <span class="nav-icon" style="color:var(--magenta)">&#9679;</span> Marketing :7786
+    </a>
+    <a class="nav-item" href="http://localhost:7787" target="_blank" style="text-decoration:none">
+      <span class="nav-icon" style="color:var(--gold)">&#9679;</span> CodeGen :7787
+    </a>
+  </div>
+  <div class="sidebar-footer">
+    <span class="connection-dot" id="connDot"></span>
+    <span id="connLabel">Connecting...</span>
+    <div style="margin-top:4px;font-size:10px" id="uptimeLabel">Uptime: --</div>
+  </div>
+</nav>
+
+<!-- ═══════ Header ═══════ -->
+<header class="header">
+  <div class="header-title" id="pageTitle">Overview</div>
+  <div class="header-actions">
+    <div class="health-badge healthy" id="healthBadge">
+      <span id="healthScore">--</span>
+    </div>
+    <button class="btn" id="triggerBtn" title="Trigger Brain Feedback Cycle">&#9889; Trigger Cycle</button>
+  </div>
+</header>
+
+<!-- ═══════ Main Content ═══════ -->
+<main class="main">
+
+  <!-- ── Overview Page ─────────── -->
+  <div class="page active" id="page-overview">
+    <!-- Stat Cards -->
+    <div class="stat-grid" id="overviewStats">
+      <div class="card">
+        <div class="card-title">Total Thoughts</div>
+        <div class="card-value" id="statThoughts" style="color:var(--cyan)">0</div>
+        <div class="card-sub" id="statThoughtsSub">across all engines</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Discoveries</div>
+        <div class="card-value" id="statDiscoveries" style="color:var(--gold)">0</div>
+        <div class="card-sub">breakthroughs + notable</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Active Engines</div>
+        <div class="card-value" id="statEngines" style="color:var(--green)">0</div>
+        <div class="card-sub" id="statEnginesSub">of 16 running</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Transfer Score</div>
+        <div class="card-value" id="statTransfer" style="color:var(--purple)">0</div>
+        <div class="card-sub">cross-domain effectiveness</div>
+      </div>
+    </div>
+
+    <!-- Brain Cards -->
+    <div class="brain-grid" id="brainGrid">
+      <div class="card brain-card brain">
+        <div class="glow"></div>
+        <div class="brain-name"><span class="brain-status-dot unknown" id="brainDot"></span> Brain</div>
+        <div class="brain-stat-row"><span class="label">Cycle</span><span class="value" id="brainCycle">--</span></div>
+        <div class="brain-stat-row"><span class="label">Principles</span><span class="value" id="brainPrinciples">--</span></div>
+        <div class="brain-stat-row"><span class="label">Hypotheses</span><span class="value" id="brainHypotheses">--</span></div>
+        <div class="brain-stat-row"><span class="label">Experiments</span><span class="value" id="brainExperiments">--</span></div>
+        <div class="brain-stat-row"><span class="label">Focus</span><span class="value" id="brainFocus">--</span></div>
+        <a class="dash-link" href="http://localhost:7784" target="_blank">Open Consciousness Dashboard &rarr;</a>
+      </div>
+      <div class="card brain-card trading">
+        <div class="glow"></div>
+        <div class="brain-name"><span class="brain-status-dot unknown" id="tradingDot"></span> Trading Brain</div>
+        <div class="brain-stat-row"><span class="label">Cycle</span><span class="value" id="tradingCycle">--</span></div>
+        <div class="brain-stat-row"><span class="label">Principles</span><span class="value" id="tradingPrinciples">--</span></div>
+        <div class="brain-stat-row"><span class="label">Hypotheses</span><span class="value" id="tradingHypotheses">--</span></div>
+        <div class="brain-stat-row"><span class="label">Experiments</span><span class="value" id="tradingExperiments">--</span></div>
+        <div class="brain-stat-row"><span class="label">Focus</span><span class="value" id="tradingFocus">--</span></div>
+        <a class="dash-link" href="http://localhost:7785" target="_blank">Open Consciousness Dashboard &rarr;</a>
+      </div>
+      <div class="card brain-card marketing">
+        <div class="glow"></div>
+        <div class="brain-name"><span class="brain-status-dot unknown" id="marketingDot"></span> Marketing Brain</div>
+        <div class="brain-stat-row"><span class="label">Cycle</span><span class="value" id="marketingCycle">--</span></div>
+        <div class="brain-stat-row"><span class="label">Principles</span><span class="value" id="marketingPrinciples">--</span></div>
+        <div class="brain-stat-row"><span class="label">Hypotheses</span><span class="value" id="marketingHypotheses">--</span></div>
+        <div class="brain-stat-row"><span class="label">Experiments</span><span class="value" id="marketingExperiments">--</span></div>
+        <div class="brain-stat-row"><span class="label">Focus</span><span class="value" id="marketingFocus">--</span></div>
+        <a class="dash-link" href="http://localhost:7786" target="_blank">Open Consciousness Dashboard &rarr;</a>
+      </div>
+    </div>
+
+    <!-- Recent Notifications -->
+    <div class="card">
+      <div class="card-title">&#9888; Recent Notifications</div>
+      <div class="notification-feed" id="overviewNotifs" style="max-height:280px"></div>
+    </div>
+  </div>
+
+  <!-- ── Notifications Page ────── -->
+  <div class="page" id="page-notifications">
+    <div class="card">
+      <div class="card-title">&#9888; Live Thought Stream</div>
+      <div class="notification-feed" id="allNotifs"></div>
+    </div>
+  </div>
+
+  <!-- ── Attention Page ────────── -->
+  <div class="page" id="page-attention">
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">&#9678; Current Context</div>
+        <div id="currentContext" style="margin-bottom:10px">
+          <span class="context-badge monitoring">unknown</span>
+        </div>
+        <div class="card-title" style="margin-top:14px">Top Attention Topics</div>
+        <div id="topTopics"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Urgent Topics</div>
+        <div id="urgentTopics"></div>
+        <div class="card-title" style="margin-top:20px">Context Switches</div>
+        <div id="contextSwitches" style="font-size:12px;color:var(--text-secondary)"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Focus Timeline (Last 20)</div>
+      <div id="focusTimeline" style="font-size:12px;color:var(--text-secondary)"></div>
+    </div>
+  </div>
+
+  <!-- ── Transfer Page ─────────── -->
+  <div class="page" id="page-transfer">
+    <div class="stat-grid">
+      <div class="card">
+        <div class="card-title">Total Analogies</div>
+        <div class="card-value" id="transferAnalogies" style="color:var(--purple)">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Transfers</div>
+        <div class="card-value" id="transferTotal" style="color:var(--cyan)">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Active Rules</div>
+        <div class="card-value" id="transferRules" style="color:var(--green)">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Transfer Score</div>
+        <div class="card-value" id="transferScoreVal" style="color:var(--gold)">0</div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">&#8596; Cross-Domain Analogies</div>
+        <div id="analogyList"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">&#9889; Cross-Domain Rules</div>
+        <div class="rule-list" id="ruleList"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Transfer History</div>
+      <table class="transfer-table" id="transferHistory">
+        <thead>
+          <tr><th>Source</th><th>Knowledge</th><th>Status</th><th>Confidence</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Engines Page ──────────── -->
+  <div class="page" id="page-engines">
+    <div class="card">
+      <div class="card-title">&#9881; Engine Status</div>
+      <div class="engine-grid" id="engineGrid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Engine Thought Counts</div>
+      <div id="engineCounts"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── State ──────────────────────────────────
+  let state = {
+    overview: null,
+    transfer: null,
+    attention: null,
+    thoughts: [],
+    engines: {},
+    stats: {},
+    notifications: [],
+  };
+  let connected = false;
+  const startTime = Date.now();
+  const MAX_THOUGHTS = 500;
+
+  // ── Navigation ─────────────────────────────
+  const navItems = document.querySelectorAll('.nav-item[data-page]');
+  const pages = document.querySelectorAll('.page');
+  const pageTitle = document.getElementById('pageTitle');
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const page = item.dataset.page;
+      navItems.forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+      pages.forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + page).classList.add('active');
+      pageTitle.textContent = item.textContent.trim();
+    });
+  });
+
+  // ── Trigger Button ─────────────────────────
+  document.getElementById('triggerBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/trigger', { method: 'POST' });
+      const data = await res.json();
+      if (data.triggered) {
+        document.getElementById('triggerBtn').textContent = '\u2713 Triggered!';
+        setTimeout(() => { document.getElementById('triggerBtn').innerHTML = '&#9889; Trigger Cycle'; }, 2000);
+      }
+    } catch (e) { console.error('Trigger failed', e); }
+  });
+
+  // ── Format Helpers ─────────────────────────
+  function formatTime(ts) {
+    if (!ts) return '--';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function timeSince(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + 'm ' + (s % 60) + 's';
+    const h = Math.floor(m / 60);
+    return h + 'h ' + (m % 60) + 'm';
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // ── Render: Overview ───────────────────────
+  function renderOverview() {
+    const ov = state.overview;
+    const st = state.stats || {};
+
+    // Stats
+    document.getElementById('statThoughts').textContent = st.totalThoughts || 0;
+    document.getElementById('statDiscoveries').textContent = st.discoveries || 0;
+
+    // Engine count from engines map
+    const engines = state.engines || {};
+    const engineNames = Object.keys(engines);
+    const activeCount = engineNames.filter(n => {
+      const e = engines[n];
+      return e && (Date.now() - (e.lastActive || 0)) < 60000;
+    }).length;
+    document.getElementById('statEngines').textContent = activeCount;
+    document.getElementById('statEnginesSub').textContent = 'of ' + engineNames.length + ' tracked';
+
+    // Transfer score
+    const tr = state.transfer;
+    if (tr) {
+      const score = tr.transferScore?.score ?? tr.score ?? 0;
+      document.getElementById('statTransfer').textContent = typeof score === 'number' ? score.toFixed(1) : '0';
+    }
+
+    // Health badge
+    renderHealthBadge(ov);
+
+    // Brain cards
+    renderBrainCards(ov);
+
+    // Recent notifications (top 30)
+    renderNotifFeed('overviewNotifs', state.thoughts.slice(0, 30));
+  }
+
+  function renderHealthBadge(ov) {
+    const badge = document.getElementById('healthBadge');
+    const scoreEl = document.getElementById('healthScore');
+    if (ov && typeof ov.healthScore === 'number') {
+      const s = ov.healthScore;
+      scoreEl.textContent = s + '/100';
+      badge.className = 'health-badge ' + (s >= 70 ? 'healthy' : s >= 40 ? 'degraded' : 'critical');
+    } else if (connected) {
+      scoreEl.textContent = 'Connected';
+      badge.className = 'health-badge healthy';
+    }
+  }
+
+  function renderBrainCards(ov) {
+    if (!ov) return;
+    const brains = ov.brains || {};
+
+    // Brain
+    const brain = brains.brain || {};
+    setDot('brainDot', brain.status);
+    setText('brainCycle', brain.cycle);
+    setText('brainPrinciples', brain.principles);
+    setText('brainHypotheses', brain.hypotheses);
+    setText('brainExperiments', brain.experiments);
+    setText('brainFocus', brain.focus || '--');
+
+    // Trading
+    const trading = brains['trading-brain'] || brains.trading || {};
+    setDot('tradingDot', trading.status);
+    setText('tradingCycle', trading.cycle);
+    setText('tradingPrinciples', trading.principles);
+    setText('tradingHypotheses', trading.hypotheses);
+    setText('tradingExperiments', trading.experiments);
+    setText('tradingFocus', trading.focus || '--');
+
+    // Marketing
+    const marketing = brains['marketing-brain'] || brains.marketing || {};
+    setDot('marketingDot', marketing.status);
+    setText('marketingCycle', marketing.cycle);
+    setText('marketingPrinciples', marketing.principles);
+    setText('marketingHypotheses', marketing.hypotheses);
+    setText('marketingExperiments', marketing.experiments);
+    setText('marketingFocus', marketing.focus || '--');
+  }
+
+  function setDot(id, status) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'brain-status-dot ' + (status === 'running' ? 'running' : status === 'stopped' ? 'stopped' : 'unknown');
+  }
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value != null ? value : '--';
+  }
+
+  // ── Render: Notifications ──────────────────
+  function renderNotifFeed(containerId, items) {
+    const container = document.getElementById(containerId);
+    if (!container || !items) return;
+
+    container.innerHTML = items.map(t => {
+      const sig = t.significance || 'routine';
+      return '<div class="notif-item ' + sig + '">' +
+        '<span class="notif-time">' + formatTime(t.timestamp) + '</span>' +
+        '<span class="notif-engine">' + escapeHtml(t.engine || '?') + '</span>' +
+        '<span class="notif-content">' + escapeHtml(t.content || t.message || '') + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderAllNotifications() {
+    renderNotifFeed('allNotifs', state.thoughts.slice(0, 200));
+  }
+
+  // ── Render: Attention ──────────────────────
+  function renderAttention() {
+    const att = state.attention;
+    if (!att) {
+      document.getElementById('topTopics').innerHTML = '<span style="color:var(--text-muted)">No attention data available</span>';
+      return;
+    }
+
+    // Current context
+    const ctx = att.currentContext || att.context || 'unknown';
+    document.getElementById('currentContext').innerHTML =
+      '<span class="context-badge ' + ctx + '">' + escapeHtml(ctx) + '</span>';
+
+    // Top topics
+    const topics = att.topTopics || att.scores || [];
+    if (topics.length === 0) {
+      document.getElementById('topTopics').innerHTML = '<span style="color:var(--text-muted)">No topics tracked</span>';
+    } else {
+      const maxScore = Math.max(...topics.map(t => t.score || 0), 1);
+      document.getElementById('topTopics').innerHTML = topics.slice(0, 15).map(t => {
+        const pct = Math.round(((t.score || 0) / maxScore) * 100);
+        return '<div class="topic-bar">' +
+          '<span class="topic-name">' + escapeHtml(t.topic || t.name || '?') + '</span>' +
+          '<div style="flex:1"><div class="topic-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<span class="topic-score">' + (t.score || 0).toFixed(2) + '</span>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Urgent topics
+    const urgent = att.urgentTopics || [];
+    document.getElementById('urgentTopics').innerHTML = urgent.length === 0
+      ? '<span style="color:var(--text-muted)">No urgent topics</span>'
+      : urgent.map(t =>
+        '<div class="topic-bar">' +
+          '<span class="topic-name" style="color:var(--gold)">' + escapeHtml(t.topic || t.name || '?') + '</span>' +
+          '<span class="topic-score" style="color:var(--gold)">' + (t.urgency || t.score || 0).toFixed(2) + '</span>' +
+        '</div>'
+      ).join('');
+
+    // Context switches
+    const switches = att.recentSwitches || [];
+    document.getElementById('contextSwitches').innerHTML = switches.length === 0
+      ? '<span style="color:var(--text-muted)">No context switches</span>'
+      : switches.slice(0, 10).map(s =>
+        '<div style="padding:3px 0">' + formatTime(s.timestamp) + ' &mdash; ' +
+        '<span class="context-badge ' + (s.from || '') + '">' + escapeHtml(s.from || '?') + '</span>' +
+        ' &rarr; <span class="context-badge ' + (s.to || '') + '">' + escapeHtml(s.to || '?') + '</span>' +
+        '</div>'
+      ).join('');
+
+    // Focus timeline
+    const timeline = att.focusTimeline || att.timeline || [];
+    document.getElementById('focusTimeline').innerHTML = timeline.length === 0
+      ? '<span style="color:var(--text-muted)">No focus history</span>'
+      : timeline.slice(0, 20).map(f =>
+        '<div style="padding:2px 0">' + formatTime(f.timestamp) + ' &mdash; ' +
+        '<strong>' + escapeHtml(f.topic || '?') + '</strong> (score: ' + (f.score || 0).toFixed(2) + ')' +
+        '</div>'
+      ).join('');
+  }
+
+  // ── Render: Transfer ───────────────────────
+  function renderTransfer() {
+    const tr = state.transfer;
+    if (!tr) return;
+
+    // Stats
+    setText('transferAnalogies', tr.totalAnalogies || 0);
+    setText('transferTotal', tr.totalTransfers || 0);
+    setText('transferRules', tr.activeRules || 0);
+    const score = tr.transferScore?.score ?? tr.score ?? 0;
+    document.getElementById('transferScoreVal').textContent = typeof score === 'number' ? score.toFixed(1) : '0';
+
+    // Analogies
+    const analogies = tr.analogies || [];
+    document.getElementById('analogyList').innerHTML = analogies.length === 0
+      ? '<span style="color:var(--text-muted)">No analogies found yet</span>'
+      : analogies.slice(0, 15).map(a =>
+        '<div class="analogy-item">' +
+          '<div class="analogy-narrative">' + escapeHtml(a.narrative || a.description || '?') + '</div>' +
+          '<div class="analogy-meta">' +
+            '<span>Similarity: ' + ((a.similarity || 0) * 100).toFixed(0) + '%</span>' +
+            '<span>' + escapeHtml(a.source_brain || '?') + ' &harr; ' + escapeHtml(a.target_brain || '?') + '</span>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+
+    // Rules
+    const rules = tr.rules || [];
+    document.getElementById('ruleList').innerHTML = rules.length === 0
+      ? '<span style="color:var(--text-muted)">No rules configured</span>'
+      : rules.map(r =>
+        '<div class="rule-item">' +
+          '<span class="' + (r.enabled ? 'rule-enabled' : 'rule-disabled') + '">' + (r.enabled ? '\u25CF' : '\u25CB') + '</span>' +
+          '<span style="color:var(--text-primary)">' + escapeHtml(r.name || '?') + '</span>' +
+          '<span class="rule-arrow">' + escapeHtml(r.source_brain || '?') + ' &rarr; ' + escapeHtml(r.target_brain || '?') + '</span>' +
+          '<span style="color:var(--text-muted);margin-left:auto">fired: ' + (r.fire_count || 0) + '</span>' +
+        '</div>'
+      ).join('');
+
+    // Transfer history
+    const history = tr.history || [];
+    const tbody = document.querySelector('#transferHistory tbody');
+    if (tbody) {
+      tbody.innerHTML = history.length === 0
+        ? '<tr><td colspan="5" style="color:var(--text-muted)">No transfers yet</td></tr>'
+        : history.slice(0, 30).map(h =>
+          '<tr>' +
+            '<td>' + escapeHtml(h.source_brain || '?') + '</td>' +
+            '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(h.knowledge || h.statement || '?') + '</td>' +
+            '<td><span class="status-badge ' + (h.status || '') + '">' + escapeHtml(h.status || '?') + '</span></td>' +
+            '<td>' + ((h.confidence || 0) * 100).toFixed(0) + '%</td>' +
+            '<td>' + formatTime(h.created_at || h.timestamp) + '</td>' +
+          '</tr>'
+        ).join('');
+    }
+  }
+
+  // ── Render: Engines ────────────────────────
+  function renderEngines() {
+    const engines = state.engines || {};
+    const names = Object.keys(engines).sort();
+
+    document.getElementById('engineGrid').innerHTML = names.length === 0
+      ? '<span style="color:var(--text-muted)">No engines tracked</span>'
+      : names.map(name => {
+        const e = engines[name];
+        const active = e && (Date.now() - (e.lastActive || 0)) < 60000;
+        return '<div class="engine-chip">' +
+          '<span class="engine-dot ' + (active ? 'active' : 'idle') + '"></span>' +
+          '<span>' + escapeHtml(name) + '</span>' +
+          '<span style="margin-left:auto;color:var(--text-muted)">' + (e?.count || 0) + '</span>' +
+        '</div>';
+      }).join('');
+
+    // Engine thought counts as bars
+    const sorted = names.map(n => ({ name: n, count: engines[n]?.count || 0 })).sort((a, b) => b.count - a.count);
+    const maxCount = Math.max(...sorted.map(s => s.count), 1);
+    document.getElementById('engineCounts').innerHTML = sorted.map(s => {
+      const pct = Math.round((s.count / maxCount) * 100);
+      return '<div class="topic-bar">' +
+        '<span class="topic-name">' + escapeHtml(s.name) + '</span>' +
+        '<div style="flex:1"><div class="topic-bar-fill" style="width:' + pct + '%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div></div>' +
+        '<span class="topic-score">' + s.count + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ── Render All ─────────────────────────────
+  function renderAll() {
+    renderOverview();
+    renderAllNotifications();
+    renderAttention();
+    renderTransfer();
+    renderEngines();
+  }
+
+  // ── SSE Connection ─────────────────────────
+  function connectSSE() {
+    const es = new EventSource('/events');
+
+    es.addEventListener('connected', () => {
+      connected = true;
+      document.getElementById('connDot').classList.add('connected');
+      document.getElementById('connLabel').textContent = 'Connected';
+    });
+
+    es.addEventListener('thought', (e) => {
+      try {
+        const thought = JSON.parse(e.data);
+        state.thoughts.unshift(thought);
+        if (state.thoughts.length > MAX_THOUGHTS) state.thoughts.length = MAX_THOUGHTS;
+
+        // Live update notification feeds
+        renderNotifFeed('overviewNotifs', state.thoughts.slice(0, 30));
+        renderNotifFeed('allNotifs', state.thoughts.slice(0, 200));
+      } catch { /* ignore parse errors */ }
+    });
+
+    es.addEventListener('status', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.overview) state.overview = data.overview;
+        if (data.engines) state.engines = data.engines;
+        if (data.stats) state.stats = data.stats;
+        renderOverview();
+        renderEngines();
+      } catch { /* ignore */ }
+    });
+
+    es.addEventListener('heartbeat', () => {
+      // Keep-alive
+    });
+
+    es.onerror = () => {
+      connected = false;
+      document.getElementById('connDot').classList.remove('connected');
+      document.getElementById('connLabel').textContent = 'Reconnecting...';
+      // EventSource auto-reconnects
+    };
+  }
+
+  // ── Initial Load ───────────────────────────
+  async function loadInitialState() {
+    try {
+      const res = await fetch('/api/state');
+      const data = await res.json();
+      state = {
+        overview: data.overview || null,
+        transfer: data.transfer || null,
+        attention: data.attention || null,
+        thoughts: (data.thoughts || []).reverse(),
+        engines: data.engines || {},
+        stats: data.stats || {},
+        notifications: data.notifications || [],
+      };
+      renderAll();
+    } catch (e) {
+      console.error('Failed to load initial state', e);
+    }
+  }
+
+  // ── Uptime Timer ───────────────────────────
+  setInterval(() => {
+    document.getElementById('uptimeLabel').textContent = 'Uptime: ' + timeSince(Date.now() - startTime);
+  }, 1000);
+
+  // ── Boot ───────────────────────────────────
+  loadInitialState();
+  connectSSE();
+
+})();
+</script>
+</body>
+</html>

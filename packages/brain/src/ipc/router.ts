@@ -95,6 +95,7 @@ export interface Services {
   codegenServer?: import('@timmeck/brain-core').CodegenServer;
   attentionEngine?: import('@timmeck/brain-core').AttentionEngine;
   transferEngine?: import('@timmeck/brain-core').TransferEngine;
+  unifiedServer?: import('@timmeck/brain-core').UnifiedDashboardServer;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -518,6 +519,9 @@ export class IpcRouter {
       ['transfer.rules',          () => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.getRules(); }],
       ['transfer.history',        (params) => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.getTransferHistory(p(params)?.limit ?? 50); }],
       ['transfer.analyze',        () => { if (!s.transferEngine) throw new Error('TransferEngine not available'); return s.transferEngine.analyze(); }],
+
+      // ─── Unified Dashboard ─────────────────────────────────
+      ['unified.clients',         () => { return { clients: s.unifiedServer?.getClientCount() ?? 0, port: 7788 }; }],
 
       // ─── Orchestrator ─────────────────────────────────────
       ['orchestrator.feedback',   () => { if (!s.orchestrator) throw new Error('Orchestrator not available'); s.orchestrator.runFeedbackCycle(); return { triggered: true }; }],

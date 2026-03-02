@@ -216,6 +216,10 @@ export type {
   CrossDomainRule, TransferStatus,
 } from './transfer/index.js';
 
+// ── Unified Dashboard ──────────────────────────────────
+export { UnifiedDashboardServer } from './unified/index.js';
+export type { UnifiedDashboardOptions } from './unified/index.js';
+
 // ── Scanner ──────────────────────────────────────────────
 export { SignalScanner, runScannerMigration } from './scanner/index.js';
 export { GitHubCollector } from './scanner/index.js';

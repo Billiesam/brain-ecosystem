@@ -13,6 +13,7 @@ import { registerScannerTools } from './scanner-tools.js';
 import { registerCodegenTools } from './codegen-tools.js';
 import { registerAttentionTools } from './attention-tools.js';
 import { registerTransferTools } from './transfer-tools.js';
+import { registerUnifiedTools } from './unified-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
@@ -34,6 +35,7 @@ export async function startMcpServer(): Promise<void> {
       registerCodegenTools(server, ipc);
       registerAttentionTools(server, ipc);
       registerTransferTools(server, ipc);
+      registerUnifiedTools(server, ipc);
     },
     registerPrompts,
   });

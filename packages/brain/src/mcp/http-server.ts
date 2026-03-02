@@ -13,6 +13,7 @@ import { registerScannerToolsDirect } from './scanner-tools.js';
 import { registerCodegenToolsDirect } from './codegen-tools.js';
 import { registerAttentionToolsDirect } from './attention-tools.js';
 import { registerTransferToolsDirect } from './transfer-tools.js';
+import { registerUnifiedToolsDirect } from './unified-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -37,6 +38,7 @@ export class McpHttpServer {
         registerCodegenToolsDirect(server, router);
         registerAttentionToolsDirect(server, router);
         registerTransferToolsDirect(server, router);
+        registerUnifiedToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );
