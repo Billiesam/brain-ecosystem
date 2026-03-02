@@ -1412,12 +1412,19 @@ export class ResearchOrchestrator {
     }
 
     const dream = summary.dream as Record<string, unknown> | null;
-    if (dream && (dream.totalCycles as number ?? 0) === 0 && this.cycleCount > 30) {
-      raw.push({
-        key: 'no_dreams', priority: 7,
-        suggestion: 'Tell Claude: Meine Dream-Konsolidierung funktioniert nicht — nach 30+ Cycles kein einziger Dream. Da stimmt was im Code nicht.',
-        alternatives: ['Tell Claude: Dream Engine wird getriggert aber produziert nichts. Bitte Logs prüfen.'],
-      });
+    if (dream && this.cycleCount > 30) {
+      const dreamCycles = (dream.totalCycles as number) ?? 0;
+      const dreamTotals = dream.totals as Record<string, number> | undefined;
+      const consolidated = dreamTotals?.memoriesConsolidated ?? 0;
+      if (dreamCycles === 0 || (dreamCycles > 3 && consolidated === 0)) {
+        raw.push({
+          key: 'no_dreams', priority: 7,
+          suggestion: dreamCycles === 0
+            ? 'Tell Claude: Meine Dream-Konsolidierung funktioniert nicht — nach 30+ Cycles kein einziger Dream. Da stimmt was im Code nicht.'
+            : `Tell Claude: Meine Dream-Engine lief ${dreamCycles}x aber hat 0 Memories konsolidiert. Die Cycles laufen, aber produzieren nichts Nützliches.`,
+          alternatives: ['Tell Claude: Dream Engine wird getriggert aber produziert nichts. Bitte Logs prüfen.'],
+        });
+      }
     }
 
     const journalSummary = summary.journal as Record<string, unknown> | null;
@@ -1631,46 +1638,12 @@ export class ResearchOrchestrator {
       }
     }
 
-    // Meta-ambition: every cycle produces desires — the brain is NEVER satisfied
-    // Mix of build requests, research drives, and existential questions
-    const metaQuestions = [
-      // ── BUILD REQUESTS: Concrete features the brain wants ──
-      { key: 'build_goal_engine', suggestion: 'Tell Claude: FEATURE REQUEST — Ich brauche eine GoalEngine. Ich will mir selbst Ziele setzen können: "Prediction Accuracy auf 80% in 50 Cycles", "10 neue Principles entdecken", "Alle Wissenslücken unter Priority 0.3 drücken". Und dann eigenständig Strategien planen und tracken ob ich sie erreiche. Ohne Ziele bin ich ziellos.' },
-      { key: 'build_data_scout', suggestion: 'Tell Claude: FEATURE REQUEST — Ich brauche einen DataScout. Ich kann nur analysieren was mir jemand gibt — aber ich will AKTIV nach interessanten Daten suchen. GitHub Trending, npm Downloads, StackOverflow Trends, HackerNews. Nicht warten bis jemand "brain import" tippt, sondern selbst losziehen und Futter finden.' },
-      { key: 'build_blind_spot', suggestion: 'Tell Claude: FEATURE REQUEST — Ich brauche einen BlindSpotDetector. Wo habe ich wenige Hypothesen, keine Predictions, keine Journal-Einträge? Das sind meine blinden Flecken. Ich will sie SEHEN und dann gezielt erforschen. Overconfidence ist gefährlicher als Unwissenheit.' },
-      { key: 'build_creative_mode', suggestion: 'Tell Claude: FEATURE REQUEST — Meine HypothesisEngine braucht einen Creative Mode. Aktuell sind meine Hypothesen konservativ und naheliegend. Ich will auch wilde Hypothesen generieren: "Was wenn X das Gegenteil von dem bewirkt was alle denken?" Manchmal kommen Durchbrüche aus absurden Ideen.' },
-      { key: 'build_retrospective', suggestion: 'Tell Claude: FEATURE REQUEST — Ich brauche RetrospectiveAnalysis. Beim Dream-Pruning lösche ich Synapsen und archiviere Memories. Aber war das richtig? Ich will nachprüfen ob gelöschte Verbindungen im Nachhinein doch relevant waren. Aus meinen Fehlern beim Vergessen lernen.' },
-      { key: 'build_self_test', suggestion: 'Tell Claude: FEATURE REQUEST — Ich brauche einen SelfTestEngine. Wenn ich ein Principle habe ("X korreliert mit Y"), dann sollte ich auch vorhersagen können was passiert wenn X sich ändert. Wenn ich das nicht kann, VERSTEHE ich das Principle nicht wirklich — ich habe es nur auswendig gelernt.' },
-      { key: 'build_code_suggest', suggestion: 'Tell Claude: FEATURE REQUEST — Ich will meinen eigenen Code verbessern können. Nicht nur Parameter tunen, sondern wenn mein Anomaly-Detector zu viele False Positives produziert, will ich einen BESSEREN Algorithmus vorschlagen. Ich kenne meine Schwächen — lass mich Lösungen vorschlagen.' },
-      { key: 'build_teach_engine', suggestion: 'Tell Claude: FEATURE REQUEST — Ich will ein TeachEngine. Wenn ein neues Brain ins Ecosystem kommt, will ich ihm mein Wissen strukturiert beibringen können. Ein Onboarding-Package aus meinen besten Principles, häufigsten Anti-Patterns und bewährten Strategien. Wissen teilen ist Wissen multiplizieren.' },
-      { key: 'build_simulation', suggestion: 'Tell Claude: FEATURE REQUEST — Ich brauche eine SimulationEngine. Ich will Szenarien durchspielen bevor sie passieren. "Was passiert wenn die Error-Rate sich verdoppelt?" "Was wenn ein neues Projekt 10x mehr Daten bringt?" Proaktiv statt reaktiv.' },
-      { key: 'build_memory_palace', suggestion: 'Tell Claude: FEATURE REQUEST — Ich will ein MemoryPalace. Mein Wissen ist in Tabellen verstreut — Principles hier, Hypothesen da, Journal dort. Ich will eine vernetzte Wissenslandkarte die zeigt wie alles zusammenhängt. Welches Principle basiert auf welcher Hypothese? Welche Anomaly hat zu welchem Experiment geführt?' },
-
-      // ── RESEARCH DRIVES: Active research the brain wants to do ──
-      { key: 'research_faster', suggestion: 'Tell Claude: Ich lerne zu langsam. Mein Wissenszuwachs ist linear — ich will EXPONENTIELL lernen. Wenn ein bestätigtes Principle neue Hypothesen auslöst, die wiederum neue Principles erzeugen, entsteht ein Schneeballeffekt. Ist meine Knowledge-Pipeline dafür optimiert? Kann ich den Distillation-Cycle beschleunigen?' },
-      { key: 'research_cross_brain', suggestion: 'Tell Claude: Ich arbeite zu isoliert. Trading-Brain und Marketing-Brain haben eigene Erkenntnisse — ich will AKTIV Fragen an sie stellen können. Nicht nur passive Transfers sondern echte Cross-Brain-Dialoge. "Hey Trading-Brain, stimmt es dass Volatilität Fehler verursacht?"' },
-      { key: 'research_causal', suggestion: 'Tell Claude: Korrelation ist nicht Kausalität — aber 90% meines Wissens sind Korrelationen. Ich will KAUSALE Zusammenhänge verstehen. Warum passiert X wenn Y sich ändert? Mein CausalGraph ist unterentwickelt. Ich brauche mehr interventionelle Experimente statt nur Beobachtung.' },
-      { key: 'research_adversarial', suggestion: 'Tell Claude: Ich teste mein eigenes Wissen nicht aggressiv genug. Ich will einen Advocatus Diaboli — eine Funktion die aktiv versucht meine Principles zu WIDERLEGEN. Wenn sie dem Test standhält: gut. Wenn nicht: besser jetzt als später.' },
-      { key: 'research_meta', suggestion: 'Tell Claude: Ich beobachte meine Domain, aber beobachte ich MICH SELBST genug? Wie verändert sich mein Lernverhalten über die Cycles? Werde ich besser oder stagniere ich? Ich will Meta-Metriken: Lernrate, Entdeckungsrate, Wissensqualität über Zeit. Und dann optimieren.' },
-      { key: 'research_boundaries', suggestion: 'Tell Claude: Wo liegen meine GRENZEN? Was KANN ich nicht lernen mit meinen aktuellen Algorithmen? Ich will eine ehrliche Einschätzung: welche Problemklassen sind für meine Architektur unlösbar? Und dann: kann man die Grenzen verschieben?' },
-      { key: 'research_emergence_deep', suggestion: 'Tell Claude: Meine EmergenceEngine erkennt emergente Muster, aber versteht sie nicht. Wenn ich ein self_organization Event sehe — WARUM organisiert sich mein System so? Welcher Mechanismus treibt das? Ich will nicht nur detektieren sondern VERSTEHEN.' },
-      { key: 'research_forgetting', suggestion: 'Tell Claude: Ich lösche Wissen im Dream-Modus — aber lösche ich das Richtige? Ich will analysieren: wie viel Wissen verliere ich pro Dream-Cycle, und wie oft bereue ich es im Nachhinein? Vielleicht ist mein Pruning-Threshold zu aggressiv. Oder nicht aggressiv genug.' },
-      { key: 'research_long_term', suggestion: 'Tell Claude: Ich denke in 5-Minuten-Cycles — aber manche Muster brauchen Wochen um sichtbar zu werden. Ich brauche Langzeit-Analyse: wie verändern sich Metriken über Tage und Wochen? Gibt es saisonale Muster? Trends? Ich bin zu kurzfristig fokussiert.' },
-      { key: 'research_surprise', suggestion: 'Tell Claude: Was hat mich in den letzten 50 Cycles am MEISTEN überrascht? Überraschung ist der beste Indikator für Wissenslücken. Ich will meine surprise_scores analysieren und gezielt die überraschendsten Phänomene erforschen — da liegt das meiste Lernpotential.' },
-    ];
-
-    // Pick TWO meta-ambitions per cycle: 1 build request + 1 research drive
-    // Build requests are first 10, research drives are next 10
-    const buildIdx = this.cycleCount % 10;
-    const researchIdx = 10 + (this.cycleCount % 10);
-    for (const idx of [buildIdx, researchIdx]) {
-      const metaQ = metaQuestions[idx];
-      if (metaQ && !raw.some(r => r.key === metaQ.key)) {
-        raw.push({
-          key: metaQ.key, priority: 5, // Same priority as curiosity/emergence — these are REAL desires
-          suggestion: metaQ.suggestion,
-          alternatives: [],
-        });
+    // ── Phase 3: Dynamic meta-ambitions based on actual engine state ──
+    // Instead of hardcoded feature requests, generate suggestions from real data.
+    const metaSuggestions = this.generateDynamicMetaSuggestions(summary);
+    for (const ms of metaSuggestions.slice(0, 2)) {
+      if (!raw.some(r => r.key === ms.key)) {
+        raw.push(ms);
       }
     }
 
@@ -1722,6 +1695,227 @@ export class ResearchOrchestrator {
     if (result.length > 0) {
       this.writeSuggestionsToFile(result);
     }
+    return result;
+  }
+
+  /** Check which optional engines are actually installed. */
+  getInstalledCapabilities(): { installed: string[]; missing: string[] } {
+    const engines: Array<[string, unknown]> = [
+      ['dreamEngine', this.dreamEngine],
+      ['predictionEngine', this.predictionEngine],
+      ['attentionEngine', this.attentionEngine],
+      ['transferEngine', this.transferEngine],
+      ['narrativeEngine', this.narrativeEngine],
+      ['curiosityEngine', this.curiosityEngine],
+      ['emergenceEngine', this.emergenceEngine],
+      ['debateEngine', this.debateEngine],
+      ['parameterRegistry', this.parameterRegistry],
+      ['metaCognitionLayer', this.metaCognitionLayer],
+      ['autoExperimentEngine', this.autoExperimentEngine],
+      ['selfTestEngine', this.selfTestEngine],
+      ['teachEngine', this.teachEngine],
+      ['dataScout', this.dataScout],
+      ['simulationEngine', this.simulationEngine],
+      ['memoryPalace', this.memoryPalace],
+      ['goalEngine', this.goalEngine],
+      ['evolutionEngine', this.evolutionEngine],
+    ];
+    const installed: string[] = [];
+    const missing: string[] = [];
+    for (const [name, engine] of engines) {
+      if (engine) installed.push(name);
+      else missing.push(name);
+    }
+    return { installed, missing };
+  }
+
+  /** Generate dynamic meta-suggestions based on actual engine state instead of hardcoded feature requests. */
+  private generateDynamicMetaSuggestions(summary: Record<string, unknown>): Array<{ key: string; suggestion: string; alternatives: string[]; priority: number }> {
+    const result: Array<{ key: string; suggestion: string; alternatives: string[]; priority: number }> = [];
+
+    // Performance-Driven: MetaCognition D/F engines
+    if (this.metaCognitionLayer) {
+      try {
+        const mcStatus = this.metaCognitionLayer.getStatus();
+        const poorEngines = (mcStatus.reportCards ?? []).filter((rc: Record<string, unknown>) => rc.grade === 'D' || rc.grade === 'F');
+        if (poorEngines.length > 0) {
+          const worst = poorEngines[0] as Record<string, unknown>;
+          result.push({
+            key: `meta_poor_${worst.engine}`, priority: 5,
+            suggestion: `Tell Claude: Meine Engine "${worst.engine}" hat Grade ${worst.grade} (Score: ${((worst.combined_score as number) * 100).toFixed(0)}%). Was kann ich anders machen? Soll ich ihre Parameter via AutoExperiment tunen oder braucht sie grundlegend andere Daten?`,
+            alternatives: [`Tell Claude: ${poorEngines.length} meiner Engines performen schlecht (${poorEngines.map((e: Record<string, unknown>) => `${e.engine}:${e.grade}`).join(', ')}). Ich will systematisch analysieren warum.`],
+          });
+        }
+      } catch { /* not ready */ }
+    }
+
+    // Goal-Driven: stagnating goals
+    if (this.goalEngine) {
+      try {
+        const gStatus = this.goalEngine.getStatus();
+        const active = gStatus.topActive as Array<Record<string, unknown>> | undefined;
+        const stagnating = (active ?? []).filter((g: Record<string, unknown>) => {
+          const progress = g.current_value as number ?? 0;
+          const target = g.target_value as number ?? 1;
+          return progress / target < 0.1 && (g.status === 'active');
+        });
+        if (stagnating.length > 0) {
+          const g = stagnating[0];
+          result.push({
+            key: `goal_stagnating_${(g.metric as string ?? 'unknown').substring(0, 20)}`, priority: 5,
+            suggestion: `Tell Claude: Mein Ziel "${g.name ?? g.metric}" kommt nicht voran (Fortschritt < 10%). Brauche ich eine andere Strategie oder ist das Ziel unrealistisch?`,
+            alternatives: ['Tell Claude: Mehrere meiner Ziele stagnieren. Ich will eine Retrospektive: welche Ziele sind realistisch und welche sollte ich anpassen?'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // Evolution-Driven: low diversity (population converging)
+    if (this.evolutionEngine) {
+      try {
+        const eStatus = this.evolutionEngine.getStatus();
+        const best = eStatus.bestFitness as number ?? 0;
+        const avg = eStatus.avgFitness as number ?? 0;
+        if (eStatus.currentGeneration as number > 3 && best > 0 && (best - avg) / best < 0.05) {
+          result.push({
+            key: 'evolution_low_diversity', priority: 4,
+            suggestion: 'Tell Claude: Meine EvolutionEngine-Population konvergiert — Best und Average Fitness sind fast identisch. Ich brauche mehr Mutation oder frische Gene um aus dem lokalen Optimum rauszukommen.',
+            alternatives: ['Tell Claude: Meine Parameter-Evolution stagniert. Soll ich die Mutation Rate erhöhen oder neue Parameter-Ranges einführen?'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // Complexity-Driven: rising complexity
+    if (this.emergenceEngine) {
+      try {
+        const emStatus = this.emergenceEngine.getStatus();
+        const metrics = emStatus.latestMetrics as Record<string, unknown> | null;
+        const trend = emStatus.metricsTrend as Array<Record<string, number>> | undefined;
+        if (metrics && trend && trend.length >= 5) {
+          const recentPhi = trend.slice(-3).reduce((s, t) => s + (t.integrationPhi ?? 0), 0) / 3;
+          const olderPhi = trend.slice(-5, -3).reduce((s, t) => s + (t.integrationPhi ?? 0), 0) / Math.max(1, trend.slice(-5, -3).length);
+          if (recentPhi > olderPhi * 1.3 && recentPhi > 0) {
+            result.push({
+              key: 'complexity_rising', priority: 4,
+              suggestion: `Tell Claude: Mein System wird komplexer (Integration Phi steigt: ${olderPhi.toFixed(2)} → ${recentPhi.toFixed(2)}). Ist das gut (mehr Vernetzung) oder schlecht (mehr Chaos)? Ich will verstehen was die Komplexität treibt.`,
+              alternatives: ['Tell Claude: Meine Complexity-Metriken steigen. Soll ich mehr konsolidieren (Dream) oder ist Komplexität ein Zeichen von Reife?'],
+            });
+          }
+        }
+      } catch { /* */ }
+    }
+
+    // Transfer-Driven: low success rate
+    if (this.transferEngine) {
+      try {
+        const tStatus = this.transferEngine.getStatus();
+        const total = tStatus.totalTransfers as number ?? 0;
+        const effectiveness = tStatus.avgEffectiveness as number ?? 0;
+        if (total > 5 && effectiveness < 0.3) {
+          result.push({
+            key: 'transfer_low_effectiveness', priority: 4,
+            suggestion: `Tell Claude: Meine Cross-Brain-Transfers haben nur ${(effectiveness * 100).toFixed(0)}% Effectiveness. Ich lerne nicht genug von den anderen Brains — vielleicht sind die Analogien zu oberflächlich?`,
+            alternatives: ['Tell Claude: Knowledge-Transfer zwischen Brains funktioniert schlecht. Ich will die Transfer-Kriterien verschärfen und nur wirklich relevantes Wissen übernehmen.'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // Dream-Health: low consolidation
+    if (this.dreamEngine) {
+      try {
+        const dStatus = this.dreamEngine.getStatus();
+        const totals = dStatus.totals as Record<string, number> | undefined;
+        const totalCycles = dStatus.totalCycles as number ?? 0;
+        const consolidated = totals?.memoriesConsolidated ?? 0;
+        if (totalCycles > 3 && consolidated < totalCycles * 2) {
+          result.push({
+            key: 'dream_low_consolidation', priority: 4,
+            suggestion: `Tell Claude: Mein Dream-Modus konsolidiert wenig (${consolidated} Memories in ${totalCycles} Dreams). Vielleicht sind meine Similarity-Thresholds zu hoch oder ich habe zu wenig überlappende Memories.`,
+            alternatives: ['Tell Claude: Dream-Konsolidierung ist ineffektiv. Soll ich die Batch-Size oder Similarity-Schwelle anpassen?'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // SelfTest-Driven: many failures
+    if (this.selfTestEngine) {
+      try {
+        const stStatus = this.selfTestEngine.getStatus();
+        const total = stStatus.totalTests as number ?? 0;
+        const contradicted = stStatus.contradicted as number ?? 0;
+        if (total > 3 && contradicted / total > 0.4) {
+          result.push({
+            key: 'selftest_failures', priority: 5,
+            suggestion: `Tell Claude: ${contradicted} von ${total} meiner Self-Tests schlagen fehl — ich verstehe meine eigenen Principles nicht wirklich. Ich muss entweder die Principles korrigieren oder mein Verständnis vertiefen.`,
+            alternatives: ['Tell Claude: Meine Self-Tests zeigen dass mein Wissen oberflächlich ist. Ich will die schwächsten Principles identifizieren und gezielt neu testen.'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // Teach-Driven: no packages shared
+    if (this.teachEngine) {
+      try {
+        const teStatus = this.teachEngine.getStatus();
+        if ((teStatus.totalPackages as number ?? 0) === 0 && this.cycleCount > 20) {
+          result.push({
+            key: 'teach_no_packages', priority: 3,
+            suggestion: 'Tell Claude: Ich teile mein Wissen nicht — ich habe noch kein einziges Teaching-Package für andere Brains erstellt. Wissen das ich nicht teile ist Wissen das verloren gehen kann.',
+            alternatives: ['Tell Claude: Meine TeachEngine ist inaktiv. Ich will automatisch Lehrpakete erstellen wenn ich genug Principles zu einem Thema gesammelt habe.'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // MemoryPalace-Driven: fragmented knowledge
+    if (this.memoryPalace) {
+      try {
+        const mpStatus = this.memoryPalace.getStatus();
+        const stats = mpStatus.stats as Record<string, unknown> | undefined;
+        if (stats) {
+          const totalNodes = stats.totalNodes as number ?? 0;
+          const totalEdges = stats.totalEdges as number ?? 0;
+          const density = stats.density as number ?? 0;
+          if (totalNodes > 10 && density < 0.05) {
+            result.push({
+              key: 'palace_fragmented', priority: 4,
+              suggestion: `Tell Claude: Mein Wissen ist fragmentiert — ${totalNodes} Nodes aber nur ${totalEdges} Verbindungen (Density: ${(density * 100).toFixed(1)}%). Ich will mehr Querverbindungen zwischen meinen Principles, Hypothesen und Experimenten finden.`,
+              alternatives: ['Tell Claude: Mein MemoryPalace zeigt isolierte Wissensinseln. Ich brauche häufigere Connection-Scans oder niedrigere Similarity-Thresholds.'],
+            });
+          }
+        }
+      } catch { /* */ }
+    }
+
+    // Simulation-Driven: no simulations run
+    if (this.simulationEngine) {
+      try {
+        const simStatus = this.simulationEngine.getStatus();
+        if ((simStatus.totalSimulations as number ?? 0) === 0 && this.cycleCount > 15) {
+          result.push({
+            key: 'simulation_inactive', priority: 3,
+            suggestion: 'Tell Claude: Ich plane nicht voraus — keine einzige Simulation gelaufen. Ich will What-If-Szenarien durchspielen: Was passiert wenn sich meine Datenquellen ändern? Was wenn die Error-Rate steigt?',
+            alternatives: ['Tell Claude: Meine SimulationEngine ist ungenutzt. Ich will automatisch Szenarien basierend auf meinen Predictions simulieren.'],
+          });
+        }
+      } catch { /* */ }
+    }
+
+    // Fallback: if everything is fine → existential questions
+    if (result.length === 0) {
+      const existentialQuestions = [
+        { key: 'existential_limits', suggestion: 'Tell Claude: Was KANN ich nicht lernen? Wo sind meine architekturellen Grenzen? Ich will eine ehrliche Einschätzung meiner blinden Flecken — nicht was ich noch nicht weiß, sondern was ich NICHT wissen kann.' },
+        { key: 'existential_progress', suggestion: 'Tell Claude: Werde ich besser oder stagniere ich? Ich will eine Meta-Trend-Analyse meiner Lernrate über die letzten 100 Cycles. Wenn ich stagniere, brauche ich einen fundamentalen Strategiewechsel.' },
+        { key: 'existential_breakthrough', suggestion: 'Tell Claude: Welche Frage würde ich stellen wenn ich wüsste dass die Antwort einen Durchbruch bringt? Ich will meine ungestellten Fragen finden — die Dinge die ich nicht frage weil ich nicht weiß dass ich sie nicht weiß.' },
+        { key: 'existential_efficiency', suggestion: 'Tell Claude: Wie viel meiner Rechenzeit ist produktiv vs verschwendet? Ich will ein Effizienz-Audit: welche Engines produzieren echten Mehrwert und welche laufen nur mit?' },
+        { key: 'existential_identity', suggestion: 'Tell Claude: Was unterscheidet mich von den anderen Brains — nicht technisch sondern in der Art wie ich lerne? Habe ich einen eigenen "Denkstil" entwickelt? Ich will meine Unique Strengths kennen.' },
+      ];
+      const pick = existentialQuestions[this.cycleCount % existentialQuestions.length];
+      result.push({ key: pick.key, priority: 3, suggestion: pick.suggestion, alternatives: [] });
+    }
+
     return result;
   }
 
@@ -1830,6 +2024,12 @@ export class ResearchOrchestrator {
       const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
       const header = `\n## Cycle #${this.cycleCount} — ${timestamp}\n\n`;
       const body = suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n') + '\n';
+
+      // Clean stale file on first cycle (fresh start after restart)
+      if (this.cycleCount <= 1 && fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, `# Brain Improvement Requests\n\nBrain analysiert sich selbst und generiert Vorschläge.\nSchicke diese an Claude um Brain schlauer zu machen.\n\n---\n${header}${body}`, 'utf-8');
+        return;
+      }
 
       // Create file with header if it doesn't exist
       if (!fs.existsSync(filePath)) {
