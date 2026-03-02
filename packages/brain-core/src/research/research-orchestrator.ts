@@ -25,6 +25,7 @@ import type { CodeMiner } from '../codegen/code-miner.js';
 import type { AttentionEngine } from '../attention/attention-engine.js';
 import type { TransferEngine } from '../transfer/transfer-engine.js';
 import type { NarrativeEngine } from '../narrative/narrative-engine.js';
+import type { CuriosityEngine } from '../curiosity/curiosity-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -66,6 +67,7 @@ export class ResearchOrchestrator {
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
   private narrativeEngine: NarrativeEngine | null = null;
+  private curiosityEngine: CuriosityEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -149,6 +151,11 @@ export class ResearchOrchestrator {
   /** Set the NarrativeEngine — brain explains itself in natural language. */
   setNarrativeEngine(engine: NarrativeEngine): void {
     this.narrativeEngine = engine;
+  }
+
+  /** Set the CuriosityEngine — knowledge gap detection and exploration/exploitation. */
+  setCuriosityEngine(engine: CuriosityEngine): void {
+    this.curiosityEngine = engine;
   }
 
   /** Set the PredictionEngine — wires journal into it. */
@@ -712,6 +719,94 @@ export class ResearchOrchestrator {
         ts?.emit('narrative', 'reflecting', 'Self-reflection complete');
       } catch (err) {
         this.log.error(`[orchestrator] Self-reflection error: ${(err as Error).message}`);
+      }
+    }
+
+    // 18. Curiosity: Knowledge gap detection + Multi-Armed Bandit exploration
+    if (this.curiosityEngine && this.cycleCount % this.agendaEvery === 0) {
+      ts?.emit('curiosity', 'exploring', 'Scanning for knowledge gaps...');
+      try {
+        // a) Detect gaps: high attention + low knowledge
+        const gaps = this.curiosityEngine.detectGaps();
+        if (gaps.length > 0) {
+          ts?.emit('curiosity', 'discovering',
+            `Found ${gaps.length} knowledge gap(s): ${gaps.slice(0, 3).map(g => `"${g.topic}" (${(g.gapScore * 100).toFixed(0)}%)`).join(', ')}`,
+            gaps.some(g => g.gapType === 'dark_zone') ? 'notable' : 'routine',
+          );
+          // Journal dark zones (truly unknown territory)
+          for (const gap of gaps.filter(g => g.gapType === 'dark_zone').slice(0, 2)) {
+            this.journal.write({
+              type: 'discovery',
+              title: `Dark zone: ${gap.topic}`,
+              content: `Brain pays attention to "${gap.topic}" (score: ${gap.attentionScore.toFixed(2)}) but has zero knowledge. Questions: ${gap.questions.slice(0, 2).join(' | ')}`,
+              tags: [this.brainName, 'curiosity', 'dark_zone', 'knowledge_gap'],
+              references: [],
+              significance: 'notable',
+              data: { gap },
+            });
+          }
+        }
+
+        // b) Run bandit: pick best topic to explore/exploit
+        const decision = this.curiosityEngine.selectTopic();
+        if (decision) {
+          ts?.emit('curiosity', 'exploring',
+            `Bandit → ${decision.action} "${decision.topic}" (UCB=${decision.ucbScore === 999 ? '∞' : decision.ucbScore.toFixed(2)})`,
+            decision.action === 'explore' ? 'notable' : 'routine',
+          );
+
+          // Create research agenda item for the chosen topic
+          if (decision.action === 'explore') {
+            this.researchAgenda.ask(
+              `Curiosity-driven: explore "${decision.topic}" — ${decision.reason}`,
+              'knowledge_gap',
+            );
+          }
+
+          // Estimate reward from whether we have new data since last time
+          const existingGap = gaps.find(g => g.topic === decision.topic);
+          const reward = existingGap
+            ? Math.max(0.1, 1 - existingGap.knowledgeScore) * (existingGap.explorationCount > 0 ? 0.7 : 1.0)
+            : 0.3;
+          this.curiosityEngine.recordOutcome(decision.topic, decision.action, reward, `cycle_${this.cycleCount}`);
+        }
+
+        // c) Detect surprises — things that violated expectations
+        const surprises = this.curiosityEngine.detectSurprises();
+        if (surprises.length > 0) {
+          ts?.emit('curiosity', 'discovering',
+            `${surprises.length} surprise(s): ${surprises[0].topic} (deviation ${(surprises[0].deviation * 100).toFixed(0)}%)`,
+            surprises[0].deviation > 0.7 ? 'notable' : 'routine',
+          );
+          for (const s of surprises.slice(0, 2)) {
+            this.journal.write({
+              type: 'discovery',
+              title: `Surprise: ${s.topic}`,
+              content: `Expected: ${s.expected}. Actual: ${s.actual}. Deviation: ${(s.deviation * 100).toFixed(0)}%`,
+              tags: [this.brainName, 'curiosity', 'surprise'],
+              references: [],
+              significance: s.deviation > 0.7 ? 'notable' : 'routine',
+              data: { surprise: s },
+            });
+            // High-deviation surprises generate hypotheses
+            if (s.deviation > 0.5) {
+              this.hypothesisEngine.observe({
+                source: this.brainName,
+                type: 'surprise_detected',
+                value: s.deviation,
+                timestamp: now,
+                metadata: { topic: s.topic, expected: s.expected.substring(0, 100), actual: s.actual.substring(0, 100) },
+              });
+            }
+          }
+        }
+
+        // d) Generate new questions every 10 cycles
+        if (this.cycleCount % (this.agendaEvery * 3) === 0) {
+          this.curiosityEngine.generateQuestions();
+        }
+      } catch (err) {
+        this.log.error(`[orchestrator] Curiosity step error: ${(err as Error).message}`);
       }
     }
 

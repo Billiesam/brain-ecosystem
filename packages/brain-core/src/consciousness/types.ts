@@ -12,7 +12,8 @@ export type ThoughtType =
   | 'predicting'
   | 'responding'
   | 'focusing'
-  | 'explaining';
+  | 'explaining'
+  | 'exploring';
 
 export type ThoughtSignificance = 'routine' | 'notable' | 'breakthrough';
 

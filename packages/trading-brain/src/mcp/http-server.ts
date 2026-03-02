@@ -10,6 +10,7 @@ import { registerResponderToolsDirect } from './responder-tools.js';
 import { registerAttentionToolsDirect } from './attention-tools.js';
 import { registerTransferToolsDirect } from './transfer-tools.js';
 import { registerNarrativeToolsDirect } from './narrative-tools.js';
+import { registerCuriosityToolsDirect } from './curiosity-tools.js';
 
 export class McpHttpServer {
   private inner: CoreMcpHttpServer;
@@ -18,7 +19,7 @@ export class McpHttpServer {
     this.inner = new CoreMcpHttpServer(
       port,
       router,
-      { name: 'trading-brain', version: '2.17.0' },
+      { name: 'trading-brain', version: '2.18.0' },
       (server, _r) => {
         registerToolsDirect(server, router);
         registerResearchToolsDirect(server, router);
@@ -30,6 +31,7 @@ export class McpHttpServer {
         registerAttentionToolsDirect(server, router);
         registerTransferToolsDirect(server, router);
         registerNarrativeToolsDirect(server, router);
+        registerCuriosityToolsDirect(server, router);
       },
     );
   }

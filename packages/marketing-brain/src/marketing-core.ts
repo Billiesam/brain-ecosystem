@@ -65,7 +65,7 @@ import { createMarketingDashboardServer } from './dashboard/server.js';
 import { renderDashboard } from './dashboard/renderer.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, MarketingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, MarketingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine } from '@timmeck/brain-core';
 
 export class MarketingCore {
   private db: Database.Database | null = null;
@@ -84,6 +84,7 @@ export class MarketingCore {
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
   private narrativeEngine: NarrativeEngine | null = null;
+  private curiosityEngine: CuriosityEngine | null = null;
   private config: MarketingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -308,6 +309,20 @@ export class MarketingCore {
     this.orchestrator.setNarrativeEngine(this.narrativeEngine);
     services.narrativeEngine = this.narrativeEngine;
 
+    // 12l. Curiosity Engine — knowledge gap detection & exploration/exploitation
+    this.curiosityEngine = new CuriosityEngine(this.db!, { brainName: 'marketing-brain' });
+    this.curiosityEngine.setThoughtStream(thoughtStream);
+    this.curiosityEngine.setDataSources({
+      attentionEngine: this.attentionEngine!,
+      knowledgeDistiller: this.orchestrator.knowledgeDistiller,
+      hypothesisEngine: this.orchestrator.hypothesisEngine,
+      experimentEngine: this.orchestrator.experimentEngine,
+      agendaEngine: this.orchestrator.researchAgenda,
+      narrativeEngine: this.narrativeEngine!,
+    });
+    this.orchestrator.setCuriosityEngine(this.curiosityEngine);
+    services.curiosityEngine = this.curiosityEngine;
+
     logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7786)');
 
     // 11. IPC Server
@@ -435,6 +450,7 @@ export class MarketingCore {
     this.consciousnessServer = null;
     this.attentionEngine = null;
     this.narrativeEngine = null;
+    this.curiosityEngine = null;
     this.subscriptionManager = null;
     this.correlator = null;
   }

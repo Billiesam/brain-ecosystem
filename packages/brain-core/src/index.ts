@@ -224,6 +224,14 @@ export type {
   ConfidenceReport, ConfidenceFactor, NarrativeAnswer,
 } from './narrative/index.js';
 
+// ── Curiosity Engine ──────────────────────────────────
+export { CuriosityEngine, runCuriosityMigration } from './curiosity/index.js';
+export type {
+  CuriosityEngineConfig, CuriosityDataSources,
+  KnowledgeGap, GapType, CuriosityQuestion, QuestionType,
+  ExplorationRecord, BanditArm, CuriosityStatus, ExplorationDecision,
+} from './curiosity/index.js';
+
 // ── Unified Dashboard ──────────────────────────────────
 export { UnifiedDashboardServer } from './unified/index.js';
 export type { UnifiedDashboardOptions } from './unified/index.js';
