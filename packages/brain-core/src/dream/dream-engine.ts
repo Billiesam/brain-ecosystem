@@ -158,6 +158,13 @@ export class DreamEngine {
     this.log.info(`[dream] ─── Dream Cycle #${this.cycleCount} (${trigger}) ───`);
     ts?.emit('dream', 'dreaming', `Dream Cycle #${this.cycleCount} starting (${trigger})...`, 'notable');
 
+    // 0. Feed knowledge into memories table so consolidation has data to work with
+    const fed = this.feedKnowledgeToMemories();
+    if (fed > 0) {
+      this.log.info(`[dream] Fed ${fed} knowledge items into memories table`);
+      ts?.emit('dream', 'dreaming', `Fed ${fed} knowledge items into memories for consolidation`);
+    }
+
     // 1. Memory Replay
     ts?.emit('dream', 'dreaming', `Replaying top ${this.config.replayBatchSize} memories...`);
     const replay = this.consolidator.replayMemories(this.db, this.config);
@@ -561,5 +568,72 @@ export class DreamEngine {
     } catch (err) {
       this.log.error(`[dream] Persist error: ${(err as Error).message}`);
     }
+  }
+
+  /**
+   * Bridge Brain knowledge into the memories table so dream consolidation has data.
+   * Converts recent journal entries, principles, and hypotheses into memory records.
+   */
+  private feedKnowledgeToMemories(): number {
+    let fed = 0;
+
+    // Check if memories table with 'key' column exists (full brain migration)
+    const sql = `
+      INSERT INTO memories (category, key, content, importance, source, tags, active)
+      VALUES (?, ?, ?, ?, 'dream_feed', ?, 1)
+      ON CONFLICT(project_id, key) WHERE key IS NOT NULL AND active = 1
+      DO UPDATE SET content = excluded.content, importance = excluded.importance, updated_at = datetime('now')
+    `;
+    try {
+      // Test that the SQL compiles — memories table may not exist or lack 'key' column
+      this.db.prepare(sql);
+    } catch {
+      return 0; // memories table doesn't exist or has different schema
+    }
+
+    // Feed recent journal entries (notable/breakthrough only)
+    if (this.journal) {
+      try {
+        const entries = this.journal.getEntries(undefined, 30);
+        for (const entry of entries) {
+          if (entry.significance !== 'notable' && entry.significance !== 'breakthrough') continue;
+          const key = `journal:${entry.id}`;
+          const importance = entry.significance === 'breakthrough' ? 9 : 7;
+          try {
+            this.db.prepare(sql).run('journal', key, `${entry.title}: ${entry.content.substring(0, 500)}`, importance, JSON.stringify(entry.tags));
+            fed++;
+          } catch { /* duplicate or schema mismatch — skip */ }
+        }
+      } catch { /* journal not available */ }
+    }
+
+    // Feed principles from knowledge distiller
+    if (this.knowledgeDistiller) {
+      try {
+        const principles = this.knowledgeDistiller.getPrinciples(undefined, 50);
+        for (const p of principles) {
+          const key = `principle:${p.id}`;
+          const importance = Math.round((p.confidence ?? 0.5) * 10);
+          try {
+            this.db.prepare(sql).run('principle', key, p.statement, importance, JSON.stringify([p.domain ?? 'general']));
+            fed++;
+          } catch { /* skip */ }
+        }
+      } catch { /* not available */ }
+
+      // Feed anti-patterns
+      try {
+        const antiPatterns = this.knowledgeDistiller.getAntiPatterns(undefined, 30);
+        for (const ap of antiPatterns) {
+          const key = `antipattern:${ap.id}`;
+          try {
+            this.db.prepare(sql).run('antipattern', key, `${ap.statement}: ${ap.alternative}`, 6, JSON.stringify([ap.domain ?? 'general']));
+            fed++;
+          } catch { /* skip */ }
+        }
+      } catch { /* not available */ }
+    }
+
+    return fed;
   }
 }
