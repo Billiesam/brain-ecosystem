@@ -209,6 +209,13 @@ export type {
   WorkContext, ContextSwitch, FocusEntry, EngineWeight,
 } from './attention/index.js';
 
+// ── Transfer Engine ──────────────────────────────────
+export { TransferEngine } from './transfer/index.js';
+export type {
+  TransferEngineConfig, Analogy, TransferRecord,
+  CrossDomainRule, TransferStatus,
+} from './transfer/index.js';
+
 // ── Scanner ──────────────────────────────────────────────
 export { SignalScanner, runScannerMigration } from './scanner/index.js';
 export { GitHubCollector } from './scanner/index.js';

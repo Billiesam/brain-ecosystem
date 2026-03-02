@@ -53,7 +53,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine } from '@timmeck/brain-core';
 
 export class TradingCore {
   private db: Database.Database | null = null;
@@ -69,6 +69,7 @@ export class TradingCore {
   private orchestrator: ResearchOrchestrator | null = null;
   private consciousnessServer: ConsciousnessServer | null = null;
   private attentionEngine: AttentionEngine | null = null;
+  private transferEngine: TransferEngine | null = null;
   private config: TradingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -283,6 +284,13 @@ export class TradingCore {
     this.attentionEngine.setThoughtStream(thoughtStream);
     this.orchestrator.setAttentionEngine(this.attentionEngine);
     services.attentionEngine = this.attentionEngine;
+
+    // 12j. Transfer Engine — cross-domain knowledge transfer
+    this.transferEngine = new TransferEngine(this.db!, { brainName: 'trading-brain' });
+    this.transferEngine.setThoughtStream(thoughtStream);
+    this.transferEngine.seedDefaultRules();
+    this.orchestrator.setTransferEngine(this.transferEngine);
+    services.transferEngine = this.transferEngine;
 
     logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7785)');
 

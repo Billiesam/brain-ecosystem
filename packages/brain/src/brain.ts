@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -85,6 +85,7 @@ export class BrainCore {
   private consciousnessServer: ConsciousnessServer | null = null;
   private codegenServer: CodegenServer | null = null;
   private attentionEngine: AttentionEngine | null = null;
+  private transferEngine: TransferEngine | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -299,6 +300,14 @@ export class BrainCore {
     this.orchestrator.setAttentionEngine(attentionEngine);
     this.attentionEngine = attentionEngine;
     services.attentionEngine = attentionEngine;
+
+    // 11j.6 Transfer Engine — cross-domain knowledge transfer
+    const transferEngine = new TransferEngine(this.db!, { brainName: 'brain' });
+    transferEngine.setThoughtStream(thoughtStream);
+    transferEngine.seedDefaultRules();
+    this.orchestrator.setTransferEngine(transferEngine);
+    this.transferEngine = transferEngine;
+    services.transferEngine = transferEngine;
 
     this.consciousnessServer = new ConsciousnessServer({
       port: 7784,

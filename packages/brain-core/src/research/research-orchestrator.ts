@@ -23,6 +23,7 @@ import type { SignalScanner } from '../scanner/signal-scanner.js';
 import type { CodeGenerator } from '../codegen/code-generator.js';
 import type { CodeMiner } from '../codegen/code-miner.js';
 import type { AttentionEngine } from '../attention/attention-engine.js';
+import type { TransferEngine } from '../transfer/transfer-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -62,6 +63,7 @@ export class ResearchOrchestrator {
   private codeGenerator: CodeGenerator | null = null;
   private codeMiner: CodeMiner | null = null;
   private attentionEngine: AttentionEngine | null = null;
+  private transferEngine: TransferEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -135,6 +137,11 @@ export class ResearchOrchestrator {
   /** Set the AttentionEngine — dynamic focus and resource allocation. */
   setAttentionEngine(engine: AttentionEngine): void {
     this.attentionEngine = engine;
+  }
+
+  /** Set the TransferEngine — cross-domain knowledge transfer. */
+  setTransferEngine(engine: TransferEngine): void {
+    this.transferEngine = engine;
   }
 
   /** Set the PredictionEngine — wires journal into it. */
@@ -440,6 +447,25 @@ export class ResearchOrchestrator {
       }
     }
 
+    // 6b. Cross-domain transfer analysis (after distillation, every 5 cycles)
+    if (this.transferEngine && this.cycleCount % this.distillEvery === 0) {
+      ts?.emit('transfer', 'correlating', 'Analyzing cross-domain knowledge transfers...');
+      try {
+        const { analogies, proposals } = this.transferEngine.analyze();
+        if (analogies.length > 0 || proposals.length > 0) {
+          this.log.info(`[orchestrator] Transfer: ${analogies.length} analogies, ${proposals.length} proposals`);
+          if (analogies.length > 0) {
+            const topAnalogy = analogies.sort((a, b) => b.similarity - a.similarity)[0]!;
+            ts?.emit('transfer', 'discovering', `Top analogy: ${topAnalogy.narrative}`, 'notable');
+          }
+        } else {
+          ts?.emit('transfer', 'analyzing', 'No new cross-domain transfers found');
+        }
+      } catch (err) {
+        this.log.error(`[orchestrator] Transfer analysis error: ${(err as Error).message}`);
+      }
+    }
+
     // 7. Research agenda generation (periodic)
     if (this.cycleCount % this.agendaEvery === 0) {
       ts?.emit('research_agenda', 'hypothesizing', 'Generating research agenda...');
@@ -665,17 +691,17 @@ export class ResearchOrchestrator {
       }
     }
 
-    // Dream engine
+    // Dream engine — periodic consolidation already runs every 20 cycles in step 13
+    // Only suggest if no dreams after 30 cycles (enough time for at least 1 scheduled consolidation)
     const dream = summary.dream as Record<string, unknown> | null;
     if (dream) {
       const totalDreams = (dream.total_dreams as number) ?? 0;
-      if (totalDreams === 0 && this.cycleCount > 10) {
+      if (totalDreams === 0 && this.cycleCount > 30) {
         raw.push({
           key: 'no_dreams',
-          suggestion: 'Tell Claude: Dream Mode hat noch nie konsolidiert — Idle-Threshold wird nie erreicht.',
+          suggestion: 'Tell Claude: Dream Mode hat nach 30+ Cycles noch nie konsolidiert — consolidate() scheint zu scheitern.',
           alternatives: [
-            'Tell Claude: Dream Mode wartet vergeblich auf Idle. Alternativer Trigger: nach jedem 10. Feedback-Cycle automatisch einen Mini-Dream-Cycle starten (nur Importance Decay + Synapse Pruning, kein Full Replay).',
-            'Tell Claude: Statt auf Idle zu warten — DreamEngine.consolidate() direkt im Orchestrator aufrufen, z.B. alle 20 Cycles. Brain muss nicht "schlafen" um zu konsolidieren.',
+            'Tell Claude: Dream consolidation wird alle 20 Cycles getriggert aber schlägt offenbar fehl. Logs prüfen.',
           ],
         });
       }
@@ -900,6 +926,7 @@ export class ResearchOrchestrator {
       codeGenerator: this.codeGenerator?.getSummary() ?? null,
       codeMiner: this.codeMiner?.getSummary() ?? null,
       attention: this.attentionEngine?.getStatus() ?? null,
+      transfer: this.transferEngine?.getStatus() ?? null,
     };
   }
 }

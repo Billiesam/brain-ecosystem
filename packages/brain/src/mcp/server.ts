@@ -12,6 +12,7 @@ import { registerReposignalTools } from './reposignal-tools.js';
 import { registerScannerTools } from './scanner-tools.js';
 import { registerCodegenTools } from './codegen-tools.js';
 import { registerAttentionTools } from './attention-tools.js';
+import { registerTransferTools } from './transfer-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
@@ -32,6 +33,7 @@ export async function startMcpServer(): Promise<void> {
       registerScannerTools(server, ipc);
       registerCodegenTools(server, ipc);
       registerAttentionTools(server, ipc);
+      registerTransferTools(server, ipc);
     },
     registerPrompts,
   });
