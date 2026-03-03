@@ -10,6 +10,13 @@ import type { SelfModificationEngine } from '../self-modification/self-modificat
 
 // ── Types ────────────────────────────────────────────────
 
+export interface ChatMessage {
+  role: 'user' | 'brain';
+  content: string;
+  timestamp: number;
+  details?: unknown;
+}
+
 export interface UnifiedDashboardOptions {
   port: number;
   thoughtStream: ThoughtStream;
@@ -29,6 +36,10 @@ export interface UnifiedDashboardOptions {
   selfModificationEngine?: SelfModificationEngine | null;
   // Emotional (for Entity visualization)
   getEmotionalStatus?: () => unknown;
+  // Chat — Brain answers via NarrativeEngine
+  onChat?: (question: string) => ChatMessage;
+  // Ingest — Feed data into Brain (observations + journal)
+  onIngest?: (content: string, source: string) => { stored: boolean; items: number };
 }
 
 // ── Server ───────────────────────────────────────────────
@@ -41,6 +52,7 @@ export class UnifiedDashboardServer {
   private statusTimer: ReturnType<typeof setInterval> | null = null;
   private networkTimer: ReturnType<typeof setInterval> | null = null;
   private dashboardHtml: string | null = null;
+  private chatHistory: ChatMessage[] = [];
   private logger = getLogger();
 
   constructor(private options: UnifiedDashboardOptions) {}
@@ -178,6 +190,25 @@ export class UnifiedDashboardServer {
       const selfmodTestMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/test$/);
       if (selfmodTestMatch && req.method === 'POST') {
         this.handleSelfmodAction(res, Number(selfmodTestMatch[1]), 'test');
+        return;
+      }
+
+      // ── Chat Route ────────────────────────────────────
+      if (url.pathname === '/api/chat' && req.method === 'POST') {
+        this.handleChat(req, res);
+        return;
+      }
+
+      // ── Chat History ───────────────────────────────────
+      if (url.pathname === '/api/chat/history' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(this.chatHistory.slice(-100)));
+        return;
+      }
+
+      // ── Ingest (File Upload) ───────────────────────────
+      if (url.pathname === '/api/ingest' && req.method === 'POST') {
+        this.handleIngest(req, res);
         return;
       }
 
@@ -417,6 +448,88 @@ export class UnifiedDashboardServer {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
     }
+  }
+
+  private handleChat(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (!this.options.onChat) {
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Chat not configured — NarrativeEngine not available' }));
+      return;
+    }
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { message } = JSON.parse(body) as { message?: string };
+        if (!message || message.trim().length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'message is required' }));
+          return;
+        }
+        // Store user message
+        const userMsg: ChatMessage = { role: 'user', content: message.trim(), timestamp: Date.now() };
+        this.chatHistory.push(userMsg);
+        if (this.chatHistory.length > 200) this.chatHistory.splice(0, this.chatHistory.length - 200);
+
+        const answer = this.options.onChat!(message.trim());
+        this.chatHistory.push(answer);
+        this.broadcast('chat', answer);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(answer));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    });
+  }
+
+  private handleIngest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (!this.options.onIngest) {
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Ingest not configured' }));
+      return;
+    }
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const MAX_SIZE = 1_000_000; // 1MB limit
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= MAX_SIZE) chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (size > MAX_SIZE) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'File too large (max 1MB)' }));
+        return;
+      }
+      try {
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        const { content, source, filename } = JSON.parse(raw) as { content?: string; source?: string; filename?: string };
+        if (!content || content.trim().length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'content is required' }));
+          return;
+        }
+        const label = source || filename || 'file_upload';
+        const result = this.options.onIngest!(content.trim(), label);
+
+        // Broadcast as chat message
+        const ingestMsg: ChatMessage = {
+          role: 'brain',
+          content: `Ingested "${label}": stored ${result.items} data points. This knowledge is now part of my research.`,
+          timestamp: Date.now(),
+          details: result,
+        };
+        this.chatHistory.push(ingestMsg);
+        this.broadcast('chat', ingestMsg);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    });
   }
 
   private handleSelfmodAction(res: http.ServerResponse, id: number, action: 'approve' | 'reject' | 'test'): void {

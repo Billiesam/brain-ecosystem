@@ -807,6 +807,70 @@ export class BrainCore {
       patternExtractor: (patternExtractor as PatternExtractor) ?? null,
       selfModificationEngine: (services.selfModificationEngine as SelfModificationEngine) ?? null,
       getEmotionalStatus: () => (services.emotionalModel as EmotionalModel)?.getMood?.() ?? null,
+      onChat: (question: string) => {
+        if (!this.narrativeEngine) return { role: 'brain' as const, content: 'NarrativeEngine not available yet.', timestamp: Date.now() };
+        try {
+          // Store user message as observation (Brain remembers conversations)
+          this.orchestrator?.selfObserver?.record({
+            event_type: 'user_chat',
+            category: 'query_quality',
+            metrics: { message: question, source: 'dashboard_chat' },
+          });
+
+          const explanation = this.narrativeEngine.explain(question);
+          const answer = this.narrativeEngine.ask(question);
+          const mood = (services.emotionalModel as EmotionalModel)?.getMood?.();
+          const parts: string[] = [];
+          if (answer.answer && answer.answer !== 'No relevant knowledge found.') {
+            parts.push(answer.answer);
+          }
+          if (explanation.details.length > 0) {
+            parts.push(explanation.details.slice(0, 5).join('\n'));
+          }
+          if (explanation.confidence > 0) {
+            parts.push(`\nConfidence: ${(explanation.confidence * 100).toFixed(0)}%`);
+          }
+          if (parts.length === 0) {
+            parts.push(`I don't have knowledge about "${question}" yet. This is now a research priority.`);
+            // Add to research agenda
+            this.orchestrator?.researchAgenda?.ask?.(`User asked: "${question}" — investigate and gather data`, 'knowledge_gap');
+          }
+          if (mood) parts.push(`\n[Mood: ${mood.mood}]`);
+          return { role: 'brain' as const, content: parts.join('\n'), timestamp: Date.now(), details: { explanation, answer } };
+        } catch (err) {
+          return { role: 'brain' as const, content: `Error: ${(err as Error).message}`, timestamp: Date.now() };
+        }
+      },
+      onIngest: (content: string, source: string) => {
+        let items = 0;
+        // Split content into lines/paragraphs and store as observations
+        const lines = content.split(/\n+/).filter(l => l.trim().length > 5);
+        for (const line of lines.slice(0, 100)) {
+          this.orchestrator?.selfObserver?.record({
+            event_type: 'data_ingest',
+            category: 'tool_usage',
+            metrics: { content: line.trim(), source },
+          });
+          items++;
+        }
+        // Also store as journal entry for narrative access
+        if (this.orchestrator?.journal) {
+          this.orchestrator.journal.recordDiscovery(
+            `Data Ingested: ${source}`,
+            content.slice(0, 2000),
+            { source, items, timestamp: Date.now() },
+            'routine',
+          );
+        }
+        // Emit thought about ingestion
+        thoughtStream.emit(
+          'knowledge_distiller',
+          'discovering',
+          `Ingested ${items} data points from "${source}"`,
+          items > 10 ? 'notable' : 'routine',
+        );
+        return { stored: true, items };
+      },
     });
     this.unifiedServer.start();
     services.unifiedServer = this.unifiedServer;

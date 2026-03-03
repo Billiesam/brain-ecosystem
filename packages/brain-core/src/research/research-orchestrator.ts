@@ -135,7 +135,7 @@ export class ResearchOrchestrator {
     this.experimentEngine = new ExperimentEngine(db, { brainName: config.brainName });
     this.crossDomain = new CrossDomainEngine(db);
     this.counterfactual = new CounterfactualEngine(db, this.causalGraph);
-    this.knowledgeDistiller = new KnowledgeDistiller(db, { brainName: config.brainName });
+    this.knowledgeDistiller = new KnowledgeDistiller(db, { brainName: config.brainName, minEvidence: 3, minSuccessRate: 0.6, minFailureRate: 0.5 });
     this.researchAgenda = new ResearchAgendaEngine(db, { brainName: config.brainName });
     this.anomalyDetective = new AnomalyDetective(db, { brainName: config.brainName });
     this.journal = new ResearchJournal(db, { brainName: config.brainName });
