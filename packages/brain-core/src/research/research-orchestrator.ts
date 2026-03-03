@@ -2231,10 +2231,42 @@ export class ResearchOrchestrator {
       MemoryPalace: ['memory-palace/memory-palace'],
     };
 
+    // German keyword → engine name mapping (suggestions are often in German)
+    const keywordMap: Record<string, string> = {
+      'vorhersag': 'PredictionEngine', 'prediction': 'PredictionEngine', 'prognose': 'PredictionEngine',
+      'dream': 'DreamEngine', 'traum': 'DreamEngine', 'konsolidier': 'DreamEngine', 'schlaf': 'DreamEngine',
+      'neugier': 'CuriosityEngine', 'wissenslücke': 'CuriosityEngine', 'curiosity': 'CuriosityEngine', 'knowledge gap': 'CuriosityEngine',
+      'emergenz': 'EmergenceEngine', 'emergence': 'EmergenceEngine', 'emergent': 'EmergenceEngine',
+      'debatt': 'DebateEngine', 'debate': 'DebateEngine', 'diskussion': 'DebateEngine',
+      'meta-cogn': 'MetaCognitionLayer', 'metacogn': 'MetaCognitionLayer', 'engine-bewertung': 'MetaCognitionLayer',
+      'narrativ': 'NarrativeEngine', 'erklär': 'NarrativeEngine', 'widerspruch': 'NarrativeEngine', 'contradiction': 'NarrativeEngine',
+      'aufmerksamkeit': 'AttentionEngine', 'attention': 'AttentionEngine', 'fokus': 'AttentionEngine',
+      'transfer': 'TransferEngine', 'analogie': 'TransferEngine',
+      'reasoning': 'ReasoningEngine', 'inferenz': 'ReasoningEngine', 'schlussfolger': 'ReasoningEngine', 'logik': 'ReasoningEngine',
+      'emotion': 'EmotionalModel', 'stimmung': 'EmotionalModel', 'mood': 'EmotionalModel', 'gefühl': 'EmotionalModel',
+      'ziel': 'GoalEngine', 'goal': 'GoalEngine',
+      'evolution': 'EvolutionEngine', 'genetisch': 'EvolutionEngine', 'mutation': 'EvolutionEngine',
+      'memory palace': 'MemoryPalace', 'wissensvernetzung': 'MemoryPalace', 'verbindung': 'MemoryPalace',
+      'beobacht': 'SelfObserver', 'observer': 'SelfObserver', 'self-observer': 'SelfObserver',
+      'auto-respond': 'AutoResponder', 'autorespond': 'AutoResponder', 'anomal': 'AutoResponder',
+    };
+
     for (const suggestion of suggestions) {
-      // Find engine names in suggestion text
+      const lower = suggestion.toLowerCase();
+      // Find engine names in suggestion text (English class names or German keywords)
       for (const [engineName, filePaths] of Object.entries(engineMap)) {
-        if (suggestion.toLowerCase().includes(engineName.toLowerCase())) {
+        // Direct class name match
+        let matched = lower.includes(engineName.toLowerCase());
+        // German keyword match
+        if (!matched) {
+          for (const [keyword, engine] of Object.entries(keywordMap)) {
+            if (engine === engineName && lower.includes(keyword)) {
+              matched = true;
+              break;
+            }
+          }
+        }
+        if (matched) {
           // Find the actual file via SelfScanner
           const entities = this.selfScanner.getEntities({ entityName: engineName, entityType: 'class' });
           if (entities.length > 0) {

@@ -642,7 +642,7 @@ export class BrainCore {
     services.emotionalModel = emotionalModel;
 
     // ── Section 11j.21: SelfScanner + SelfModificationEngine ───────
-    const projectRoot = path.resolve(path.dirname(config.dbPath), '..');
+    const projectRoot = path.resolve(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'), '..', '..', '..', '..');
     const selfScanner = new SelfScanner(this.db!, { brainName: 'brain' });
     this.orchestrator.setSelfScanner(selfScanner);
     services.selfScanner = selfScanner;
@@ -758,14 +758,14 @@ export class BrainCore {
         const summary = this.orchestrator?.getSummary() as Record<string, any> | undefined;
         const attStatus = this.attentionEngine?.getStatus();
         return {
-          healthScore: typeof summary?.cycleCount === 'number' ? Math.min(100, 50 + summary.cycleCount) : null,
+          healthScore: typeof summary?.feedbackCycles === 'number' ? Math.min(100, 50 + summary.feedbackCycles) : null,
           brains: {
             brain: {
               status: this.db ? 'running' : 'stopped',
-              cycle: summary?.cycleCount ?? 0,
-              principles: summary?.knowledge?.totalPrinciples ?? 0,
-              hypotheses: summary?.hypothesis?.total ?? 0,
-              experiments: summary?.experiment?.total ?? 0,
+              cycle: summary?.feedbackCycles ?? 0,
+              principles: summary?.knowledge?.principles ?? 0,
+              hypotheses: summary?.hypotheses?.total ?? 0,
+              experiments: Array.isArray(summary?.experiments) ? summary.experiments.length : 0,
               focus: attStatus?.currentContext ?? 'unknown',
             },
           },

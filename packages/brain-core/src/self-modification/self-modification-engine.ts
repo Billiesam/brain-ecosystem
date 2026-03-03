@@ -196,10 +196,12 @@ export class SelfModificationEngine {
 
     // Rate limit
     if (!this.checkRateLimit()) {
+      this.updateModification(modificationId, { status: 'failed', test_output: `Rate limit exceeded: max ${this.config.maxPerHour} generations per hour` });
       throw new Error(`Rate limit exceeded: max ${this.config.maxPerHour} generations per hour`);
     }
 
     if (!this.config.apiKey) {
+      this.updateModification(modificationId, { status: 'failed', test_output: 'ANTHROPIC_API_KEY not set' });
       throw new Error('ANTHROPIC_API_KEY not set');
     }
 
