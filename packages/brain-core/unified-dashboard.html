@@ -3,1083 +3,1275 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brain Ecosystem — Unified Dashboard</title>
+<title>Brain Mission Control</title>
 <style>
-  :root {
-    --bg-primary: #06080f;
-    --bg-secondary: #0c1017;
-    --bg-card: rgba(14, 18, 30, 0.85);
-    --border: rgba(100, 120, 180, 0.15);
-    --text-primary: #e8ecf4;
-    --text-secondary: #8090b0;
-    --text-muted: #506080;
-    --cyan: #00e5ff;
-    --green: #00ff88;
-    --magenta: #ff0090;
-    --gold: #ffd700;
-    --purple: #b388ff;
-    --orange: #ff9100;
-    --red: #ff3d3d;
-    --blue: #448aff;
-    --sidebar-width: 220px;
-    --header-height: 52px;
-  }
+/* ── Reset + Variables ─────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-deep:#050810;
+  --bg-primary:#0a0e1a;
+  --bg-card:rgba(12,16,28,0.65);
+  --bg-card-hover:rgba(16,22,40,0.75);
+  --bg-glass:rgba(20,28,50,0.45);
+  --border:rgba(80,120,200,0.12);
+  --border-bright:rgba(80,120,200,0.25);
+  --text:#e0e6f0;
+  --text-dim:#7a8ba8;
+  --text-muted:#4a5a78;
+  --cyan:#00e5ff;
+  --green:#00ff88;
+  --magenta:#ff0090;
+  --gold:#ffd700;
+  --purple:#b388ff;
+  --orange:#ff9100;
+  --red:#ff3d3d;
+  --blue:#448aff;
+  --sidebar-w:60px;
+  --sidebar-exp:220px;
+  --header-h:52px;
+  --font:'SF Mono','Cascadia Code','JetBrains Mono','Fira Code',monospace;
+  --radius:10px;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font);font-size:12px;color:var(--text);background:var(--bg-deep)}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+/* ── Animated Background ───────────────────────────── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;
+  background:linear-gradient(135deg,#050810 0%,#0d0a20 30%,#080c1a 60%,#0a0818 100%);
+  animation:bgShift 30s ease infinite alternate;
+}
+@keyframes bgShift{
+  0%{filter:hue-rotate(0deg) brightness(1)}
+  50%{filter:hue-rotate(8deg) brightness(1.05)}
+  100%{filter:hue-rotate(-5deg) brightness(0.98)}
+}
 
-  body {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 13px;
-    line-height: 1.5;
-    overflow: hidden;
-    height: 100vh;
-  }
+/* ── Layout ────────────────────────────────────────── */
+.app{display:flex;height:100vh;position:relative;z-index:1}
 
-  /* ── Sidebar ──────────────────────────────────── */
-  .sidebar {
-    position: fixed;
-    left: 0; top: 0; bottom: 0;
-    width: var(--sidebar-width);
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    z-index: 100;
-  }
+/* ── Sidebar ───────────────────────────────────────── */
+.sidebar{
+  width:var(--sidebar-w);height:100vh;
+  background:rgba(8,12,24,0.85);
+  backdrop-filter:blur(20px);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  transition:width 0.3s cubic-bezier(0.4,0,0.2,1);
+  overflow:hidden;flex-shrink:0;z-index:10;
+}
+.sidebar:hover{width:var(--sidebar-exp)}
+.sidebar-logo{
+  height:var(--header-h);display:flex;align-items:center;
+  padding:0 16px;gap:10px;border-bottom:1px solid var(--border);
+  white-space:nowrap;overflow:hidden;
+}
+.sidebar-logo .dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);flex-shrink:0;animation:pulse 3s infinite}
+.sidebar-logo span{font-size:13px;font-weight:600;letter-spacing:0.5px;opacity:0;transition:opacity 0.3s}
+.sidebar:hover .sidebar-logo span{opacity:1}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--cyan)}50%{opacity:0.5;box-shadow:0 0 2px var(--cyan)}}
 
-  .sidebar-brand {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--cyan);
-    text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.nav{flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px;border-radius:8px;cursor:pointer;
+  color:var(--text-dim);transition:all 0.2s;
+  white-space:nowrap;overflow:hidden;
+}
+.nav-item:hover{background:rgba(0,229,255,0.06);color:var(--text)}
+.nav-item.active{background:rgba(0,229,255,0.1);color:var(--cyan)}
+.nav-item svg{width:20px;height:20px;flex-shrink:0}
+.nav-item span{font-size:11px;letter-spacing:0.5px;opacity:0;transition:opacity 0.3s}
+.sidebar:hover .nav-item span{opacity:1}
 
-  .sidebar-brand .logo {
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--cyan) 0%, transparent 70%);
-    animation: pulse 3s ease-in-out infinite;
-  }
+.sidebar-footer{padding:12px;border-top:1px solid var(--border);overflow:hidden;white-space:nowrap}
+.conn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;animation:pulse 2s infinite}
+.conn-dot.on{background:var(--green)}
+.conn-dot.off{background:var(--red);animation:none}
+.sidebar-footer .label{font-size:10px;color:var(--text-muted);opacity:0;transition:opacity 0.3s}
+.sidebar:hover .sidebar-footer .label{opacity:1}
 
-  .sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; }
+/* ── Main Content ──────────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
-  .nav-section {
-    padding: 8px 16px 4px;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: var(--text-muted);
-  }
+/* ── Header ────────────────────────────────────────── */
+.header{
+  height:var(--header-h);display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;border-bottom:1px solid var(--border);
+  background:rgba(8,12,24,0.6);backdrop-filter:blur(12px);flex-shrink:0;
+}
+.header-left{display:flex;align-items:center;gap:16px}
+.header-title{font-size:14px;font-weight:600;letter-spacing:0.5px}
+.header-badge{font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,229,255,0.15);color:var(--cyan);letter-spacing:0.5px}
+.header-right{display:flex;align-items:center;gap:12px}
+.uptime{font-size:10px;color:var(--text-muted)}
+.trigger-btn{
+  padding:6px 14px;border-radius:6px;border:1px solid var(--cyan);
+  background:transparent;color:var(--cyan);cursor:pointer;font-family:var(--font);
+  font-size:10px;letter-spacing:0.5px;transition:all 0.2s;
+}
+.trigger-btn:hover{background:rgba(0,229,255,0.15);box-shadow:0 0 12px rgba(0,229,255,0.2)}
+.trigger-btn:active{transform:scale(0.97)}
 
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 16px;
-    cursor: pointer;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-    border-left: 3px solid transparent;
-    font-size: 12.5px;
-  }
+/* ── Content ───────────────────────────────────────── */
+.content{flex:1;overflow-y:auto;padding:16px 20px;position:relative}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-track{background:transparent}
+.content::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px}
 
-  .nav-item:hover {
-    background: rgba(0, 229, 255, 0.05);
-    color: var(--text-primary);
-  }
+.page{display:none;animation:fadeIn 0.25s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-  .nav-item.active {
-    background: rgba(0, 229, 255, 0.08);
-    color: var(--cyan);
-    border-left-color: var(--cyan);
-  }
+/* ── Cards ─────────────────────────────────────────── */
+.glass{
+  background:var(--bg-card);
+  backdrop-filter:blur(16px);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  transition:border-color 0.3s, box-shadow 0.3s;
+}
+.glass:hover{border-color:var(--border-bright);box-shadow:0 4px 24px rgba(0,0,0,0.3)}
 
-  .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+.section-title{
+  font-size:10px;text-transform:uppercase;letter-spacing:2px;
+  color:var(--text-muted);margin-bottom:12px;
+}
 
-  .sidebar-footer {
-    padding: 10px 16px;
-    border-top: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--text-muted);
-  }
+/* ── Stat Grid ─────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{text-align:center;padding:14px 10px}
+.stat-val{font-size:26px;font-weight:700;line-height:1.2}
+.stat-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
 
-  .connection-dot {
-    display: inline-block;
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--red);
-    margin-right: 6px;
-    transition: background 0.3s;
-  }
+/* ── Brain Cards ───────────────────────────────────── */
+.brain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.brain-card{position:relative;overflow:hidden}
+.brain-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.brain-card.brain-main::before{background:var(--cyan)}
+.brain-card.brain-trading::before{background:var(--green)}
+.brain-card.brain-marketing::before{background:var(--magenta)}
+.brain-name{font-size:12px;font-weight:600;margin-bottom:8px}
+.brain-stat{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:4px}
+.brain-stat .val{color:var(--text)}
 
-  .connection-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+/* ── Notification Feed ─────────────────────────────── */
+.notif-feed{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.notif-feed::-webkit-scrollbar{width:3px}
+.notif-feed::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px}
+.notif-item{
+  display:flex;gap:10px;padding:8px 10px;border-radius:6px;
+  background:rgba(10,14,26,0.5);border-left:2px solid var(--border);
+  animation:slideIn 0.3s ease;font-size:11px;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+.notif-item.breakthrough{border-left-color:var(--gold);background:rgba(255,215,0,0.04)}
+.notif-item.notable{border-left-color:var(--cyan)}
+.notif-time{color:var(--text-muted);font-size:10px;flex-shrink:0;width:50px}
+.notif-engine{
+  font-size:9px;padding:1px 6px;border-radius:3px;
+  background:rgba(0,229,255,0.1);color:var(--cyan);flex-shrink:0;
+}
+.notif-msg{flex:1;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  /* ── Header ───────────────────────────────────── */
-  .header {
-    position: fixed;
-    left: var(--sidebar-width);
-    top: 0; right: 0;
-    height: var(--header-height);
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    z-index: 90;
-  }
+/* ── Neural Canvas ─────────────────────────────────── */
+.neural-wrap{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.neural-canvas{display:block;width:100%;background:transparent;cursor:grab}
+.neural-canvas:active{cursor:grabbing}
+.neural-controls{
+  position:absolute;bottom:10px;right:10px;display:flex;gap:4px;
+}
+.neural-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:all 0.2s;font-family:var(--font);
+}
+.neural-btn:hover{background:var(--bg-card-hover);color:var(--cyan);border-color:var(--cyan)}
+.neural-info{
+  position:absolute;top:10px;left:10px;font-size:10px;color:var(--text-muted);
+  background:rgba(5,8,16,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;
+}
 
-  .header-title { font-size: 15px; font-weight: 600; }
-  .header-actions { display: flex; align-items: center; gap: 12px; }
+/* ── Thought Stream ────────────────────────────────── */
+.thought-filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.thought-filter{
+  font-size:10px;padding:3px 10px;border-radius:4px;cursor:pointer;
+  border:1px solid var(--border);background:transparent;color:var(--text-dim);
+  font-family:var(--font);transition:all 0.2s;
+}
+.thought-filter.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,0.08)}
+.thought-list{display:flex;flex-direction:column;gap:4px;max-height:calc(100vh - 200px);overflow-y:auto}
+.thought-list::-webkit-scrollbar{width:3px}
+.thought-list::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px}
+.thought-item{
+  display:flex;gap:8px;padding:6px 10px;border-radius:6px;
+  background:rgba(10,14,26,0.4);font-size:11px;animation:slideIn 0.2s ease;
+}
+.thought-item .time{color:var(--text-muted);font-size:10px;flex-shrink:0;width:55px}
+.thought-item .engine-tag{
+  font-size:9px;padding:1px 6px;border-radius:3px;flex-shrink:0;
+}
+.thought-item .msg{flex:1;color:var(--text-dim)}
+.thought-item.sig-breakthrough{background:rgba(255,215,0,0.05);border-left:2px solid var(--gold)}
+.thought-item.sig-notable{border-left:2px solid var(--cyan)}
 
-  .btn {
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: rgba(0, 229, 255, 0.08);
-    color: var(--cyan);
-    font-family: inherit;
-    font-size: 11.5px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn:hover { background: rgba(0, 229, 255, 0.18); border-color: var(--cyan); }
+/* ── CodeGen ───────────────────────────────────────── */
+.codegen-form{display:flex;gap:8px;margin-bottom:16px}
+.codegen-form textarea{
+  flex:1;height:60px;resize:vertical;padding:10px;
+  background:rgba(10,14,26,0.6);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:var(--font);font-size:11px;
+}
+.codegen-form textarea:focus{outline:none;border-color:var(--cyan)}
+.codegen-form select{
+  padding:8px;background:rgba(10,14,26,0.6);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:var(--font);font-size:11px;
+}
+.codegen-form select:focus{outline:none;border-color:var(--cyan)}
+.gen-btn{
+  padding:8px 20px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(0,229,255,0.1));
+  color:var(--cyan);cursor:pointer;font-family:var(--font);font-size:11px;
+  font-weight:600;transition:all 0.2s;align-self:flex-end;
+}
+.gen-btn:hover{background:linear-gradient(135deg,rgba(0,229,255,0.3),rgba(0,229,255,0.15));box-shadow:0 0 16px rgba(0,229,255,0.2)}
 
-  .health-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .health-badge.healthy { background: rgba(0, 255, 136, 0.1); color: var(--green); border: 1px solid rgba(0, 255, 136, 0.3); }
-  .health-badge.degraded { background: rgba(255, 145, 0, 0.1); color: var(--orange); border: 1px solid rgba(255, 145, 0, 0.3); }
-  .health-badge.critical { background: rgba(255, 61, 61, 0.1); color: var(--red); border: 1px solid rgba(255, 61, 61, 0.3); }
+.pending-card{margin-bottom:12px;position:relative}
+.pending-card .code-block{
+  background:rgba(5,8,16,0.8);border-radius:6px;padding:12px;
+  overflow-x:auto;font-size:11px;line-height:1.6;max-height:300px;overflow-y:auto;
+  margin:8px 0;
+}
+.pending-card .code-block::-webkit-scrollbar{width:3px;height:3px}
+.pending-card .code-block::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px}
+.review-actions{display:flex;gap:8px;align-items:center;margin-top:8px}
+.review-actions input{
+  flex:1;padding:6px 10px;background:rgba(10,14,26,0.5);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-family:var(--font);font-size:11px;
+}
+.review-actions input:focus{outline:none;border-color:var(--cyan)}
+.btn-approve{
+  padding:5px 14px;border-radius:6px;border:1px solid var(--green);
+  background:rgba(0,255,136,0.08);color:var(--green);cursor:pointer;
+  font-family:var(--font);font-size:10px;transition:all 0.2s;
+}
+.btn-approve:hover{background:rgba(0,255,136,0.15)}
+.btn-reject{
+  padding:5px 14px;border-radius:6px;border:1px solid var(--red);
+  background:rgba(255,61,61,0.08);color:var(--red);cursor:pointer;
+  font-family:var(--font);font-size:10px;transition:all 0.2s;
+}
+.btn-reject:hover{background:rgba(255,61,61,0.15)}
+.btn-test{
+  padding:5px 14px;border-radius:6px;border:1px solid var(--gold);
+  background:rgba(255,215,0,0.08);color:var(--gold);cursor:pointer;
+  font-family:var(--font);font-size:10px;transition:all 0.2s;
+}
+.btn-test:hover{background:rgba(255,215,0,0.15)}
 
-  /* ── Main Content ─────────────────────────────── */
-  .main {
-    margin-left: var(--sidebar-width);
-    margin-top: var(--header-height);
-    height: calc(100vh - var(--header-height));
-    overflow-y: auto;
-    padding: 20px;
-  }
+.gen-history{margin-top:16px}
+.gen-table{width:100%;border-collapse:collapse;font-size:10px}
+.gen-table th{text-align:left;padding:6px 8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+.gen-table td{padding:6px 8px;border-bottom:1px solid rgba(80,120,200,0.06);color:var(--text-dim)}
+.gen-table tr:hover td{background:rgba(0,229,255,0.03)}
+.status-badge{font-size:9px;padding:1px 6px;border-radius:3px;display:inline-block}
+.status-badge.approved{background:rgba(0,255,136,0.12);color:var(--green)}
+.status-badge.rejected{background:rgba(255,61,61,0.12);color:var(--red)}
+.status-badge.generated{background:rgba(0,229,255,0.12);color:var(--cyan)}
+.status-badge.generating{background:rgba(255,145,0,0.12);color:var(--orange)}
+.status-badge.ready{background:rgba(0,255,136,0.12);color:var(--green)}
+.status-badge.testing{background:rgba(255,215,0,0.12);color:var(--gold)}
+.status-badge.proposed{background:rgba(179,136,255,0.12);color:var(--purple)}
+.status-badge.applied{background:rgba(0,255,136,0.12);color:var(--green)}
+.status-badge.failed{background:rgba(255,61,61,0.12);color:var(--red)}
 
-  .main::-webkit-scrollbar { width: 5px; }
-  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  .main::-webkit-scrollbar-track { background: transparent; }
+/* ── Self-Mod ──────────────────────────────────────── */
+.diff-viewer{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:8px 0;font-size:10px;border-radius:6px;overflow:hidden}
+.diff-old,.diff-new{padding:10px;background:rgba(5,8,16,0.8);overflow-x:auto;max-height:250px;overflow-y:auto;line-height:1.6}
+.diff-old::-webkit-scrollbar,.diff-new::-webkit-scrollbar{width:3px;height:3px}
+.diff-old::-webkit-scrollbar-thumb,.diff-new::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px}
+.diff-label{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.diff-line-del{color:var(--red);opacity:0.8}
+.diff-line-add{color:var(--green);opacity:0.8}
 
-  .page { display: none; }
-  .page.active { display: block; }
+/* ── Engine Grid ───────────────────────────────────── */
+.engine-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.engine-card{padding:12px}
+.engine-card .e-name{font-size:11px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.engine-card .e-dot{width:6px;height:6px;border-radius:50%}
+.engine-card .e-stat{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:3px}
+.engine-card .e-bar{height:3px;border-radius:2px;background:rgba(80,120,200,0.1);margin-top:6px;overflow:hidden}
+.engine-card .e-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease}
 
-  /* ── Cards ────────────────────────────────────── */
-  .card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
-    backdrop-filter: blur(8px);
-    transition: border-color 0.3s;
-  }
-  .card:hover { border-color: rgba(100, 120, 180, 0.3); }
+/* ── Intelligence (Attention + Transfer) ───────────── */
+.topic-list{display:flex;flex-direction:column;gap:6px}
+.topic-item{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:rgba(10,14,26,0.4)}
+.topic-name{flex:1;font-size:11px}
+.topic-bar-bg{width:120px;height:4px;border-radius:2px;background:rgba(80,120,200,0.1)}
+.topic-bar-fill{height:100%;border-radius:2px;background:var(--cyan);transition:width 0.4s ease}
+.topic-score{font-size:10px;color:var(--text-dim);width:40px;text-align:right}
 
-  .card-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.rule-list{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.rule-item{padding:6px 10px;border-radius:6px;background:rgba(10,14,26,0.4);font-size:10px;display:flex;justify-content:space-between}
+.rule-item .r-name{color:var(--text)}
+.rule-item .r-status{text-transform:uppercase;letter-spacing:0.5px}
 
-  .card-value {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-  }
+/* ── Syntax Coloring ───────────────────────────────── */
+.syn-keyword{color:var(--magenta)}
+.syn-string{color:var(--green)}
+.syn-comment{color:var(--text-muted);font-style:italic}
+.syn-number{color:var(--gold)}
+.syn-type{color:var(--cyan)}
+.syn-fn{color:var(--blue)}
 
-  .card-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+/* ── Two-Column Layout ─────────────────────────────── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:1000px){.two-col{grid-template-columns:1fr}}
 
-  /* ── Stat Grid ────────────────────────────────── */
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-
-  /* ── Brain Cards ──────────────────────────────── */
-  .brain-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  .brain-card { position: relative; overflow: hidden; }
-  .brain-card .glow {
-    position: absolute;
-    top: -40px; right: -40px;
-    width: 120px; height: 120px;
-    border-radius: 50%;
-    opacity: 0.08;
-    pointer-events: none;
-  }
-  .brain-card.brain .glow { background: var(--cyan); }
-  .brain-card.trading .glow { background: var(--green); }
-  .brain-card.marketing .glow { background: var(--magenta); }
-
-  .brain-card .brain-name {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .brain-card.brain .brain-name { color: var(--cyan); }
-  .brain-card.trading .brain-name { color: var(--green); }
-  .brain-card.marketing .brain-name { color: var(--magenta); }
-
-  .brain-stat-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 3px 0;
-    font-size: 12px;
-  }
-  .brain-stat-row .label { color: var(--text-secondary); }
-  .brain-stat-row .value { color: var(--text-primary); font-weight: 500; }
-
-  .brain-status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-  .brain-status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .brain-status-dot.stopped { background: var(--red); }
-  .brain-status-dot.unknown { background: var(--text-muted); }
-
-  .dash-link {
-    display: inline-block;
-    margin-top: 10px;
-    font-size: 11px;
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-  .dash-link:hover { color: var(--cyan); }
-
-  /* ── Notification Feed ────────────────────────── */
-  .notification-feed {
-    max-height: 500px;
-    overflow-y: auto;
-  }
-  .notification-feed::-webkit-scrollbar { width: 4px; }
-  .notification-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .notif-item {
-    display: flex;
-    gap: 10px;
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(100, 120, 180, 0.06);
-    transition: background 0.2s;
-    animation: slideIn 0.3s ease;
-  }
-  .notif-item:hover { background: rgba(255, 255, 255, 0.02); }
-  .notif-item.breakthrough { border-left: 3px solid var(--gold); }
-  .notif-item.notable { border-left: 3px solid var(--purple); }
-  .notif-item.routine { border-left: 3px solid transparent; }
-
-  .notif-time { font-size: 10px; color: var(--text-muted); white-space: nowrap; min-width: 55px; padding-top: 2px; }
-  .notif-engine {
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: rgba(0, 229, 255, 0.1);
-    color: var(--cyan);
-    white-space: nowrap;
-    height: fit-content;
-  }
-  .notif-content { flex: 1; font-size: 12px; color: var(--text-secondary); }
-
-  /* ── Transfer View ─────────────────────────────── */
-  .rule-list { display: flex; flex-direction: column; gap: 6px; }
-  .rule-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    font-size: 12px;
-  }
-  .rule-arrow { color: var(--cyan); font-weight: bold; }
-  .rule-enabled { color: var(--green); }
-  .rule-disabled { color: var(--red); }
-
-  .analogy-item {
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    border-left: 3px solid var(--purple);
-  }
-  .analogy-narrative { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
-  .analogy-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 12px; }
-
-  /* ── Attention View ────────────────────────────── */
-  .topic-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-    font-size: 12px;
-  }
-  .topic-name { min-width: 120px; color: var(--text-secondary); }
-  .topic-bar-fill {
-    height: 16px;
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--cyan), var(--blue));
-    transition: width 0.5s;
-    min-width: 2px;
-  }
-  .topic-score { min-width: 50px; text-align: right; color: var(--text-muted); font-size: 11px; }
-
-  .context-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
-    margin-right: 6px;
-  }
-  .context-badge.debugging { background: rgba(255, 61, 61, 0.15); color: var(--red); }
-  .context-badge.coding { background: rgba(0, 229, 255, 0.15); color: var(--cyan); }
-  .context-badge.reviewing { background: rgba(179, 136, 255, 0.15); color: var(--purple); }
-  .context-badge.trading { background: rgba(0, 255, 136, 0.15); color: var(--green); }
-  .context-badge.publishing { background: rgba(255, 145, 0, 0.15); color: var(--orange); }
-  .context-badge.monitoring { background: rgba(68, 138, 255, 0.15); color: var(--blue); }
-
-  /* ── Engines Table ──────────────────────────────── */
-  .engine-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 8px;
-  }
-  .engine-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    font-size: 11px;
-  }
-  .engine-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-  }
-  .engine-dot.active { background: var(--green); box-shadow: 0 0 4px var(--green); }
-  .engine-dot.idle { background: var(--text-muted); }
-
-  /* ── Two Column Layout ───────────────────────── */
-  .two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
-  /* ── Transfer History Table ──────────────────── */
-  .transfer-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-  }
-  .transfer-table th {
-    text-align: left;
-    padding: 6px 10px;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-  }
-  .transfer-table td {
-    padding: 6px 10px;
-    border-bottom: 1px solid rgba(100, 120, 180, 0.06);
-    color: var(--text-secondary);
-  }
-
-  .status-badge {
-    display: inline-block;
-    padding: 1px 8px;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  .status-badge.pending { background: rgba(255, 215, 0, 0.15); color: var(--gold); }
-  .status-badge.applied { background: rgba(0, 229, 255, 0.15); color: var(--cyan); }
-  .status-badge.validated { background: rgba(0, 255, 136, 0.15); color: var(--green); }
-  .status-badge.rejected { background: rgba(255, 61, 61, 0.15); color: var(--red); }
-
-  /* ── Animations ──────────────────────────────── */
-  @keyframes pulse {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.1); }
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ── Responsive ──────────────────────────────── */
-  @media (max-width: 1000px) {
-    .brain-grid { grid-template-columns: 1fr; }
-    .two-col { grid-template-columns: 1fr; }
-  }
+/* ── Unavailable Message ───────────────────────────── */
+.unavailable{text-align:center;padding:40px;color:var(--text-muted);font-size:12px}
+.unavailable .icon{font-size:32px;margin-bottom:12px;opacity:0.3}
 </style>
 </head>
 <body>
-
-<!-- ═══════ Sidebar ═══════ -->
-<nav class="sidebar">
-  <div class="sidebar-brand">
-    <div class="logo"></div>
-    Brain Ecosystem
-  </div>
-  <div class="sidebar-nav">
-    <div class="nav-section">Dashboard</div>
-    <div class="nav-item active" data-page="overview">
-      <span class="nav-icon">&#9741;</span> Overview
-    </div>
-    <div class="nav-item" data-page="notifications">
-      <span class="nav-icon">&#9888;</span> Notifications
-    </div>
-    <div class="nav-section">Intelligence</div>
-    <div class="nav-item" data-page="attention">
-      <span class="nav-icon">&#9678;</span> Attention
-    </div>
-    <div class="nav-item" data-page="transfer">
-      <span class="nav-icon">&#8644;</span> Transfer
-    </div>
-    <div class="nav-item" data-page="engines">
-      <span class="nav-icon">&#9881;</span> Engines
-    </div>
-    <div class="nav-section">Links</div>
-    <a class="nav-item" href="http://localhost:7784" target="_blank" style="text-decoration:none">
-      <span class="nav-icon" style="color:var(--cyan)">&#9679;</span> Brain :7784
-    </a>
-    <a class="nav-item" href="http://localhost:7785" target="_blank" style="text-decoration:none">
-      <span class="nav-icon" style="color:var(--green)">&#9679;</span> Trading :7785
-    </a>
-    <a class="nav-item" href="http://localhost:7786" target="_blank" style="text-decoration:none">
-      <span class="nav-icon" style="color:var(--magenta)">&#9679;</span> Marketing :7786
-    </a>
-    <a class="nav-item" href="http://localhost:7787" target="_blank" style="text-decoration:none">
-      <span class="nav-icon" style="color:var(--gold)">&#9679;</span> CodeGen :7787
-    </a>
-  </div>
-  <div class="sidebar-footer">
-    <span class="connection-dot" id="connDot"></span>
-    <span id="connLabel">Connecting...</span>
-    <div style="margin-top:4px;font-size:10px" id="uptimeLabel">Uptime: --</div>
-  </div>
-</nav>
-
-<!-- ═══════ Header ═══════ -->
-<header class="header">
-  <div class="header-title" id="pageTitle">Overview</div>
-  <div class="header-actions">
-    <div class="health-badge healthy" id="healthBadge">
-      <span id="healthScore">--</span>
-    </div>
-    <button class="btn" id="triggerBtn" title="Trigger Brain Feedback Cycle">&#9889; Trigger Cycle</button>
-  </div>
-</header>
-
-<!-- ═══════ Main Content ═══════ -->
-<main class="main">
-
-  <!-- ── Overview Page ─────────── -->
-  <div class="page active" id="page-overview">
-    <!-- Stat Cards -->
-    <div class="stat-grid" id="overviewStats">
-      <div class="card">
-        <div class="card-title">Total Thoughts</div>
-        <div class="card-value" id="statThoughts" style="color:var(--cyan)">0</div>
-        <div class="card-sub" id="statThoughtsSub">across all engines</div>
+<div class="app">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo"><div class="dot"></div><span>Mission Control</span></div>
+    <div class="nav">
+      <div class="nav-item active" data-page="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Overview</span>
       </div>
-      <div class="card">
-        <div class="card-title">Discoveries</div>
-        <div class="card-value" id="statDiscoveries" style="color:var(--gold)">0</div>
-        <div class="card-sub">breakthroughs + notable</div>
+      <div class="nav-item" data-page="neural">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><line x1="7" y1="7" x2="10" y2="10"/><line x1="14" y1="10" x2="17" y2="7"/><line x1="7" y1="17" x2="10" y2="14"/><line x1="14" y1="14" x2="17" y2="17"/></svg>
+        <span>Neural</span>
       </div>
-      <div class="card">
-        <div class="card-title">Active Engines</div>
-        <div class="card-value" id="statEngines" style="color:var(--green)">0</div>
-        <div class="card-sub" id="statEnginesSub">of 16 running</div>
+      <div class="nav-item" data-page="thoughts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Thoughts</span>
       </div>
-      <div class="card">
-        <div class="card-title">Transfer Score</div>
-        <div class="card-value" id="statTransfer" style="color:var(--purple)">0</div>
-        <div class="card-sub">cross-domain effectiveness</div>
+      <div class="nav-item" data-page="codegen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span>CodeGen</span>
+      </div>
+      <div class="nav-item" data-page="selfmod">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>Self-Mod</span>
+      </div>
+      <div class="nav-item" data-page="engines">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>Engines</span>
+      </div>
+      <div class="nav-item" data-page="intelligence">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <span>Intelligence</span>
       </div>
     </div>
-
-    <!-- Brain Cards -->
-    <div class="brain-grid" id="brainGrid">
-      <div class="card brain-card brain">
-        <div class="glow"></div>
-        <div class="brain-name"><span class="brain-status-dot unknown" id="brainDot"></span> Brain</div>
-        <div class="brain-stat-row"><span class="label">Cycle</span><span class="value" id="brainCycle">--</span></div>
-        <div class="brain-stat-row"><span class="label">Principles</span><span class="value" id="brainPrinciples">--</span></div>
-        <div class="brain-stat-row"><span class="label">Hypotheses</span><span class="value" id="brainHypotheses">--</span></div>
-        <div class="brain-stat-row"><span class="label">Experiments</span><span class="value" id="brainExperiments">--</span></div>
-        <div class="brain-stat-row"><span class="label">Focus</span><span class="value" id="brainFocus">--</span></div>
-        <a class="dash-link" href="http://localhost:7784" target="_blank">Open Consciousness Dashboard &rarr;</a>
-      </div>
-      <div class="card brain-card trading">
-        <div class="glow"></div>
-        <div class="brain-name"><span class="brain-status-dot unknown" id="tradingDot"></span> Trading Brain</div>
-        <div class="brain-stat-row"><span class="label">Cycle</span><span class="value" id="tradingCycle">--</span></div>
-        <div class="brain-stat-row"><span class="label">Principles</span><span class="value" id="tradingPrinciples">--</span></div>
-        <div class="brain-stat-row"><span class="label">Hypotheses</span><span class="value" id="tradingHypotheses">--</span></div>
-        <div class="brain-stat-row"><span class="label">Experiments</span><span class="value" id="tradingExperiments">--</span></div>
-        <div class="brain-stat-row"><span class="label">Focus</span><span class="value" id="tradingFocus">--</span></div>
-        <a class="dash-link" href="http://localhost:7785" target="_blank">Open Consciousness Dashboard &rarr;</a>
-      </div>
-      <div class="card brain-card marketing">
-        <div class="glow"></div>
-        <div class="brain-name"><span class="brain-status-dot unknown" id="marketingDot"></span> Marketing Brain</div>
-        <div class="brain-stat-row"><span class="label">Cycle</span><span class="value" id="marketingCycle">--</span></div>
-        <div class="brain-stat-row"><span class="label">Principles</span><span class="value" id="marketingPrinciples">--</span></div>
-        <div class="brain-stat-row"><span class="label">Hypotheses</span><span class="value" id="marketingHypotheses">--</span></div>
-        <div class="brain-stat-row"><span class="label">Experiments</span><span class="value" id="marketingExperiments">--</span></div>
-        <div class="brain-stat-row"><span class="label">Focus</span><span class="value" id="marketingFocus">--</span></div>
-        <a class="dash-link" href="http://localhost:7786" target="_blank">Open Consciousness Dashboard &rarr;</a>
-      </div>
+    <div class="sidebar-footer">
+      <span class="conn-dot off" id="connDot"></span>
+      <span class="label" id="connLabel">Disconnected</span>
     </div>
+  </nav>
 
-    <!-- Recent Notifications -->
-    <div class="card">
-      <div class="card-title">&#9888; Recent Notifications</div>
-      <div class="notification-feed" id="overviewNotifs" style="max-height:280px"></div>
-    </div>
-  </div>
+  <!-- MAIN -->
+  <div class="main">
+    <header class="header">
+      <div class="header-left">
+        <span class="header-title">Brain Ecosystem</span>
+        <span class="header-badge" id="healthBadge">--</span>
+      </div>
+      <div class="header-right">
+        <span class="uptime" id="uptimeEl">Uptime: --</span>
+        <button class="trigger-btn" onclick="triggerCycle()">Trigger Cycle</button>
+      </div>
+    </header>
 
-  <!-- ── Notifications Page ────── -->
-  <div class="page" id="page-notifications">
-    <div class="card">
-      <div class="card-title">&#9888; Live Thought Stream</div>
-      <div class="notification-feed" id="allNotifs"></div>
-    </div>
-  </div>
-
-  <!-- ── Attention Page ────────── -->
-  <div class="page" id="page-attention">
-    <div class="two-col">
-      <div class="card">
-        <div class="card-title">&#9678; Current Context</div>
-        <div id="currentContext" style="margin-bottom:10px">
-          <span class="context-badge monitoring">unknown</span>
+    <div class="content">
+      <!-- OVERVIEW PAGE -->
+      <div class="page active" id="page-overview">
+        <div class="stat-grid" id="overviewStats"></div>
+        <div class="brain-grid" id="brainCards"></div>
+        <div class="two-col">
+          <div>
+            <div class="section-title">Live Notifications</div>
+            <div class="glass"><div class="notif-feed" id="notifFeed"></div></div>
+          </div>
+          <div>
+            <div class="section-title">Neural Preview</div>
+            <div class="neural-wrap glass" style="padding:0">
+              <canvas class="neural-canvas" id="overviewCanvas" height="280"></canvas>
+              <div class="neural-info" id="overviewInfo">0 nodes, 0 edges</div>
+            </div>
+          </div>
         </div>
-        <div class="card-title" style="margin-top:14px">Top Attention Topics</div>
-        <div id="topTopics"></div>
       </div>
-      <div class="card">
-        <div class="card-title">Urgent Topics</div>
-        <div id="urgentTopics"></div>
-        <div class="card-title" style="margin-top:20px">Context Switches</div>
-        <div id="contextSwitches" style="font-size:12px;color:var(--text-secondary)"></div>
+
+      <!-- NEURAL PAGE -->
+      <div class="page" id="page-neural">
+        <div class="section-title">Neural Network</div>
+        <div class="neural-wrap" style="height:calc(100vh - 130px)">
+          <canvas class="neural-canvas" id="neuralCanvas"></canvas>
+          <div class="neural-info" id="neuralInfo">0 nodes, 0 edges</div>
+          <div class="neural-controls">
+            <button class="neural-btn" onclick="neuralZoom(1.2)" title="Zoom In">+</button>
+            <button class="neural-btn" onclick="neuralZoom(0.8)" title="Zoom Out">-</button>
+            <button class="neural-btn" onclick="neuralReset()" title="Reset">R</button>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Focus Timeline (Last 20)</div>
-      <div id="focusTimeline" style="font-size:12px;color:var(--text-secondary)"></div>
+
+      <!-- THOUGHTS PAGE -->
+      <div class="page" id="page-thoughts">
+        <div class="section-title">Thought Stream</div>
+        <div class="thought-filters" id="thoughtFilters"></div>
+        <div class="thought-list" id="thoughtList"></div>
+      </div>
+
+      <!-- CODEGEN PAGE -->
+      <div class="page" id="page-codegen">
+        <div class="section-title">Code Generation</div>
+        <div id="codegenContent"></div>
+      </div>
+
+      <!-- SELF-MOD PAGE -->
+      <div class="page" id="page-selfmod">
+        <div class="section-title">Self-Modification</div>
+        <div id="selfmodContent"></div>
+      </div>
+
+      <!-- ENGINES PAGE -->
+      <div class="page" id="page-engines">
+        <div class="section-title">Engine Status</div>
+        <div class="engine-grid" id="engineGrid"></div>
+      </div>
+
+      <!-- INTELLIGENCE PAGE -->
+      <div class="page" id="page-intelligence">
+        <div class="two-col">
+          <div>
+            <div class="section-title">Attention Topics</div>
+            <div class="glass"><div class="topic-list" id="attentionTopics"></div></div>
+          </div>
+          <div>
+            <div class="section-title">Transfer Rules</div>
+            <div class="glass"><div class="rule-list" id="transferRules"></div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px">
+          <div class="section-title">Transfer Analogies</div>
+          <div class="glass"><div id="analogies"></div></div>
+        </div>
+      </div>
     </div>
   </div>
-
-  <!-- ── Transfer Page ─────────── -->
-  <div class="page" id="page-transfer">
-    <div class="stat-grid">
-      <div class="card">
-        <div class="card-title">Total Analogies</div>
-        <div class="card-value" id="transferAnalogies" style="color:var(--purple)">0</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Total Transfers</div>
-        <div class="card-value" id="transferTotal" style="color:var(--cyan)">0</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Active Rules</div>
-        <div class="card-value" id="transferRules" style="color:var(--green)">0</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Transfer Score</div>
-        <div class="card-value" id="transferScoreVal" style="color:var(--gold)">0</div>
-      </div>
-    </div>
-    <div class="two-col">
-      <div class="card">
-        <div class="card-title">&#8596; Cross-Domain Analogies</div>
-        <div id="analogyList"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">&#9889; Cross-Domain Rules</div>
-        <div class="rule-list" id="ruleList"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Transfer History</div>
-      <table class="transfer-table" id="transferHistory">
-        <thead>
-          <tr><th>Source</th><th>Knowledge</th><th>Status</th><th>Confidence</th><th>Date</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── Engines Page ──────────── -->
-  <div class="page" id="page-engines">
-    <div class="card">
-      <div class="card-title">&#9881; Engine Status</div>
-      <div class="engine-grid" id="engineGrid"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Engine Thought Counts</div>
-      <div id="engineCounts"></div>
-    </div>
-  </div>
-
-</main>
+</div>
 
 <script>
-(function() {
-  'use strict';
+// ═══ STATE ═══
+const MAX_THOUGHTS = 500;
+const MAX_NOTIFS = 100;
+let state = {
+  overview: null, transfer: null, attention: null,
+  thoughts: [], engines: {}, stats: {},
+  notifications: [], network: { nodes: [], edges: [] },
+  codegen: null, selfmod: null,
+};
+let connected = false;
+const startTime = Date.now();
 
-  // ── State ──────────────────────────────────
-  let state = {
-    overview: null,
-    transfer: null,
-    attention: null,
-    thoughts: [],
-    engines: {},
-    stats: {},
-    notifications: [],
-  };
-  let connected = false;
-  const startTime = Date.now();
-  const MAX_THOUGHTS = 500;
+// Engine colors
+const EC = {
+  orchestrator:'#00e5ff', self_observer:'#448aff', anomaly_detective:'#ff9100',
+  dream:'#b388ff', cross_domain:'#ff4081', journal:'#00ff88',
+  knowledge_distiller:'#ffd700', prediction:'#00e5ff', attention:'#ff6e40',
+  transfer:'#ea80fc', narrative:'#69f0ae', curiosity:'#40c4ff',
+  emergence:'#ffab40', debate:'#ff80ab', metacognition:'#b2ff59',
+  auto_experiment:'#ffd740', selftest:'#84ffff', teach:'#a7ffeb',
+  datascout:'#f48fb1', simulation:'#80d8ff', memory_palace:'#ce93d8',
+  goal:'#fff176', evolution:'#a5d6a7', reasoning:'#90caf9',
+  emotional:'#ef9a9a', self_scanner:'#80cbc4', self_modification:'#ffcc80',
+  codegen:'#b0bec5', code_miner:'#8d6e63', bootstrap:'#78909c',
+};
+function engineColor(name) {
+  const key = name ? name.toLowerCase().replace(/[^a-z_]/g, '') : '';
+  return EC[key] || '#6e7a8a';
+}
 
-  // ── Navigation ─────────────────────────────
-  const navItems = document.querySelectorAll('.nav-item[data-page]');
-  const pages = document.querySelectorAll('.page');
-  const pageTitle = document.getElementById('pageTitle');
-
-  navItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const page = item.dataset.page;
-      navItems.forEach(n => n.classList.remove('active'));
-      item.classList.add('active');
-      pages.forEach(p => p.classList.remove('active'));
-      document.getElementById('page-' + page).classList.add('active');
-      pageTitle.textContent = item.textContent.trim();
-    });
+// ═══ SSE CONNECTION ═══
+let evtSource = null;
+function connect() {
+  evtSource = new EventSource('/events');
+  evtSource.addEventListener('connected', function() {
+    connected = true;
+    document.getElementById('connDot').className = 'conn-dot on';
+    document.getElementById('connLabel').textContent = 'Connected';
   });
-
-  // ── Trigger Button ─────────────────────────
-  document.getElementById('triggerBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch('/api/trigger', { method: 'POST' });
-      const data = await res.json();
-      if (data.triggered) {
-        document.getElementById('triggerBtn').textContent = '\u2713 Triggered!';
-        setTimeout(() => { document.getElementById('triggerBtn').innerHTML = '&#9889; Trigger Cycle'; }, 2000);
-      }
-    } catch (e) { console.error('Trigger failed', e); }
+  evtSource.addEventListener('thought', function(e) {
+    const t = JSON.parse(e.data);
+    state.thoughts.unshift(t);
+    if (state.thoughts.length > MAX_THOUGHTS) state.thoughts.pop();
+    if (t.significance === 'breakthrough' || t.significance === 'notable') {
+      state.notifications.unshift(t);
+      if (state.notifications.length > MAX_NOTIFS) state.notifications.pop();
+    }
+    renderThoughts();
+    renderNotifications();
   });
-
-  // ── Format Helpers ─────────────────────────
-  function formatTime(ts) {
-    if (!ts) return '--';
-    const d = new Date(ts);
-    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
-
-  function timeSince(ms) {
-    const s = Math.floor(ms / 1000);
-    if (s < 60) return s + 's';
-    const m = Math.floor(s / 60);
-    if (m < 60) return m + 'm ' + (s % 60) + 's';
-    const h = Math.floor(m / 60);
-    return h + 'h ' + (m % 60) + 'm';
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  // ── Render: Overview ───────────────────────
-  function renderOverview() {
-    const ov = state.overview;
-    const st = state.stats || {};
-
-    // Stats
-    document.getElementById('statThoughts').textContent = st.totalThoughts || 0;
-    document.getElementById('statDiscoveries').textContent = st.discoveries || 0;
-
-    // Engine count from engines map
-    const engines = state.engines || {};
-    const engineNames = Object.keys(engines);
-    const activeCount = engineNames.filter(n => {
-      const e = engines[n];
-      return e && (Date.now() - (e.lastActive || 0)) < 60000;
-    }).length;
-    document.getElementById('statEngines').textContent = activeCount;
-    document.getElementById('statEnginesSub').textContent = 'of ' + engineNames.length + ' tracked';
-
-    // Transfer score
-    const tr = state.transfer;
-    if (tr) {
-      const score = tr.transferScore?.score ?? tr.score ?? 0;
-      document.getElementById('statTransfer').textContent = typeof score === 'number' ? score.toFixed(1) : '0';
-    }
-
-    // Health badge
-    renderHealthBadge(ov);
-
-    // Brain cards
-    renderBrainCards(ov);
-
-    // Recent notifications (top 30)
-    renderNotifFeed('overviewNotifs', state.thoughts.slice(0, 30));
-  }
-
-  function renderHealthBadge(ov) {
-    const badge = document.getElementById('healthBadge');
-    const scoreEl = document.getElementById('healthScore');
-    if (ov && typeof ov.healthScore === 'number') {
-      const s = ov.healthScore;
-      scoreEl.textContent = s + '/100';
-      badge.className = 'health-badge ' + (s >= 70 ? 'healthy' : s >= 40 ? 'degraded' : 'critical');
-    } else if (connected) {
-      scoreEl.textContent = 'Connected';
-      badge.className = 'health-badge healthy';
-    }
-  }
-
-  function renderBrainCards(ov) {
-    if (!ov) return;
-    const brains = ov.brains || {};
-
-    // Brain
-    const brain = brains.brain || {};
-    setDot('brainDot', brain.status);
-    setText('brainCycle', brain.cycle);
-    setText('brainPrinciples', brain.principles);
-    setText('brainHypotheses', brain.hypotheses);
-    setText('brainExperiments', brain.experiments);
-    setText('brainFocus', brain.focus || '--');
-
-    // Trading
-    const trading = brains['trading-brain'] || brains.trading || {};
-    setDot('tradingDot', trading.status);
-    setText('tradingCycle', trading.cycle);
-    setText('tradingPrinciples', trading.principles);
-    setText('tradingHypotheses', trading.hypotheses);
-    setText('tradingExperiments', trading.experiments);
-    setText('tradingFocus', trading.focus || '--');
-
-    // Marketing
-    const marketing = brains['marketing-brain'] || brains.marketing || {};
-    setDot('marketingDot', marketing.status);
-    setText('marketingCycle', marketing.cycle);
-    setText('marketingPrinciples', marketing.principles);
-    setText('marketingHypotheses', marketing.hypotheses);
-    setText('marketingExperiments', marketing.experiments);
-    setText('marketingFocus', marketing.focus || '--');
-  }
-
-  function setDot(id, status) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.className = 'brain-status-dot ' + (status === 'running' ? 'running' : status === 'stopped' ? 'stopped' : 'unknown');
-  }
-
-  function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value != null ? value : '--';
-  }
-
-  // ── Render: Notifications ──────────────────
-  function renderNotifFeed(containerId, items) {
-    const container = document.getElementById(containerId);
-    if (!container || !items) return;
-
-    container.innerHTML = items.map(t => {
-      const sig = t.significance || 'routine';
-      return '<div class="notif-item ' + sig + '">' +
-        '<span class="notif-time">' + formatTime(t.timestamp) + '</span>' +
-        '<span class="notif-engine">' + escapeHtml(t.engine || '?') + '</span>' +
-        '<span class="notif-content">' + escapeHtml(t.content || t.message || '') + '</span>' +
-      '</div>';
-    }).join('');
-  }
-
-  function renderAllNotifications() {
-    renderNotifFeed('allNotifs', state.thoughts.slice(0, 200));
-  }
-
-  // ── Render: Attention ──────────────────────
-  function renderAttention() {
-    const att = state.attention;
-    if (!att) {
-      document.getElementById('topTopics').innerHTML = '<span style="color:var(--text-muted)">No attention data available</span>';
-      return;
-    }
-
-    // Current context
-    const ctx = att.currentContext || att.context || 'unknown';
-    document.getElementById('currentContext').innerHTML =
-      '<span class="context-badge ' + ctx + '">' + escapeHtml(ctx) + '</span>';
-
-    // Top topics
-    const topics = att.topTopics || att.scores || [];
-    if (topics.length === 0) {
-      document.getElementById('topTopics').innerHTML = '<span style="color:var(--text-muted)">No topics tracked</span>';
-    } else {
-      const maxScore = Math.max(...topics.map(t => t.score || 0), 1);
-      document.getElementById('topTopics').innerHTML = topics.slice(0, 15).map(t => {
-        const pct = Math.round(((t.score || 0) / maxScore) * 100);
-        return '<div class="topic-bar">' +
-          '<span class="topic-name">' + escapeHtml(t.topic || t.name || '?') + '</span>' +
-          '<div style="flex:1"><div class="topic-bar-fill" style="width:' + pct + '%"></div></div>' +
-          '<span class="topic-score">' + (t.score || 0).toFixed(2) + '</span>' +
-        '</div>';
-      }).join('');
-    }
-
-    // Urgent topics
-    const urgent = att.urgentTopics || [];
-    document.getElementById('urgentTopics').innerHTML = urgent.length === 0
-      ? '<span style="color:var(--text-muted)">No urgent topics</span>'
-      : urgent.map(t =>
-        '<div class="topic-bar">' +
-          '<span class="topic-name" style="color:var(--gold)">' + escapeHtml(t.topic || t.name || '?') + '</span>' +
-          '<span class="topic-score" style="color:var(--gold)">' + (t.urgency || t.score || 0).toFixed(2) + '</span>' +
-        '</div>'
-      ).join('');
-
-    // Context switches
-    const switches = att.recentSwitches || [];
-    document.getElementById('contextSwitches').innerHTML = switches.length === 0
-      ? '<span style="color:var(--text-muted)">No context switches</span>'
-      : switches.slice(0, 10).map(s =>
-        '<div style="padding:3px 0">' + formatTime(s.timestamp) + ' &mdash; ' +
-        '<span class="context-badge ' + (s.from || '') + '">' + escapeHtml(s.from || '?') + '</span>' +
-        ' &rarr; <span class="context-badge ' + (s.to || '') + '">' + escapeHtml(s.to || '?') + '</span>' +
-        '</div>'
-      ).join('');
-
-    // Focus timeline
-    const timeline = att.focusTimeline || att.timeline || [];
-    document.getElementById('focusTimeline').innerHTML = timeline.length === 0
-      ? '<span style="color:var(--text-muted)">No focus history</span>'
-      : timeline.slice(0, 20).map(f =>
-        '<div style="padding:2px 0">' + formatTime(f.timestamp) + ' &mdash; ' +
-        '<strong>' + escapeHtml(f.topic || '?') + '</strong> (score: ' + (f.score || 0).toFixed(2) + ')' +
-        '</div>'
-      ).join('');
-  }
-
-  // ── Render: Transfer ───────────────────────
-  function renderTransfer() {
-    const tr = state.transfer;
-    if (!tr) return;
-
-    // Stats
-    setText('transferAnalogies', tr.totalAnalogies || 0);
-    setText('transferTotal', tr.totalTransfers || 0);
-    setText('transferRules', tr.activeRules || 0);
-    const score = tr.transferScore?.score ?? tr.score ?? 0;
-    document.getElementById('transferScoreVal').textContent = typeof score === 'number' ? score.toFixed(1) : '0';
-
-    // Analogies
-    const analogies = tr.analogies || [];
-    document.getElementById('analogyList').innerHTML = analogies.length === 0
-      ? '<span style="color:var(--text-muted)">No analogies found yet</span>'
-      : analogies.slice(0, 15).map(a =>
-        '<div class="analogy-item">' +
-          '<div class="analogy-narrative">' + escapeHtml(a.narrative || a.description || '?') + '</div>' +
-          '<div class="analogy-meta">' +
-            '<span>Similarity: ' + ((a.similarity || 0) * 100).toFixed(0) + '%</span>' +
-            '<span>' + escapeHtml(a.source_brain || '?') + ' &harr; ' + escapeHtml(a.target_brain || '?') + '</span>' +
-          '</div>' +
-        '</div>'
-      ).join('');
-
-    // Rules
-    const rules = tr.rules || [];
-    document.getElementById('ruleList').innerHTML = rules.length === 0
-      ? '<span style="color:var(--text-muted)">No rules configured</span>'
-      : rules.map(r =>
-        '<div class="rule-item">' +
-          '<span class="' + (r.enabled ? 'rule-enabled' : 'rule-disabled') + '">' + (r.enabled ? '\u25CF' : '\u25CB') + '</span>' +
-          '<span style="color:var(--text-primary)">' + escapeHtml(r.name || '?') + '</span>' +
-          '<span class="rule-arrow">' + escapeHtml(r.source_brain || '?') + ' &rarr; ' + escapeHtml(r.target_brain || '?') + '</span>' +
-          '<span style="color:var(--text-muted);margin-left:auto">fired: ' + (r.fire_count || 0) + '</span>' +
-        '</div>'
-      ).join('');
-
-    // Transfer history
-    const history = tr.history || [];
-    const tbody = document.querySelector('#transferHistory tbody');
-    if (tbody) {
-      tbody.innerHTML = history.length === 0
-        ? '<tr><td colspan="5" style="color:var(--text-muted)">No transfers yet</td></tr>'
-        : history.slice(0, 30).map(h =>
-          '<tr>' +
-            '<td>' + escapeHtml(h.source_brain || '?') + '</td>' +
-            '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(h.knowledge || h.statement || '?') + '</td>' +
-            '<td><span class="status-badge ' + (h.status || '') + '">' + escapeHtml(h.status || '?') + '</span></td>' +
-            '<td>' + ((h.confidence || 0) * 100).toFixed(0) + '%</td>' +
-            '<td>' + formatTime(h.created_at || h.timestamp) + '</td>' +
-          '</tr>'
-        ).join('');
-    }
-  }
-
-  // ── Render: Engines ────────────────────────
-  function renderEngines() {
-    const engines = state.engines || {};
-    const names = Object.keys(engines).sort();
-
-    document.getElementById('engineGrid').innerHTML = names.length === 0
-      ? '<span style="color:var(--text-muted)">No engines tracked</span>'
-      : names.map(name => {
-        const e = engines[name];
-        const active = e && (Date.now() - (e.lastActive || 0)) < 60000;
-        return '<div class="engine-chip">' +
-          '<span class="engine-dot ' + (active ? 'active' : 'idle') + '"></span>' +
-          '<span>' + escapeHtml(name) + '</span>' +
-          '<span style="margin-left:auto;color:var(--text-muted)">' + (e?.count || 0) + '</span>' +
-        '</div>';
-      }).join('');
-
-    // Engine thought counts as bars
-    const sorted = names.map(n => ({ name: n, count: engines[n]?.count || 0 })).sort((a, b) => b.count - a.count);
-    const maxCount = Math.max(...sorted.map(s => s.count), 1);
-    document.getElementById('engineCounts').innerHTML = sorted.map(s => {
-      const pct = Math.round((s.count / maxCount) * 100);
-      return '<div class="topic-bar">' +
-        '<span class="topic-name">' + escapeHtml(s.name) + '</span>' +
-        '<div style="flex:1"><div class="topic-bar-fill" style="width:' + pct + '%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div></div>' +
-        '<span class="topic-score">' + s.count + '</span>' +
-      '</div>';
-    }).join('');
-  }
-
-  // ── Render All ─────────────────────────────
-  function renderAll() {
+  evtSource.addEventListener('status', function(e) {
+    const d = JSON.parse(e.data);
+    if (d.overview) state.overview = d.overview;
+    if (d.engines) state.engines = d.engines;
+    if (d.stats) state.stats = d.stats;
     renderOverview();
-    renderAllNotifications();
-    renderAttention();
-    renderTransfer();
     renderEngines();
+  });
+  evtSource.addEventListener('network', function(e) {
+    state.network = JSON.parse(e.data);
+    renderNetwork();
+  });
+  evtSource.addEventListener('codegen:generated', function() { fetchCodegen(); });
+  evtSource.addEventListener('codegen:approved', function() { fetchCodegen(); });
+  evtSource.addEventListener('codegen:rejected', function() { fetchCodegen(); });
+  evtSource.addEventListener('selfmod:approved', function() { fetchSelfmod(); });
+  evtSource.addEventListener('selfmod:rejected', function() { fetchSelfmod(); });
+  evtSource.addEventListener('selfmod:ready', function() { fetchSelfmod(); });
+  evtSource.addEventListener('heartbeat', function() {});
+  evtSource.onerror = function() {
+    connected = false;
+    document.getElementById('connDot').className = 'conn-dot off';
+    document.getElementById('connLabel').textContent = 'Reconnecting...';
+  };
+}
+
+// ═══ INITIAL FETCH ═══
+async function fetchInitial() {
+  try {
+    const r = await fetch('/api/state');
+    const d = await r.json();
+    state.overview = d.overview;
+    state.transfer = d.transfer;
+    state.attention = d.attention;
+    state.thoughts = (d.thoughts || []).slice(0, MAX_THOUGHTS);
+    state.engines = d.engines || {};
+    state.stats = d.stats || {};
+    state.notifications = (d.notifications || []).slice(0, MAX_NOTIFS);
+    renderAll();
+  } catch(e) { console.warn('fetchInitial failed', e); }
+  try {
+    const r = await fetch('/api/network');
+    state.network = await r.json();
+    renderNetwork();
+  } catch(e) { console.warn('fetchNetwork failed', e); }
+  fetchCodegen();
+  fetchSelfmod();
+}
+
+async function fetchCodegen() {
+  try {
+    const r = await fetch('/api/codegen/state');
+    state.codegen = await r.json();
+    renderCodegen();
+  } catch(e) { console.warn('fetchCodegen failed', e); }
+}
+
+async function fetchSelfmod() {
+  try {
+    const r = await fetch('/api/selfmod/list');
+    state.selfmod = await r.json();
+    renderSelfmod();
+  } catch(e) { console.warn('fetchSelfmod failed', e); }
+}
+
+// ═══ NAVIGATION ═══
+document.querySelectorAll('.nav-item').forEach(function(el) {
+  el.addEventListener('click', function() {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    el.classList.add('active');
+    var page = el.dataset.page;
+    document.getElementById('page-' + page).classList.add('active');
+    if (page === 'neural') requestAnimationFrame(function() { resizeNeuralCanvas(); });
+    if (page === 'codegen') fetchCodegen();
+    if (page === 'selfmod') fetchSelfmod();
+  });
+});
+
+// ═══ RENDER ═══
+function renderAll() {
+  renderOverview();
+  renderNotifications();
+  renderThoughts();
+  renderEngines();
+  renderIntelligence();
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeSince(ts) {
+  var s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm';
+  if (s < 86400) return Math.floor(s / 3600) + 'h';
+  return Math.floor(s / 86400) + 'd';
+}
+
+function formatTime(ts) {
+  if (!ts) return '--';
+  var d = new Date(typeof ts === 'number' ? ts : ts);
+  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ── Overview ──
+function renderOverview() {
+  var o = state.overview;
+  var healthScore = o && o.healthScore != null ? o.healthScore : '--';
+  document.getElementById('healthBadge').textContent = typeof healthScore === 'number' ? 'Health: ' + healthScore : '--';
+
+  var stats = state.stats;
+  var el = document.getElementById('overviewStats');
+  var brains = o && o.brains ? o.brains : {};
+  var brain = brains.brain || {};
+  el.innerHTML =
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--cyan)">' + (stats.total || 0) + '</div><div class="stat-label">Thoughts</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--green)">' + (brain.principles || 0) + '</div><div class="stat-label">Principles</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--gold)">' + (brain.hypotheses || 0) + '</div><div class="stat-label">Hypotheses</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--purple)">' + (brain.experiments || 0) + '</div><div class="stat-label">Experiments</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--orange)">' + (brain.cycle || 0) + '</div><div class="stat-label">Cycle</div></div>';
+
+  var grid = document.getElementById('brainCards');
+  var html = '';
+  for (var name in brains) {
+    var b = brains[name];
+    var cls = name === 'brain' ? 'brain-main' : name.indexOf('trading') >= 0 ? 'brain-trading' : 'brain-marketing';
+    html += '<div class="glass brain-card ' + cls + '">' +
+      '<div class="brain-name">' + escapeHtml(name) + '</div>' +
+      '<div class="brain-stat"><span>Status</span><span class="val">' + (b.status || '--') + '</span></div>' +
+      '<div class="brain-stat"><span>Cycle</span><span class="val">' + (b.cycle || 0) + '</span></div>' +
+      '<div class="brain-stat"><span>Focus</span><span class="val">' + escapeHtml(b.focus || 'idle') + '</span></div>' +
+      '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+// ── Notifications ──
+function renderNotifications() {
+  var el = document.getElementById('notifFeed');
+  var items = state.notifications.slice(0, 50);
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var t = items[i];
+    var cls = t.significance === 'breakthrough' ? 'breakthrough' : t.significance === 'notable' ? 'notable' : '';
+    html += '<div class="notif-item ' + cls + '">' +
+      '<span class="notif-time">' + formatTime(t.timestamp) + '</span>' +
+      '<span class="notif-engine" style="background:' + engineColor(t.engine) + '22;color:' + engineColor(t.engine) + '">' + escapeHtml(t.engine) + '</span>' +
+      '<span class="notif-msg">' + escapeHtml(t.content) + '</span></div>';
+  }
+  el.innerHTML = html || '<div style="color:var(--text-muted);padding:20px;text-align:center">No notifications yet</div>';
+}
+
+// ── Thoughts ──
+var thoughtFilter = 'all';
+var knownEngines = {};
+
+function renderThoughtFilters() {
+  for (var i = 0; i < state.thoughts.length; i++) {
+    if (state.thoughts[i].engine) knownEngines[state.thoughts[i].engine] = true;
+  }
+  var el = document.getElementById('thoughtFilters');
+  var engines = ['all'].concat(Object.keys(knownEngines).sort());
+  var html = '';
+  for (var j = 0; j < engines.length; j++) {
+    html += '<button class="thought-filter ' + (engines[j] === thoughtFilter ? 'active' : '') + '" onclick="setThoughtFilter(\'' + engines[j] + '\')">' + engines[j] + '</button>';
+  }
+  el.innerHTML = html;
+}
+
+function setThoughtFilter(f) {
+  thoughtFilter = f;
+  renderThoughts();
+}
+
+function renderThoughts() {
+  renderThoughtFilters();
+  var filtered = thoughtFilter === 'all' ? state.thoughts : state.thoughts.filter(function(t) { return t.engine === thoughtFilter; });
+  var el = document.getElementById('thoughtList');
+  var html = '';
+  var items = filtered.slice(0, 200);
+  for (var i = 0; i < items.length; i++) {
+    var t = items[i];
+    var sig = t.significance === 'breakthrough' ? 'sig-breakthrough' : t.significance === 'notable' ? 'sig-notable' : '';
+    html += '<div class="thought-item ' + sig + '">' +
+      '<span class="time">' + formatTime(t.timestamp) + '</span>' +
+      '<span class="engine-tag" style="background:' + engineColor(t.engine) + '18;color:' + engineColor(t.engine) + '">' + escapeHtml(t.engine) + '</span>' +
+      '<span class="msg">' + escapeHtml(t.content) + '</span></div>';
+  }
+  el.innerHTML = html || '<div style="color:var(--text-muted);padding:20px;text-align:center">No thoughts yet</div>';
+}
+
+// ── CodeGen ──
+function renderCodegen() {
+  var el = document.getElementById('codegenContent');
+  var cg = state.codegen;
+  if (!cg || !cg.available) {
+    el.innerHTML = '<div class="unavailable glass"><div class="icon">&lt;/&gt;</div><div>CodeGenerator not available.</div>' +
+      '<div style="margin-top:12px;font-size:11px;color:var(--text-dim)">Set the <code style="color:var(--cyan)">ANTHROPIC_API_KEY</code> environment variable before starting the Brain daemon to enable autonomous code generation and self-modification.</div>' +
+      '<div style="margin-top:12px;padding:10px;background:rgba(5,8,16,0.6);border-radius:6px;font-size:10px;color:var(--text-muted);text-align:left;max-width:500px;margin-left:auto;margin-right:auto">' +
+      '<div style="margin-bottom:4px;color:var(--text-dim)">Linux / macOS:</div>' +
+      '<code style="color:var(--green)">export ANTHROPIC_API_KEY=sk-ant-...</code>' +
+      '<div style="margin-top:8px;margin-bottom:4px;color:var(--text-dim)">Windows:</div>' +
+      '<code style="color:var(--green)">set ANTHROPIC_API_KEY=sk-ant-...</code>' +
+      '</div><div style="margin-top:10px;font-size:10px;color:var(--text-muted)">Then restart the Brain process.</div></div>';
+    return;
   }
 
-  // ── SSE Connection ─────────────────────────
-  function connectSSE() {
-    const es = new EventSource('/events');
+  var summary = cg.summary || {};
+  var pending = cg.pending || [];
+  var gens = cg.generations || [];
+  var html = '';
 
-    es.addEventListener('connected', () => {
-      connected = true;
-      document.getElementById('connDot').classList.add('connected');
-      document.getElementById('connLabel').textContent = 'Connected';
-    });
+  // Stats
+  html += '<div class="stat-grid" style="margin-bottom:16px">' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--cyan)">' + (summary.totalGenerations || 0) + '</div><div class="stat-label">Total</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--green)">' + (summary.approvalRate != null ? Math.round(summary.approvalRate * 100) + '%' : '--') + '</div><div class="stat-label">Approval</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--gold)">' + (summary.totalTokens || 0) + '</div><div class="stat-label">Tokens</div></div></div>';
 
-    es.addEventListener('thought', (e) => {
-      try {
-        const thought = JSON.parse(e.data);
-        state.thoughts.unshift(thought);
-        if (state.thoughts.length > MAX_THOUGHTS) state.thoughts.length = MAX_THOUGHTS;
+  // Generate form
+  html += '<div class="glass" style="margin-bottom:16px"><div class="section-title">Generate Code</div>' +
+    '<div class="codegen-form"><textarea id="codegenTask" placeholder="Describe the task..."></textarea>' +
+    '<div style="display:flex;flex-direction:column;gap:6px">' +
+    '<select id="codegenLang"><option>typescript</option><option>javascript</option><option>python</option><option>rust</option><option>go</option></select>' +
+    '<button class="gen-btn" onclick="generateCode()">Generate</button></div></div></div>';
 
-        // Live update notification feeds
-        renderNotifFeed('overviewNotifs', state.thoughts.slice(0, 30));
-        renderNotifFeed('allNotifs', state.thoughts.slice(0, 200));
-      } catch { /* ignore parse errors */ }
-    });
-
-    es.addEventListener('status', (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.overview) state.overview = data.overview;
-        if (data.engines) state.engines = data.engines;
-        if (data.stats) state.stats = data.stats;
-        renderOverview();
-        renderEngines();
-      } catch { /* ignore */ }
-    });
-
-    es.addEventListener('heartbeat', () => {
-      // Keep-alive
-    });
-
-    es.onerror = () => {
-      connected = false;
-      document.getElementById('connDot').classList.remove('connected');
-      document.getElementById('connLabel').textContent = 'Reconnecting...';
-      // EventSource auto-reconnects
-    };
+  // Pending reviews
+  for (var i = 0; i < pending.length; i++) {
+    var g = pending[i];
+    html += '<div class="glass pending-card">' +
+      '<div style="font-size:11px;font-weight:600;margin-bottom:4px">#' + g.id + ' &mdash; ' + escapeHtml(g.task) + '</div>' +
+      '<div class="code-block">' + highlightSyntax(escapeHtml(g.generated_code || '')) + '</div>';
+    if (g.generated_explanation) {
+      html += '<div style="font-size:10px;color:var(--text-dim);margin:4px 0;padding:6px 10px;border-left:2px solid var(--purple);background:rgba(179,136,255,0.04)">' + escapeHtml(g.generated_explanation) + '</div>';
+    }
+    html += '<div class="review-actions"><input type="text" id="notes-' + g.id + '" placeholder="Notes (optional)...">' +
+      '<button class="btn-approve" onclick="reviewCode(' + g.id + ',\'approve\')">Approve</button>' +
+      '<button class="btn-reject" onclick="reviewCode(' + g.id + ',\'reject\')">Reject</button></div></div>';
   }
 
-  // ── Initial Load ───────────────────────────
-  async function loadInitialState() {
-    try {
-      const res = await fetch('/api/state');
-      const data = await res.json();
-      state = {
-        overview: data.overview || null,
-        transfer: data.transfer || null,
-        attention: data.attention || null,
-        thoughts: (data.thoughts || []).reverse(),
-        engines: data.engines || {},
-        stats: data.stats || {},
-        notifications: data.notifications || [],
-      };
-      renderAll();
-    } catch (e) {
-      console.error('Failed to load initial state', e);
+  // History table
+  html += '<div class="gen-history"><div class="section-title">Generation History</div><div class="glass" style="overflow-x:auto"><table class="gen-table"><thead><tr><th>ID</th><th>Task</th><th>Status</th><th>Tokens</th><th>Time</th><th>Created</th></tr></thead><tbody>';
+  for (var j = 0; j < Math.min(gens.length, 30); j++) {
+    var gen = gens[j];
+    html += '<tr><td>#' + gen.id + '</td><td>' + escapeHtml((gen.task || '').substring(0, 60)) + '</td>' +
+      '<td><span class="status-badge ' + gen.status + '">' + gen.status + '</span></td>' +
+      '<td>' + (gen.tokens_used || 0) + '</td><td>' + (gen.generation_time_ms ? gen.generation_time_ms + 'ms' : '--') + '</td>' +
+      '<td>' + formatTime(gen.created_at) + '</td></tr>';
+  }
+  html += '</tbody></table></div></div>';
+  el.innerHTML = html;
+}
+
+async function generateCode() {
+  var task = document.getElementById('codegenTask');
+  var lang = document.getElementById('codegenLang');
+  if (!task || !task.value.trim()) return;
+  try {
+    await fetch('/api/codegen/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task: task.value.trim(), language: lang ? lang.value : 'typescript' }),
+    });
+    task.value = '';
+  } catch(e) { console.warn('generateCode failed', e); }
+}
+
+async function reviewCode(id, action) {
+  var notes = document.getElementById('notes-' + id);
+  try {
+    await fetch('/api/codegen/' + action + '/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: notes ? notes.value : '' }),
+    });
+    fetchCodegen();
+  } catch(e) { console.warn('reviewCode failed', e); }
+}
+
+// ── Self-Mod ──
+function renderSelfmod() {
+  var el = document.getElementById('selfmodContent');
+  var sm = state.selfmod;
+  if (!sm || !sm.available) {
+    el.innerHTML = '<div class="unavailable glass"><div class="icon">&#9998;</div><div>SelfModificationEngine not available.</div></div>';
+    return;
+  }
+
+  var status = sm.status || {};
+  var pending = sm.pending || [];
+  var history = sm.history || [];
+  var html = '';
+
+  // Stats
+  var byStatus = status.byStatus || {};
+  html += '<div class="stat-grid" style="margin-bottom:16px">' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--cyan)">' + (status.totalModifications || 0) + '</div><div class="stat-label">Total</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--green)">' + (byStatus.applied || 0) + '</div><div class="stat-label">Applied</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--gold)">' + (byStatus.ready || 0) + '</div><div class="stat-label">Ready</div></div>' +
+    '<div class="glass stat-card"><div class="stat-val" style="color:var(--red)">' + (byStatus.rejected || 0) + '</div><div class="stat-label">Rejected</div></div></div>';
+
+  // Pending modifications
+  for (var i = 0; i < pending.length; i++) {
+    var m = pending[i];
+    html += '<div class="glass pending-card" style="margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+      '<span style="font-size:11px;font-weight:600">#' + m.id + ' &mdash; ' + escapeHtml(m.title) + '</span>' +
+      '<span class="status-badge ' + m.status + '">' + m.status + '</span></div>' +
+      '<div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">' + escapeHtml(m.problem_description) + '</div>' +
+      '<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Files: ' + (m.target_files || []).map(function(f) { return escapeHtml(f); }).join(', ') + '</div>';
+
+    // Diff viewer
+    if (m.generated_diff && m.generated_diff.length > 0) {
+      for (var d = 0; d < m.generated_diff.length; d++) {
+        var diff = m.generated_diff[d];
+        html += '<div style="font-size:9px;color:var(--text-muted);margin-top:6px">' + escapeHtml(diff.filePath) + '</div>' +
+          '<div class="diff-viewer">' +
+          '<div class="diff-old"><div class="diff-label">Old</div>' + renderDiffLines(diff.oldContent, 'del') + '</div>' +
+          '<div class="diff-new"><div class="diff-label">New</div>' + renderDiffLines(diff.newContent, 'add') + '</div></div>';
+      }
+    }
+
+    if (m.test_output) {
+      html += '<div style="font-size:10px;margin-top:6px;padding:8px;background:rgba(5,8,16,0.6);border-radius:4px;color:var(--text-dim);max-height:100px;overflow-y:auto"><pre style="margin:0;white-space:pre-wrap">' + escapeHtml(m.test_output) + '</pre></div>';
+    }
+
+    html += '<div class="review-actions">' +
+      '<button class="btn-test" onclick="selfmodAction(' + m.id + ',\'test\')">Test</button>' +
+      '<button class="btn-approve" onclick="selfmodAction(' + m.id + ',\'approve\')">Approve</button>' +
+      '<button class="btn-reject" onclick="selfmodAction(' + m.id + ',\'reject\')">Reject</button></div></div>';
+  }
+
+  // History table
+  html += '<div style="margin-top:16px"><div class="section-title">Modification History</div><div class="glass" style="overflow-x:auto"><table class="gen-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Test</th><th>Files</th><th>Created</th></tr></thead><tbody>';
+  for (var j = 0; j < history.length; j++) {
+    var h = history[j];
+    var testCls = h.test_result === 'passed' ? 'approved' : h.test_result === 'failed' ? 'failed' : 'proposed';
+    html += '<tr><td>#' + h.id + '</td><td>' + escapeHtml((h.title || '').substring(0, 50)) + '</td>' +
+      '<td><span class="status-badge ' + h.status + '">' + h.status + '</span></td>' +
+      '<td><span class="status-badge ' + testCls + '">' + (h.test_result || 'pending') + '</span></td>' +
+      '<td>' + (h.target_files || []).length + '</td><td>' + formatTime(h.created_at) + '</td></tr>';
+  }
+  html += '</tbody></table></div></div>';
+  el.innerHTML = html;
+}
+
+function renderDiffLines(content, type) {
+  if (!content) return '<span style="color:var(--text-muted)">Empty</span>';
+  return escapeHtml(content).split('\n').map(function(line) {
+    return '<div class="diff-line-' + type + '">' + (line || '&nbsp;') + '</div>';
+  }).join('');
+}
+
+async function selfmodAction(id, action) {
+  try {
+    await fetch('/api/selfmod/' + id + '/' + action, { method: 'POST' });
+    fetchSelfmod();
+  } catch(e) { console.warn('selfmodAction failed', e); }
+}
+
+// ── Engines ──
+function renderEngines() {
+  var el = document.getElementById('engineGrid');
+  var engines = state.engines || {};
+  var entries = [];
+  for (var name in engines) entries.push([name, engines[name]]);
+  entries.sort(function(a, b) { return (b[1].count || 0) - (a[1].count || 0); });
+  if (entries.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;grid-column:1/-1">No engine data yet</div>';
+    return;
+  }
+  var maxCount = 1;
+  for (var i = 0; i < entries.length; i++) maxCount = Math.max(maxCount, entries[i][1].count || 0);
+  var html = '';
+  for (var j = 0; j < entries.length; j++) {
+    var n = entries[j][0], data = entries[j][1];
+    var col = engineColor(n);
+    var pct = Math.round(((data.count || 0) / maxCount) * 100);
+    html += '<div class="glass engine-card">' +
+      '<div class="e-name"><div class="e-dot" style="background:' + col + '"></div>' + escapeHtml(n) + '</div>' +
+      '<div class="e-stat"><span>Thoughts</span><span>' + (data.count || 0) + '</span></div>' +
+      '<div class="e-stat"><span>Last</span><span>' + (data.lastTimestamp ? timeSince(data.lastTimestamp) + ' ago' : '--') + '</span></div>' +
+      '<div class="e-bar"><div class="e-bar-fill" style="width:' + pct + '%;background:' + col + '"></div></div></div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── Intelligence ──
+function renderIntelligence() {
+  var att = state.attention;
+  var topEl = document.getElementById('attentionTopics');
+  if (att && att.topTopics && att.topTopics.length) {
+    var max = 1;
+    for (var i = 0; i < att.topTopics.length; i++) max = Math.max(max, att.topTopics[i].score || 0);
+    var html = '';
+    var items = att.topTopics.slice(0, 15);
+    for (var j = 0; j < items.length; j++) {
+      var t = items[j];
+      var pct = Math.round(((t.score || 0) / max) * 100);
+      html += '<div class="topic-item"><span class="topic-name">' + escapeHtml(t.topic) + '</span>' +
+        '<div class="topic-bar-bg"><div class="topic-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '<span class="topic-score">' + (t.score || 0).toFixed(1) + '</span></div>';
+    }
+    topEl.innerHTML = html;
+  } else {
+    topEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:16px">No attention data</div>';
+  }
+
+  var tr = state.transfer;
+  var ruleEl = document.getElementById('transferRules');
+  if (tr && tr.rules && tr.rules.length) {
+    var rHtml = '';
+    for (var k = 0; k < tr.rules.length; k++) {
+      var r = tr.rules[k];
+      rHtml += '<div class="rule-item"><span class="r-name">' + escapeHtml(r.name || r.event_pattern || 'Rule') + '</span>' +
+        '<span class="r-status" style="color:' + (r.active ? 'var(--green)' : 'var(--text-muted)') + '">' + (r.active ? 'active' : 'inactive') + '</span></div>';
+    }
+    ruleEl.innerHTML = rHtml;
+  } else {
+    ruleEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:16px">No transfer rules</div>';
+  }
+
+  var anaEl = document.getElementById('analogies');
+  if (tr && tr.analogies && tr.analogies.length) {
+    var aHtml = '<div style="display:flex;flex-direction:column;gap:4px">';
+    var anas = tr.analogies.slice(0, 15);
+    for (var l = 0; l < anas.length; l++) {
+      var a = anas[l];
+      aHtml += '<div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;border-bottom:1px solid var(--border)">' +
+        '<span>' + escapeHtml(a.source_concept) + ' &harr; ' + escapeHtml(a.target_concept) + '</span>' +
+        '<span style="color:var(--gold)">' + (a.similarity || 0).toFixed(2) + '</span></div>';
+    }
+    aHtml += '</div>';
+    anaEl.innerHTML = aHtml;
+  } else {
+    anaEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:16px">No analogies found</div>';
+  }
+}
+
+// ═══ NEURAL GRAPH ═══
+var nodeTypeColors = {
+  project:'#00e5ff', error:'#ff3d3d', solution:'#00ff88',
+  code_module:'#448aff', insight:'#ffd700', memory:'#b388ff'
+};
+
+var neuralNodes = [];
+var neuralEdges = [];
+var neuralZoomLevel = 1;
+var neuralPanX = 0, neuralPanY = 0;
+var neuralDragging = null;
+var neuralPanning = false;
+var neuralPanStart = { x: 0, y: 0 };
+var neuralHover = null;
+var neuralAnimId = null;
+
+function initNeuralGraph(canvasId) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  canvas.addEventListener('mousedown', function(e) {
+    var pos = getCanvasPos(canvas, e);
+    var node = findNodeAt(pos.x, pos.y);
+    if (node) {
+      neuralDragging = node;
+      node.pinned = true;
+    } else {
+      neuralPanning = true;
+      neuralPanStart = { x: e.clientX - neuralPanX, y: e.clientY - neuralPanY };
+    }
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    var pos = getCanvasPos(canvas, e);
+    if (neuralDragging) {
+      neuralDragging.x = pos.x;
+      neuralDragging.y = pos.y;
+    } else if (neuralPanning) {
+      neuralPanX = e.clientX - neuralPanStart.x;
+      neuralPanY = e.clientY - neuralPanStart.y;
+    } else {
+      neuralHover = findNodeAt(pos.x, pos.y);
+      canvas.style.cursor = neuralHover ? 'pointer' : 'grab';
+    }
+  });
+
+  canvas.addEventListener('mouseup', function() {
+    if (neuralDragging) neuralDragging.pinned = false;
+    neuralDragging = null;
+    neuralPanning = false;
+  });
+
+  canvas.addEventListener('mouseleave', function() {
+    neuralDragging = null;
+    neuralPanning = false;
+    neuralHover = null;
+  });
+
+  canvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var factor = e.deltaY < 0 ? 1.1 : 0.9;
+    neuralZoomLevel = Math.max(0.2, Math.min(5, neuralZoomLevel * factor));
+  }, { passive: false });
+}
+
+function getCanvasPos(canvas, e) {
+  var rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left - neuralPanX) / neuralZoomLevel,
+    y: (e.clientY - rect.top - neuralPanY) / neuralZoomLevel,
+  };
+}
+
+function findNodeAt(x, y) {
+  for (var i = 0; i < neuralNodes.length; i++) {
+    var n = neuralNodes[i];
+    var dx = n.x - x, dy = n.y - y;
+    if (dx * dx + dy * dy < (n.radius || 5) * (n.radius || 5) * 4) return n;
+  }
+  return null;
+}
+
+function neuralZoom(factor) {
+  neuralZoomLevel = Math.max(0.2, Math.min(5, neuralZoomLevel * factor));
+}
+
+function neuralReset() {
+  neuralZoomLevel = 1;
+  neuralPanX = 0;
+  neuralPanY = 0;
+}
+
+function updateNeuralNodes(network) {
+  var existingMap = {};
+  for (var i = 0; i < neuralNodes.length; i++) existingMap[neuralNodes[i].id] = neuralNodes[i];
+  var newNodes = [];
+  var nodes = network.nodes || [];
+
+  for (var j = 0; j < nodes.length; j++) {
+    var n = nodes[j];
+    var existing = existingMap[n.id];
+    if (existing) {
+      existing.label = n.label;
+      existing.type = n.type;
+      existing.importance = n.importance != null ? n.importance : 0.5;
+      newNodes.push(existing);
+    } else {
+      var angle = (j / Math.max(1, nodes.length)) * Math.PI * 2;
+      var r = 150 + Math.random() * 100;
+      newNodes.push({
+        id: n.id, label: n.label, type: n.type,
+        importance: n.importance != null ? n.importance : 0.5,
+        x: 300 + Math.cos(angle) * r + (Math.random() - 0.5) * 50,
+        y: 250 + Math.sin(angle) * r + (Math.random() - 0.5) * 50,
+        vx: 0, vy: 0,
+        radius: 3 + (n.importance != null ? n.importance : 0.5) * 5,
+        pinned: false,
+      });
     }
   }
 
-  // ── Uptime Timer ───────────────────────────
-  setInterval(() => {
-    document.getElementById('uptimeLabel').textContent = 'Uptime: ' + timeSince(Date.now() - startTime);
-  }, 1000);
+  neuralNodes = newNodes;
+  neuralEdges = (network.edges || []).map(function(e) {
+    return {
+      source: e.source || e.source_id,
+      target: e.target || e.target_id,
+      weight: e.weight != null ? e.weight : 0.5,
+    };
+  });
+}
 
-  // ── Boot ───────────────────────────────────
-  loadInitialState();
-  connectSSE();
+function simulatePhysics() {
+  var k = 0.008;
+  var repulsion = 800;
+  var damping = 0.92;
+  var gravity = 0.01;
+  var cx = 300, cy = 250;
 
-})();
+  for (var i = 0; i < neuralNodes.length; i++) {
+    for (var j = i + 1; j < neuralNodes.length; j++) {
+      var a = neuralNodes[i], b = neuralNodes[j];
+      var dx = a.x - b.x, dy = a.y - b.y;
+      var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      var f = repulsion / (dist * dist);
+      dx = (dx / dist) * f;
+      dy = (dy / dist) * f;
+      if (!a.pinned) { a.vx += dx; a.vy += dy; }
+      if (!b.pinned) { b.vx -= dx; b.vy -= dy; }
+    }
+  }
+
+  var nodeMap = {};
+  for (var m = 0; m < neuralNodes.length; m++) nodeMap[neuralNodes[m].id] = neuralNodes[m];
+  for (var e = 0; e < neuralEdges.length; e++) {
+    var edge = neuralEdges[e];
+    var ea = nodeMap[edge.source], eb = nodeMap[edge.target];
+    if (!ea || !eb) continue;
+    var edx = eb.x - ea.x, edy = eb.y - ea.y;
+    var edist = Math.sqrt(edx * edx + edy * edy) || 1;
+    var ideal = 60;
+    var ef = k * (edist - ideal);
+    var efx = (edx / edist) * ef, efy = (edy / edist) * ef;
+    if (!ea.pinned) { ea.vx += efx; ea.vy += efy; }
+    if (!eb.pinned) { eb.vx -= efx; eb.vy -= efy; }
+  }
+
+  for (var n = 0; n < neuralNodes.length; n++) {
+    var node = neuralNodes[n];
+    if (node.pinned) continue;
+    node.vx += (cx - node.x) * gravity;
+    node.vy += (cy - node.y) * gravity;
+    node.vx *= damping;
+    node.vy *= damping;
+    node.x += node.vx;
+    node.y += node.vy;
+  }
+}
+
+function drawNeuralCanvas(canvasId, isOverview) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(neuralPanX, neuralPanY);
+  ctx.scale(neuralZoomLevel, neuralZoomLevel);
+
+  var nodeMap = {};
+  for (var m = 0; m < neuralNodes.length; m++) nodeMap[neuralNodes[m].id] = neuralNodes[m];
+
+  // Edges
+  for (var e = 0; e < neuralEdges.length; e++) {
+    var edge = neuralEdges[e];
+    var a = nodeMap[edge.source], b = nodeMap[edge.target];
+    if (!a || !b) continue;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = 'rgba(0,229,255,' + Math.min(0.3, edge.weight * 0.4) + ')';
+    ctx.lineWidth = 0.5 + edge.weight;
+    ctx.stroke();
+  }
+
+  // Nodes
+  for (var i = 0; i < neuralNodes.length; i++) {
+    var n = neuralNodes[i];
+    var col = nodeTypeColors[n.type] || '#6e7a8a';
+    var r = n.radius || 4;
+    var isHovered = neuralHover && neuralHover.id === n.id;
+
+    if (isHovered || n.importance > 0.7) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = col + '14';
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    if (isHovered) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    if (isHovered || (!isOverview && neuralZoomLevel > 0.8 && n.importance > 0.6)) {
+      ctx.fillStyle = 'rgba(224,230,240,0.8)';
+      ctx.font = '9px ' + getComputedStyle(document.body).fontFamily;
+      ctx.fillText((n.label || '').substring(0, 30), n.x + r + 3, n.y + 3);
+    }
+  }
+
+  ctx.restore();
+}
+
+function resizeNeuralCanvas() {
+  var canvas = document.getElementById('neuralCanvas');
+  if (!canvas) return;
+  var wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+function renderNetwork() {
+  updateNeuralNodes(state.network);
+  var txt = neuralNodes.length + ' nodes, ' + neuralEdges.length + ' edges';
+  var info1 = document.getElementById('overviewInfo');
+  var info2 = document.getElementById('neuralInfo');
+  if (info1) info1.textContent = txt;
+  if (info2) info2.textContent = txt;
+}
+
+function neuralLoop() {
+  simulatePhysics();
+
+  var oc = document.getElementById('overviewCanvas');
+  if (oc) {
+    if (oc.width !== oc.parentElement.clientWidth) oc.width = oc.parentElement.clientWidth;
+    drawNeuralCanvas('overviewCanvas', true);
+  }
+
+  var nc = document.getElementById('neuralCanvas');
+  if (nc && nc.offsetParent !== null) drawNeuralCanvas('neuralCanvas', false);
+
+  neuralAnimId = requestAnimationFrame(neuralLoop);
+}
+
+// ═══ SYNTAX HIGHLIGHTING ═══
+function highlightSyntax(code) {
+  return code
+    .replace(/(\/\/.*)/g, '<span class="syn-comment">$1</span>')
+    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syn-comment">$1</span>')
+    .replace(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, '<span class="syn-string">$1</span>')
+    .replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>')
+    .replace(/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|async|await|new|this|type|interface|extends|implements|try|catch|throw|switch|case|break|default)\b/g, '<span class="syn-keyword">$1</span>')
+    .replace(/\b(string|number|boolean|void|null|undefined|any|unknown|never|Promise|Array|Record|Map|Set)\b/g, '<span class="syn-type">$1</span>');
+}
+
+// ═══ TRIGGER ═══
+async function triggerCycle() {
+  try {
+    var btn = document.querySelector('.trigger-btn');
+    btn.textContent = 'Triggering...';
+    btn.style.opacity = '0.6';
+    await fetch('/api/trigger', { method: 'POST' });
+    setTimeout(function() { btn.textContent = 'Trigger Cycle'; btn.style.opacity = '1'; }, 1500);
+  } catch(e) { console.warn('triggerCycle failed', e); }
+}
+
+// ═══ UPTIME ═══
+setInterval(function() {
+  var s = Math.floor((Date.now() - startTime) / 1000);
+  var h = Math.floor(s / 3600);
+  var m = Math.floor((s % 3600) / 60);
+  document.getElementById('uptimeEl').textContent = 'Uptime: ' + h + 'h ' + m + 'm';
+}, 10000);
+
+// ═══ BOOT ═══
+initNeuralGraph('overviewCanvas');
+initNeuralGraph('neuralCanvas');
+window.addEventListener('resize', resizeNeuralCanvas);
+
+connect();
+fetchInitial();
+neuralLoop();
 </script>
 </body>
 </html>

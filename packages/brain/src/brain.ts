@@ -85,8 +85,6 @@ export class BrainCore {
   private ecosystemService: EcosystemService | null = null;
   private researchScheduler: AutonomousResearchScheduler | null = null;
   private orchestrator: ResearchOrchestrator | null = null;
-  private consciousnessServer: ConsciousnessServer | null = null;
-  private codegenServer: CodegenServer | null = null;
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
   private unifiedServer: UnifiedDashboardServer | null = null;
@@ -676,106 +674,9 @@ export class BrainCore {
     });
     this.orchestrator.setBootstrapService(bootstrapService);
 
-    this.consciousnessServer = new ConsciousnessServer({
-      port: 7784,
-      thoughtStream,
-      getNetworkState: () => {
-        try {
-          const nodes: { id: string; label: string; type: string; importance: number }[] = [];
-          // Projects as hub nodes
-          const projects = this.db!.prepare('SELECT id, name AS label FROM projects LIMIT 20').all() as { id: number; label: string }[];
-          for (const p of projects) nodes.push({ id: `project:${p.id}`, label: p.label, type: 'project', importance: 1.0 });
-          // Errors
-          const errors = this.db!.prepare('SELECT id, message AS label FROM errors LIMIT 50').all() as { id: number; label: string }[];
-          for (const e of errors) nodes.push({ id: `error:${e.id}`, label: e.label.substring(0, 60), type: 'error', importance: 0.8 });
-          // Solutions
-          const solutions = this.db!.prepare('SELECT id, description AS label FROM solutions LIMIT 30').all() as { id: number; label: string }[];
-          for (const s of solutions) nodes.push({ id: `solution:${s.id}`, label: s.label.substring(0, 60), type: 'solution', importance: 0.7 });
-          // Top code modules (by complexity/reusability)
-          const modules = this.db!.prepare('SELECT id, name AS label FROM code_modules ORDER BY reusability_score DESC LIMIT 100').all() as { id: number; label: string }[];
-          for (const m of modules) nodes.push({ id: `code_module:${m.id}`, label: m.label, type: 'code_module', importance: 0.5 });
-          // Top insights
-          const insights = this.db!.prepare('SELECT id, title AS label, type FROM insights WHERE active = 1 ORDER BY priority DESC LIMIT 50').all() as { id: number; label: string; type: string }[];
-          for (const i of insights) nodes.push({ id: `insight:${i.id}`, label: i.label.substring(0, 60), type: 'insight', importance: 0.6 });
-          // Memories (if any)
-          const memories = this.db!.prepare('SELECT id, content AS label, category AS type, importance FROM memories WHERE active = 1 LIMIT 50').all() as { id: number; label: string; type: string; importance: number }[];
-          for (const m of memories) nodes.push({ id: `memory:${m.id}`, label: m.label.substring(0, 60), type: m.type || 'memory', importance: m.importance });
-          // Edges — strongest synapses, mapped to composite IDs
-          const edges = this.db!.prepare('SELECT source_type, source_id, target_type, target_id, weight FROM synapses ORDER BY weight DESC LIMIT 500').all() as { source_type: string; source_id: number; target_type: string; target_id: number; weight: number }[];
-          const mappedEdges = edges.map(e => ({
-            source: `${e.source_type}:${e.source_id}`,
-            target: `${e.target_type}:${e.target_id}`,
-            weight: e.weight,
-          }));
-          return { nodes, edges: mappedEdges };
-        } catch { return { nodes: [], edges: [] }; }
-      },
-      getEngineStatus: () => this.orchestrator!.getSummary(),
-      onTriggerFeedback: () => {
-        try {
-          this.orchestrator!.runFeedbackCycle();
-        } catch (err) {
-          logger.error(`Manual feedback cycle failed: ${(err as Error).message}`);
-        }
-      },
-    });
-    this.consciousnessServer.start();
-    services.consciousnessServer = this.consciousnessServer;
     services.thoughtStream = thoughtStream;
 
-    // 11j.7 Unified Dashboard — single pane of glass for the ecosystem
-    this.unifiedServer = new UnifiedDashboardServer({
-      port: 7788,
-      thoughtStream,
-      getOverview: () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const summary = this.orchestrator?.getSummary() as Record<string, any> | undefined;
-        const transferStatus = this.transferEngine?.getStatus();
-        const attStatus = this.attentionEngine?.getStatus();
-        return {
-          healthScore: typeof summary?.cycleCount === 'number' ? Math.min(100, 50 + summary.cycleCount) : null,
-          brains: {
-            brain: {
-              status: this.db ? 'running' : 'stopped',
-              cycle: summary?.cycleCount ?? 0,
-              principles: summary?.knowledge?.totalPrinciples ?? 0,
-              hypotheses: summary?.hypothesis?.total ?? 0,
-              experiments: summary?.experiment?.total ?? 0,
-              focus: attStatus?.currentContext ?? 'unknown',
-            },
-          },
-          transfer: transferStatus,
-          attention: attStatus,
-        };
-      },
-      getTransferStatus: () => {
-        if (!this.transferEngine) return null;
-        const status = this.transferEngine.getStatus();
-        return {
-          ...status,
-          analogies: this.transferEngine.getAnalogies(20),
-          rules: this.transferEngine.getRules(),
-          history: this.transferEngine.getTransferHistory(30),
-          transferScore: this.transferEngine.getTransferScore(),
-        };
-      },
-      getAttentionStatus: () => {
-        if (!this.attentionEngine) return null;
-        return this.attentionEngine.getStatus();
-      },
-      getNotifications: () => {
-        return thoughtStream.getRecent(100).filter(
-          (t: { significance?: string }) => t.significance === 'breakthrough' || t.significance === 'notable',
-        );
-      },
-      onTriggerFeedback: () => {
-        this.orchestrator?.runFeedbackCycle();
-      },
-    });
-    this.unifiedServer.start();
-    services.unifiedServer = this.unifiedServer;
-
-    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7784, Unified on :7788)');
+    logger.info('Research orchestrator started (30+ engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 
     // 11k. Signal Scanner — GitHub/HN/Crypto signal tracking
     if (config.scanner.enabled) {
@@ -812,17 +713,7 @@ export class BrainCore {
       this.orchestrator.setCodeGenerator(codeGenerator);
       services.codeGenerator = codeGenerator;
 
-      // CodeGen Dashboard
-      this.codegenServer = new CodegenServer({
-        port: config.codegenDashboard?.port ?? 7787,
-        codeGenerator,
-        codeMiner: services.codeMiner ?? null,
-        patternExtractor: patternExtractor ?? null,
-        selfModificationEngine: services.selfModificationEngine ?? null,
-      });
-      this.codegenServer.start();
-      services.codegenServer = this.codegenServer;
-      logger.info('CodeGenerator activated (ANTHROPIC_API_KEY set, dashboard on :' + (config.codegenDashboard?.port ?? 7787) + ')');
+      logger.info('CodeGenerator activated (ANTHROPIC_API_KEY set)');
 
       // Wire ContextBuilder with SelfScanner into SelfModificationEngine
       if (services.selfModificationEngine && services.selfScanner) {
@@ -836,6 +727,78 @@ export class BrainCore {
         services.selfModificationEngine.setContextBuilder(selfmodCtx);
       }
     }
+
+    // 11n. Unified Dashboard — single Mission Control UI on :7788
+    const getNetworkState = () => {
+      try {
+        const nodes: { id: string; label: string; type: string; importance: number }[] = [];
+        const projects = this.db!.prepare('SELECT id, name AS label FROM projects LIMIT 20').all() as { id: number; label: string }[];
+        for (const p of projects) nodes.push({ id: `project:${p.id}`, label: p.label, type: 'project', importance: 1.0 });
+        const errors = this.db!.prepare('SELECT id, message AS label FROM errors LIMIT 50').all() as { id: number; label: string }[];
+        for (const e of errors) nodes.push({ id: `error:${e.id}`, label: e.label.substring(0, 60), type: 'error', importance: 0.8 });
+        const solutions = this.db!.prepare('SELECT id, description AS label FROM solutions LIMIT 30').all() as { id: number; label: string }[];
+        for (const s of solutions) nodes.push({ id: `solution:${s.id}`, label: s.label.substring(0, 60), type: 'solution', importance: 0.7 });
+        const modules = this.db!.prepare('SELECT id, name AS label FROM code_modules ORDER BY reusability_score DESC LIMIT 100').all() as { id: number; label: string }[];
+        for (const m of modules) nodes.push({ id: `code_module:${m.id}`, label: m.label, type: 'code_module', importance: 0.5 });
+        const insights = this.db!.prepare('SELECT id, title AS label, type FROM insights WHERE active = 1 ORDER BY priority DESC LIMIT 50').all() as { id: number; label: string; type: string }[];
+        for (const i of insights) nodes.push({ id: `insight:${i.id}`, label: i.label.substring(0, 60), type: 'insight', importance: 0.6 });
+        const memories = this.db!.prepare('SELECT id, content AS label, category AS type, importance FROM memories WHERE active = 1 LIMIT 50').all() as { id: number; label: string; type: string; importance: number }[];
+        for (const m of memories) nodes.push({ id: `memory:${m.id}`, label: m.label.substring(0, 60), type: m.type || 'memory', importance: m.importance });
+        const edges = this.db!.prepare('SELECT source_type, source_id, target_type, target_id, weight FROM synapses ORDER BY weight DESC LIMIT 500').all() as { source_type: string; source_id: number; target_type: string; target_id: number; weight: number }[];
+        const mappedEdges = edges.map(e => ({ source: `${e.source_type}:${e.source_id}`, target: `${e.target_type}:${e.target_id}`, weight: e.weight }));
+        return { nodes, edges: mappedEdges };
+      } catch { return { nodes: [], edges: [] }; }
+    };
+
+    this.unifiedServer = new UnifiedDashboardServer({
+      port: 7788,
+      thoughtStream,
+      getOverview: () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const summary = this.orchestrator?.getSummary() as Record<string, any> | undefined;
+        const attStatus = this.attentionEngine?.getStatus();
+        return {
+          healthScore: typeof summary?.cycleCount === 'number' ? Math.min(100, 50 + summary.cycleCount) : null,
+          brains: {
+            brain: {
+              status: this.db ? 'running' : 'stopped',
+              cycle: summary?.cycleCount ?? 0,
+              principles: summary?.knowledge?.totalPrinciples ?? 0,
+              hypotheses: summary?.hypothesis?.total ?? 0,
+              experiments: summary?.experiment?.total ?? 0,
+              focus: attStatus?.currentContext ?? 'unknown',
+            },
+          },
+          transfer: this.transferEngine?.getStatus(),
+          attention: attStatus,
+        };
+      },
+      getTransferStatus: () => {
+        if (!this.transferEngine) return null;
+        const status = this.transferEngine.getStatus();
+        return {
+          ...status,
+          analogies: this.transferEngine.getAnalogies(20),
+          rules: this.transferEngine.getRules(),
+          history: this.transferEngine.getTransferHistory(30),
+          transferScore: this.transferEngine.getTransferScore(),
+        };
+      },
+      getAttentionStatus: () => this.attentionEngine?.getStatus() ?? null,
+      getNotifications: () => thoughtStream.getRecent(100).filter(
+        (t: { significance?: string }) => t.significance === 'breakthrough' || t.significance === 'notable',
+      ),
+      onTriggerFeedback: () => { this.orchestrator?.runFeedbackCycle(); },
+      getNetworkState,
+      getEngineStatus: () => this.orchestrator?.getSummary(),
+      codeGenerator: (services.codeGenerator as CodeGenerator) ?? null,
+      codeMiner: (services.codeMiner as CodeMiner) ?? null,
+      patternExtractor: (patternExtractor as PatternExtractor) ?? null,
+      selfModificationEngine: (services.selfModificationEngine as SelfModificationEngine) ?? null,
+    });
+    this.unifiedServer.start();
+    services.unifiedServer = this.unifiedServer;
+    logger.info('Unified Mission Control dashboard on :7788');
 
     // 12. IPC Server
     const router = new IpcRouter(services);
@@ -926,8 +889,6 @@ export class BrainCore {
     this.subscriptionManager?.disconnectAll();
     this.attentionEngine?.stop();
     this.unifiedServer?.stop();
-    this.codegenServer?.stop();
-    this.consciousnessServer?.stop();
     this.orchestrator?.stop();
     this.researchScheduler?.stop();
     this.researchEngine?.stop();
@@ -946,8 +907,6 @@ export class BrainCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.orchestrator = null;
-    this.consciousnessServer = null;
-    this.codegenServer = null;
     this.unifiedServer = null;
     this.narrativeEngine = null;
     this.curiosityEngine = null;

@@ -76,7 +76,7 @@ describe('UnifiedDashboardServer', () => {
     const res = await fetch(`http://localhost:${port + 2}/`);
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('Unified Dashboard');
+    expect(html).toContain('Mission Control');
   });
 
   it('should handle trigger feedback', async () => {

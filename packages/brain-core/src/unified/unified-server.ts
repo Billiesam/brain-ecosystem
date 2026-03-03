@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getLogger } from '../utils/logger.js';
 import type { ThoughtStream } from '../consciousness/thought-stream.js';
+import type { CodeGenerator } from '../codegen/code-generator.js';
+import type { CodeMiner } from '../codegen/code-miner.js';
+import type { PatternExtractor } from '../codegen/pattern-extractor.js';
+import type { SelfModificationEngine } from '../self-modification/self-modification-engine.js';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -14,6 +18,15 @@ export interface UnifiedDashboardOptions {
   getAttentionStatus: () => unknown;
   getNotifications: () => unknown[];
   onTriggerFeedback?: () => void;
+  // Neural Graph
+  getNetworkState?: () => unknown;
+  getEngineStatus?: () => unknown;
+  // CodeGen
+  codeGenerator?: CodeGenerator | null;
+  codeMiner?: CodeMiner | null;
+  patternExtractor?: PatternExtractor | null;
+  // Self-Modification
+  selfModificationEngine?: SelfModificationEngine | null;
 }
 
 // ── Server ───────────────────────────────────────────────
@@ -24,6 +37,7 @@ export class UnifiedDashboardServer {
   private unsubscribe: (() => void) | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
+  private networkTimer: ReturnType<typeof setInterval> | null = null;
   private dashboardHtml: string | null = null;
   private logger = getLogger();
 
@@ -49,6 +63,7 @@ export class UnifiedDashboardServer {
       // CORS + Security
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       res.setHeader('X-Content-Type-Options', 'nosniff');
 
       if (req.method === 'OPTIONS') {
@@ -103,6 +118,59 @@ export class UnifiedDashboardServer {
         return;
       }
 
+      // ── Neural Graph ──────────────────────────────────
+      if (url.pathname === '/api/network' && req.method === 'GET') {
+        this.handleNetwork(res);
+        return;
+      }
+
+      // ── CodeGen Routes ────────────────────────────────
+      if (url.pathname === '/api/codegen/state' && req.method === 'GET') {
+        this.handleCodegenState(res);
+        return;
+      }
+
+      if (url.pathname === '/api/codegen/generate' && req.method === 'POST') {
+        this.handleCodegenGenerate(req, res);
+        return;
+      }
+
+      const codegenApproveMatch = url.pathname.match(/^\/api\/codegen\/approve\/(\d+)$/);
+      if (codegenApproveMatch && req.method === 'POST') {
+        this.handleCodegenReview(req, res, Number(codegenApproveMatch[1]), 'approve');
+        return;
+      }
+
+      const codegenRejectMatch = url.pathname.match(/^\/api\/codegen\/reject\/(\d+)$/);
+      if (codegenRejectMatch && req.method === 'POST') {
+        this.handleCodegenReview(req, res, Number(codegenRejectMatch[1]), 'reject');
+        return;
+      }
+
+      // ── Self-Modification Routes ──────────────────────
+      if (url.pathname === '/api/selfmod/list' && req.method === 'GET') {
+        this.handleSelfmodList(res);
+        return;
+      }
+
+      const selfmodApproveMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/approve$/);
+      if (selfmodApproveMatch && req.method === 'POST') {
+        this.handleSelfmodAction(res, Number(selfmodApproveMatch[1]), 'approve');
+        return;
+      }
+
+      const selfmodRejectMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/reject$/);
+      if (selfmodRejectMatch && req.method === 'POST') {
+        this.handleSelfmodAction(res, Number(selfmodRejectMatch[1]), 'reject');
+        return;
+      }
+
+      const selfmodTestMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/test$/);
+      if (selfmodTestMatch && req.method === 'POST') {
+        this.handleSelfmodAction(res, Number(selfmodTestMatch[1]), 'test');
+        return;
+      }
+
       // SSE stream
       if (url.pathname === '/events') {
         res.writeHead(200, {
@@ -139,6 +207,15 @@ export class UnifiedDashboardServer {
       }
     }, 10_000);
 
+    // Network state every 10s (for Neural Graph)
+    this.networkTimer = setInterval(() => {
+      if (this.clients.size > 0 && this.options.getNetworkState) {
+        try {
+          this.broadcast('network', this.options.getNetworkState());
+        } catch { /* ignore */ }
+      }
+    }, 10_000);
+
     // Heartbeat every 30s
     this.heartbeatTimer = setInterval(() => {
       if (this.clients.size > 0) {
@@ -167,6 +244,7 @@ export class UnifiedDashboardServer {
       this.unsubscribe = null;
     }
     if (this.statusTimer) { clearInterval(this.statusTimer); this.statusTimer = null; }
+    if (this.networkTimer) { clearInterval(this.networkTimer); this.networkTimer = null; }
     if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
 
     for (const client of this.clients) {
@@ -191,6 +269,174 @@ export class UnifiedDashboardServer {
       } catch {
         this.clients.delete(client);
       }
+    }
+  }
+
+  // ── Route Handlers ──────────────────────────────────────
+
+  private handleNetwork(res: http.ServerResponse): void {
+    if (!this.options.getNetworkState) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ nodes: [], edges: [] }));
+      return;
+    }
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.options.getNetworkState()));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+  }
+
+  private handleCodegenState(res: http.ServerResponse): void {
+    const { codeGenerator, codeMiner, patternExtractor, selfModificationEngine } = this.options;
+    if (!codeGenerator) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ available: false }));
+      return;
+    }
+    try {
+      const state = {
+        available: true,
+        summary: codeGenerator.getSummary(),
+        generations: codeGenerator.list(undefined, 50),
+        pending: codeGenerator.list('generated', 50),
+        minerSummary: codeMiner?.getSummary() ?? null,
+        patterns: patternExtractor ? {
+          dependencies: patternExtractor.getPatterns('dependency', 20),
+          tech_stacks: patternExtractor.getPatterns('tech_stack', 10),
+          structures: patternExtractor.getPatterns('structure', 20),
+          readme: patternExtractor.getPatterns('readme', 15),
+        } : null,
+        selfmod: selfModificationEngine ? {
+          status: selfModificationEngine.getStatus(),
+          pending: selfModificationEngine.getPending(),
+          history: selfModificationEngine.getHistory(20),
+        } : null,
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(state));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+  }
+
+  private handleCodegenGenerate(req: http.IncomingMessage, res: http.ServerResponse): void {
+    const codeGenerator = this.options.codeGenerator;
+    if (!codeGenerator) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'CodeGenerator not available' }));
+      return;
+    }
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { task, language } = JSON.parse(body) as { task?: string; language?: string };
+        if (!task || task.trim().length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'task is required' }));
+          return;
+        }
+        codeGenerator.generate({
+          task: task.trim(),
+          language: language ?? 'typescript',
+          trigger: 'manual',
+        }).then((result) => {
+          this.broadcast('codegen:generated', result);
+        }).catch((err: Error) => {
+          this.broadcast('codegen:error', { error: err.message });
+        });
+        res.writeHead(202, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ accepted: true, task: task.trim() }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    });
+  }
+
+  private handleCodegenReview(req: http.IncomingMessage, res: http.ServerResponse, id: number, action: 'approve' | 'reject'): void {
+    const codeGenerator = this.options.codeGenerator;
+    if (!codeGenerator) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'CodeGenerator not available' }));
+      return;
+    }
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { notes } = body ? JSON.parse(body) as { notes?: string } : { notes: undefined };
+        const result = action === 'approve'
+          ? codeGenerator.approve(id, notes)
+          : codeGenerator.reject(id, notes);
+        if (!result) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Generation #${id} not found or not reviewable` }));
+          return;
+        }
+        this.broadcast(action === 'approve' ? 'codegen:approved' : 'codegen:rejected', result);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    });
+  }
+
+  private handleSelfmodList(res: http.ServerResponse): void {
+    const engine = this.options.selfModificationEngine;
+    if (!engine) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ available: false }));
+      return;
+    }
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        available: true,
+        status: engine.getStatus(),
+        pending: engine.getPending(),
+        history: engine.getHistory(50),
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+  }
+
+  private handleSelfmodAction(res: http.ServerResponse, id: number, action: 'approve' | 'reject' | 'test'): void {
+    const engine = this.options.selfModificationEngine;
+    if (!engine) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'SelfModificationEngine not available' }));
+      return;
+    }
+    try {
+      let result;
+      switch (action) {
+        case 'approve':
+          result = engine.approveModification(id);
+          this.broadcast('selfmod:approved', result);
+          break;
+        case 'reject':
+          result = engine.rejectModification(id);
+          this.broadcast('selfmod:rejected', result);
+          break;
+        case 'test':
+          result = engine.testModification(id);
+          this.broadcast(result.test_result === 'passed' ? 'selfmod:ready' : 'selfmod:failed', result);
+          break;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
     }
   }
 }

@@ -81,7 +81,6 @@ export class MarketingCore {
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
   private correlator: CrossBrainCorrelator | null = null;
   private orchestrator: ResearchOrchestrator | null = null;
-  private consciousnessServer: ConsciousnessServer | null = null;
   private attentionEngine: AttentionEngine | null = null;
   private transferEngine: TransferEngine | null = null;
   private narrativeEngine: NarrativeEngine | null = null;
@@ -268,20 +267,7 @@ export class MarketingCore {
     this.orchestrator.setThoughtStream(thoughtStream);
     dreamEngine.setThoughtStream(thoughtStream);
     predictionEngine.setThoughtStream(thoughtStream);
-    this.consciousnessServer = new ConsciousnessServer({
-      port: 7786,
-      thoughtStream,
-      getNetworkState: () => {
-        try {
-          const nodes = this.db!.prepare('SELECT id, content AS label, category AS type, importance FROM memories WHERE active = 1 LIMIT 200').all();
-          const edges = this.db!.prepare('SELECT source_id, target_id, weight FROM synapses LIMIT 500').all();
-          return { nodes, edges };
-        } catch { return { nodes: [], edges: [] }; }
-      },
-      getEngineStatus: () => this.orchestrator!.getSummary(),
-    });
-    this.consciousnessServer.start();
-    services.consciousnessServer = this.consciousnessServer;
+    // ConsciousnessServer removed — unified dashboard serves all UIs
     services.thoughtStream = thoughtStream;
 
     // 10k. Attention Engine
@@ -606,7 +592,7 @@ export class MarketingCore {
     });
     this.orchestrator.setBootstrapService(bootstrapService);
 
-    logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7786)');
+    logger.info('Research orchestrator started (30+ engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 
     // 11. IPC Server
     const router = new IpcRouter(services);
@@ -712,7 +698,7 @@ export class MarketingCore {
   private cleanup(): void {
     this.subscriptionManager?.disconnectAll();
     this.attentionEngine?.stop();
-    this.consciousnessServer?.stop();
+    // consciousnessServer removed
     this.orchestrator?.stop();
     this.researchEngine?.stop();
     this.learningEngine?.stop();
@@ -730,7 +716,6 @@ export class MarketingCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.orchestrator = null;
-    this.consciousnessServer = null;
     this.attentionEngine = null;
     this.narrativeEngine = null;
     this.curiosityEngine = null;
