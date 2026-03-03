@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
@@ -573,6 +573,68 @@ export class BrainCore {
     });
     this.orchestrator.setReasoningEngine(reasoningEngine);
     services.reasoningEngine = reasoningEngine;
+
+    // ── Section 11j.20: EmotionalModel ───────────────────
+    const emotionalModel = new EmotionalModel(this.db!, { brainName: 'brain' });
+    emotionalModel.setThoughtStream(thoughtStream);
+    emotionalModel.setDataSources({
+      getAutoResponderStatus: () => {
+        try {
+          const stats = this.orchestrator!.autoResponder.getStats();
+          return { totalResponses: stats.totalActions, successRate: stats.successRate, recentSeverity: stats.recentSeverity ?? [] };
+        } catch { return { totalResponses: 0, successRate: 1, recentSeverity: [] }; }
+      },
+      getCuriosityStatus: () => {
+        try {
+          const s = services.curiosityEngine!.getStatus();
+          return { activeGaps: s.gapCount, avgGapScore: s.avgGapScore ?? 0, explorationRate: s.explorationCount / Math.max(s.gapCount, 1) };
+        } catch { return { activeGaps: 0, avgGapScore: 0, explorationRate: 0 }; }
+      },
+      getEmergenceStatus: () => {
+        try {
+          const s = services.emergenceEngine!.getStatus();
+          return { recentEvents: s.recentEventCount ?? 0, avgSurprise: s.avgSurprise ?? 0 };
+        } catch { return { recentEvents: 0, avgSurprise: 0 }; }
+      },
+      getHypothesisConfidence: () => {
+        try {
+          const all = this.orchestrator!.hypothesisEngine.list(undefined, 100);
+          const avg = all.length > 0 ? all.reduce((s, h) => s + (h.confidence ?? 0), 0) / all.length : 0.5;
+          const confirmed = all.filter(h => h.status === 'confirmed').length;
+          return { avgConfidence: avg, confirmedRate: all.length > 0 ? confirmed / all.length : 0 };
+        } catch { return { avgConfidence: 0.5, confirmedRate: 0 }; }
+      },
+      getPredictionAccuracy: () => {
+        try { return services.predictionEngine?.getStatus()?.accuracy ?? 0.5; } catch { return 0.5; }
+      },
+      getReportCards: () => {
+        try { return services.metaCognitionLayer?.getReportCards() ?? []; } catch { return []; }
+      },
+      getAttentionStatus: () => {
+        try {
+          const s = services.attentionEngine!.getStatus();
+          return { avgUrgency: s.avgUrgency ?? 0, burstCount: s.burstCount ?? 0, contextSwitches: s.contextSwitchCount ?? 0 };
+        } catch { return { avgUrgency: 0, burstCount: 0, contextSwitches: 0 }; }
+      },
+      getMetaTrend: () => {
+        try {
+          const trends = services.metaCognitionLayer?.getMetaTrends();
+          if (!trends) return { learningRate: 0.5, discoveryRate: 0.5, direction: 'stable' };
+          return { learningRate: trends.learningRate ?? 0.5, discoveryRate: trends.discoveryRate ?? 0.5, direction: trends.direction ?? 'stable' };
+        } catch { return { learningRate: 0.5, discoveryRate: 0.5, direction: 'stable' }; }
+      },
+      getReasoningChainCount: () => {
+        try { return reasoningEngine.getStatus().chainCount; } catch { return 0; }
+      },
+      getCreativeHypothesisCount: () => {
+        try { return this.orchestrator!.hypothesisEngine.getCreativeCount?.() ?? 0; } catch { return 0; }
+      },
+      getDebateCount: () => {
+        try { return services.debateEngine?.getStatus()?.totalDebates ?? 0; } catch { return 0; }
+      },
+    });
+    this.orchestrator.setEmotionalModel(emotionalModel);
+    services.emotionalModel = emotionalModel;
 
     this.consciousnessServer = new ConsciousnessServer({
       port: 7784,

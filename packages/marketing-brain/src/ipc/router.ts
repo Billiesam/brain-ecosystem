@@ -100,6 +100,7 @@ export interface Services {
   goalEngine?: import('@timmeck/brain-core').GoalEngine;
   evolutionEngine?: import('@timmeck/brain-core').EvolutionEngine;
   reasoningEngine?: import('@timmeck/brain-core').ReasoningEngine;
+  emotionalModel?: import('@timmeck/brain-core').EmotionalModel;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -647,6 +648,14 @@ export class IpcRouter {
       ['reasoning.counterfactual',  (params) => { if (!s.reasoningEngine) throw new Error('ReasoningEngine not available'); return s.reasoningEngine.counterfactual(p(params).event); }],
       ['reasoning.rules',           (params) => { if (!s.reasoningEngine) throw new Error('ReasoningEngine not available'); return s.reasoningEngine.getRules(p(params)?.limit ?? 50, p(params)?.minConfidence ?? 0); }],
       ['reasoning.proof',           (params) => { if (!s.reasoningEngine) throw new Error('ReasoningEngine not available'); return s.reasoningEngine.getProofTree(p(params).chainId); }],
+
+      // ─── Emotional Model ──────────────────────────────
+      ['emotional.status',          () => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getStatus(); }],
+      ['emotional.mood',            () => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getMood(); }],
+      ['emotional.history',         (params) => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getHistory(p(params)?.limit ?? 50); }],
+      ['emotional.influences',      (params) => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getInfluences(p(params)?.limit ?? 20); }],
+      ['emotional.recommendations', () => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getRecommendations(); }],
+      ['emotional.sense',           () => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.sense(); }],
 
       ['status',               () => ({
         name: 'marketing-brain',

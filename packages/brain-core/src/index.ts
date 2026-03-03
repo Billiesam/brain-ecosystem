@@ -298,6 +298,14 @@ export type {
   CounterfactualResult, ReasoningStatus,
 } from './reasoning/index.js';
 
+// ── Emotional Model ─────────────────────────────────────
+export { EmotionalModel, runEmotionalMigration } from './emotional/index.js';
+export type {
+  EmotionalModelConfig, EmotionalDataSources,
+  EmotionDimension, MoodType, EmotionalDimensions,
+  MoodResult, MoodInfluence, EmotionalHistoryEntry, EmotionalStatus,
+} from './emotional/index.js';
+
 // ── DataScout ──────────────────────────────────────────
 export { DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter } from './research/data-scout.js';
 export type { ScoutDiscovery, ScoutAdapter, DataScoutStatus } from './research/data-scout.js';

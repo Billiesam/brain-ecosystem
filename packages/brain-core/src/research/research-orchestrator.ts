@@ -39,6 +39,7 @@ import type { MemoryPalace } from '../memory-palace/memory-palace.js';
 import type { GoalEngine } from '../goals/goal-engine.js';
 import type { EvolutionEngine } from '../metacognition/evolution-engine.js';
 import type { ReasoningEngine } from '../reasoning/reasoning-engine.js';
+import type { EmotionalModel } from '../emotional/emotional-model.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -94,6 +95,7 @@ export class ResearchOrchestrator {
   private goalEngine: GoalEngine | null = null;
   private evolutionEngine: EvolutionEngine | null = null;
   private reasoningEngine: ReasoningEngine | null = null;
+  private emotionalModel: EmotionalModel | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -233,6 +235,7 @@ export class ResearchOrchestrator {
 
   /** Set the ReasoningEngine — multi-step logical inference chains. */
   setReasoningEngine(engine: ReasoningEngine): void { this.reasoningEngine = engine; }
+  setEmotionalModel(model: EmotionalModel): void { this.emotionalModel = model; }
 
   /** Set the PredictionEngine — wires journal into it. */
   setPredictionEngine(engine: PredictionEngine): void {
@@ -1344,6 +1347,32 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 37 error: ${(err as Error).message}`); }
     }
 
+    // Step 38: EmotionalModel — sense emotions + recommend behavior
+    if (this.emotionalModel) {
+      try {
+        ts?.emit('emotional', 'sensing', 'Step 38: Sensing emotional state...', 'routine');
+        this.emotionalModel.sense();
+        const mood = this.emotionalModel.getMood();
+        this.log.info(`[orchestrator] Mood: ${mood.mood} (score=${mood.score.toFixed(2)}, valence=${mood.valence.toFixed(2)}, arousal=${mood.arousal.toFixed(2)})`);
+
+        // Log mood change to journal
+        if (this.cycleCount % (this.config.reflectEvery ?? 10) === 0) {
+          const recs = this.emotionalModel.getRecommendations();
+          if (recs.length > 0) {
+            this.journal.addEntry('emotional_reflection', `Mood: ${mood.mood} — ${recs.join('; ')}`, { mood: mood.mood, score: mood.score, valence: mood.valence });
+          }
+        }
+
+        // Emit recommendations as thoughts
+        const recs = this.emotionalModel.getRecommendations();
+        for (const rec of recs) {
+          ts?.emit('emotional', 'recommending', `[${mood.mood}] ${rec}`, 'observation');
+        }
+
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('emotional_model', this.cycleCount, { mood: mood.mood, score: mood.score, valence: mood.valence });
+      } catch (err) { this.log.warn(`[orchestrator] Step 38 error: ${(err as Error).message}`); }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -2122,6 +2151,7 @@ export class ResearchOrchestrator {
       memoryPalace: this.memoryPalace?.getStatus() ?? null,
       goals: this.goalEngine?.getStatus() ?? null,
       reasoning: this.reasoningEngine?.getStatus() ?? null,
+      emotional: this.emotionalModel?.getStatus() ?? null,
     };
   }
 }
