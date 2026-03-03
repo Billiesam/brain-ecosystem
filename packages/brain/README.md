@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**Autonomous Error Memory, Code Intelligence & Self-Improving Research System for Claude Code**
+**Autonomous Error Memory, Code Intelligence & Self-Improving AI for Claude Code — 134 MCP Tools, 30+ Engines**
 
-Brain is an MCP server that gives Claude Code a persistent, self-improving memory. It remembers errors, learns solutions, tracks code modules, and runs 9 autonomous research engines in feedback loops. It observes itself, detects anomalies, forms hypotheses, tests them statistically, distills confirmed knowledge into principles, and generates code using its accumulated wisdom. It even dreams — consolidating memories during idle periods like biological sleep.
+Brain is an MCP server that gives Claude Code a persistent, self-improving memory. It remembers errors, learns solutions, and runs 30+ autonomous engines in a 40-step feedback cycle. It observes itself, detects anomalies, forms and tests hypotheses, distills principles, reasons in chains, feels emotions, evolves strategies genetically, debates itself, gets curious about knowledge gaps, and modifies its own source code. It dreams — consolidating memories during idle periods like biological sleep. 134 MCP tools. 2496 tests.
 
 ## Quick Start
 
@@ -36,21 +36,59 @@ That's it. One command configures MCP, hooks, and starts the daemon.
 - **Task/Goal Tracking** — Manage tasks with priorities, subtasks, and full context aggregation
 - **Semantic Search** — Local all-MiniLM-L6-v2 embeddings (23MB, no cloud required)
 
-### Autonomous Research (9 Engines)
+### 30+ Autonomous Engines
 
-The research orchestrator runs every 5 minutes, coordinating all engines in feedback loops:
+The ResearchOrchestrator runs a 40-step feedback cycle every 5 minutes, coordinating all engines:
+
+#### Core Research (9 Engines)
 
 | Engine | What It Does |
 |--------|-------------|
 | **SelfObserver** | Observes Brain's own performance and generates insights |
-| **AnomalyDetective** | Detects statistical outliers using Z-scores |
+| **AnomalyDetective** | Detects statistical outliers using Z-scores and drift analysis |
 | **CrossDomainEngine** | Finds correlations between events across brains |
 | **AdaptiveStrategy** | Adjusts strategies, reverts if performance drops |
 | **ExperimentEngine** | A/B tests on Brain's own parameters every 5 cycles |
-| **KnowledgeDistiller** | Extracts principles from confirmed hypotheses (17+ distilled) |
+| **KnowledgeDistiller** | Extracts principles from confirmed hypotheses |
 | **ResearchAgenda** | Prioritizes what to research next |
 | **CounterfactualEngine** | "What if" analysis for hypothetical interventions |
 | **Journal** | Logs all discoveries, experiments, breakthroughs |
+
+#### Intelligence & Awareness
+
+| Engine | What It Does |
+|--------|-------------|
+| **AttentionEngine** | Dynamic focus, context detection, burst detection, engine weight allocation |
+| **TransferEngine** | Cross-brain knowledge transfer, analogies, cross-domain rules |
+| **NarrativeEngine** | Brain explains itself in natural language, finds contradictions, generates digests |
+| **CuriosityEngine** | Knowledge gap detection, UCB1 explore/exploit, blind spot detection |
+| **EmergenceEngine** | Emergent behavior detection, complexity metrics (entropy, phi), phase transitions |
+| **DebateEngine** | Multi-agent debates, advocatus diaboli, consensus synthesis |
+| **ReasoningEngine** | Forward chaining, abductive reasoning, temporal inference, counterfactuals |
+| **EmotionalModel** | 8 emotion dimensions, 6 moods, mood-based behavior recommendations |
+
+#### Meta-Cognition & Optimization
+
+| Engine | What It Does |
+|--------|-------------|
+| **ParameterRegistry** | Central tunable parameter store with 30+ parameters, bounds, snapshots |
+| **MetaCognitionLayer** | Engine performance grading (A-F), frequency adjustment |
+| **AutoExperimentEngine** | Autonomous parameter tuning with snapshot/rollback |
+| **EvolutionEngine** | Genetic algorithm — tournament selection, crossover, mutation, elitism |
+| **GoalEngine** | Goal planning with progress tracking, linear regression forecasting |
+| **MemoryPalace** | Knowledge graph with BFS pathfinding and auto-connection building |
+
+#### Autonomy & Self-Improvement
+
+| Engine | What It Does |
+|--------|-------------|
+| **SelfTestEngine** | Tests if brain truly understands its principles vs memorization |
+| **TeachEngine** | Generates teaching packages for other brains |
+| **DataScout** | External data acquisition from GitHub/npm/HN |
+| **SimulationEngine** | What-if scenarios via CausalGraph + PredictionEngine |
+| **SelfScanner** | Indexes own TypeScript source code with SHA256 change detection |
+| **SelfModificationEngine** | Generates and tests code changes autonomously via Claude API |
+| **BootstrapService** | Cold-start fix: seeds data so engines produce output from cycle 1 |
 
 ### Self-Improvement Loop
 - **Hypothesis Engine** — Forms hypotheses from observed patterns, tests them statistically
@@ -70,7 +108,7 @@ The research orchestrator runs every 5 minutes, coordinating all engines in feed
 ### Consciousness Dashboard (`:7784`)
 - **Neural Graph** — Force-directed visualization of the synapse network (Canvas 2D physics)
 - **Thought Stream** — Real-time feed of every engine's activity
-- **Engine Status** — Live status cards for all 16 engines
+- **Engine Status** — Live status cards for all 30+ engines
 - **Brain Insights** — Notable discoveries and breakthroughs
 - **Trigger Cycle** — Button to manually trigger a feedback cycle
 
@@ -99,7 +137,8 @@ The research orchestrator runs every 5 minutes, coordinating all engines in feed
 | Dashboard | Port | What It Shows |
 |-----------|------|--------------|
 | **Consciousness** | 7784 | Neural graph, thought stream, engine status |
-| **CodeGen** | 7787 | Code generations, approve/reject, mined patterns |
+| **CodeGen** | 7787 | Code generations, approve/reject, mined patterns, self-modification |
+| **Unified** | 7788 | Cross-brain overview, notifications, attention, transfers |
 
 ## Architecture
 
@@ -119,17 +158,23 @@ Memory Intel Network System Intel Engine
   |      |      |      |      |      |
   +------+------+------+------+------+
          |
-  +------+------+------+------+------+
-  |      |      |      |      |      |
-Research Dream  Pred.  Auto   Code   Signal
-Orch.   Engine Engine Respond Gen    Scanner
-  |                                   |
-  +-- 9 Engines in Feedback Loops ----+
+    ResearchOrchestrator (40 steps)
+         |
+  +------+------+------+------+------+------+------+
+  |      |      |      |      |      |      |      |
+Dream  Pred.  AutoR  Hypo.  CodeGen Signal Attention
+Engine Engine espond Engine (Claude) Scanner Engine
+  |      |      |      |      |      |      |      |
+  +------+------+------+------+------+------+------+
+         |
+  30+ Engines in Feedback Loops
+  (Research, Intelligence, MetaCog, Evolution,
+   Reasoning, Emotions, Self-Modification, ...)
          |
       SQLite (better-sqlite3, WAL mode)
 ```
 
-## MCP Tools (69 tools)
+## MCP Tools (134 tools)
 
 **Error & Code**: brain_report_error, brain_query_error, brain_report_solution, brain_report_attempt, brain_find_reusable_code, brain_register_code, brain_check_code_similarity
 
@@ -151,7 +196,31 @@ Orch.   Engine Engine Respond Gen    Scanner
 
 **CodeGen**: brain_generate_code, brain_codegen_status, brain_codegen_review, brain_codeminer_status, brain_codeminer_patterns
 
-**Ecosystem**: brain_status, brain_notifications, brain_ecosystem_status, brain_query_peer, brain_error_trading_context
+**Attention**: brain_focus_status, brain_focus_set, brain_focus_history
+
+**Transfer**: brain_transfer_status, brain_transfer_analogies, brain_transfer_rules
+
+**Narrative**: brain_explain, brain_ask, brain_weekly_digest, brain_contradictions
+
+**Curiosity**: brain_curiosity_status, brain_curiosity_gaps, brain_curiosity_questions, brain_curiosity_explore
+
+**Emergence**: brain_emergence_status, brain_emergence_detect, brain_emergence_complexity_metrics, brain_emergence_journal
+
+**Debate**: brain_debate_start, brain_debate_synthesize, brain_debate_perspective, brain_debate_history
+
+**MetaCognition**: brain_metacognition_status, brain_engine_report, brain_auto_experiment_status, brain_parameter_registry
+
+**SelfAware**: brain_selftest_run, brain_selftest_results, brain_teach_status, brain_teach_create, brain_datascout_status, brain_datascout_scan, brain_simulation_run, brain_simulation_results, brain_simulation_scenarios, brain_palace_status, brain_palace_map, brain_palace_path, brain_palace_build, brain_goal_status, brain_goal_create, brain_goal_progress
+
+**Evolution**: brain_evolution_status, brain_evolution_history, brain_evolution_best, brain_evolution_run
+
+**Reasoning**: brain_reasoning_status, brain_reason, brain_explain_why, brain_what_if
+
+**Emotions**: brain_emotional_status, brain_mood_history, brain_mood_influences, brain_mood_advice
+
+**Self-Modification**: brain_selfmod_status, brain_selfmod_pending, brain_selfmod_approve, brain_selfmod_history
+
+**Ecosystem**: brain_status, brain_notifications, brain_ecosystem_status, brain_query_peer, brain_error_trading_context, brain_unified_status
 
 ## CLI Commands
 
@@ -193,10 +262,10 @@ brain peers              Show peer brains in the ecosystem
 
 | Brain | Version | Purpose | Ports |
 |-------|---------|---------|-------|
-| **Brain** | v3.19.0 | Error memory, code intelligence, autonomous research & code generation | **7777** / 7778 / 7784 / 7787 |
-| [Trading Brain](../trading-brain) | v2.13.0 | Adaptive trading intelligence with signal learning & backtesting | 7779 / 7780 / 7785 |
-| [Marketing Brain](../marketing-brain) | v1.14.0 | Content strategy, engagement & cross-platform optimization | 7781 / 7782 / 7783 / 7786 |
-| [Brain Core](../brain-core) | v2.18.0 | Shared infrastructure (9 engines, synapses, IPC, MCP, dream, consciousness, codegen) | — |
+| **Brain** | v3.33.0 | Error memory, code intelligence, full autonomy & self-modification | **7777** / 7778 / 7784 / 7787 / 7788 |
+| [Trading Brain](../trading-brain) | v2.28.0 | Adaptive trading intelligence with signal learning & backtesting | 7779 / 7780 / 7785 |
+| [Marketing Brain](../marketing-brain) | v1.29.0 | Content strategy, engagement & cross-platform optimization | 7781 / 7782 / 7783 / 7786 |
+| [Brain Core](../brain-core) | v2.33.0 | Shared infrastructure — 30+ engines, synapses, IPC, MCP, dream, consciousness, codegen | — |
 
 ## Support
 

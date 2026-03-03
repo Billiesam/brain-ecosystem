@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**Self-Learning Marketing Intelligence System for Claude Code**
+**Self-Learning Marketing Intelligence System for Claude Code — 128 MCP Tools, 30+ Engines**
 
-Marketing Brain is an MCP server that gives Claude Code a persistent marketing memory. It tracks every post you publish, learns what works across 6 platforms, and builds a Hebbian synapse network connecting posts, campaigns, strategies, templates, and insights. Over time, it learns your best-performing patterns, generates content drafts, schedules posts, analyzes competitors, and runs 9 autonomous research engines to discover engagement patterns.
+Marketing Brain is an MCP server that gives Claude Code a persistent marketing memory. It tracks every post you publish, learns what works across 6 platforms, and builds a Hebbian synapse network connecting posts, campaigns, strategies, templates, and insights. Over time, it learns your best-performing patterns, generates content drafts, schedules posts, analyzes competitors, and runs 30+ autonomous engines in a 40-step feedback cycle to discover engagement patterns, reason about causality, evolve strategies genetically, and improve itself.
 
 ## Quick Start
 
@@ -40,10 +40,13 @@ marketing setup
 - **Thread Splitting** — Long content auto-split for thread-based platforms
 - **Format Adaptation** — Optimize content for each platform's format
 
-### Autonomous Research (9 Engines)
-Same engine architecture as Brain, fed with post/engagement history via DataMiner:
-- SelfObserver, AnomalyDetective, CrossDomain, AdaptiveStrategy, ExperimentEngine, KnowledgeDistiller, ResearchAgenda, CounterfactualEngine, Journal
-- **Feedback loops** running every 5 minutes
+### 30+ Autonomous Engines
+Same full engine suite as Brain, fed with post/engagement history via DataMiner:
+- **Core Research** — SelfObserver, AnomalyDetective, CrossDomain, AdaptiveStrategy, ExperimentEngine, KnowledgeDistiller, ResearchAgenda, CounterfactualEngine, Journal
+- **Intelligence** — AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ReasoningEngine, EmotionalModel
+- **Meta-Cognition** — ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, EvolutionEngine, GoalEngine, MemoryPalace
+- **Autonomy** — SelfTestEngine, TeachEngine, DataScout, SimulationEngine, SelfScanner, SelfModificationEngine, BootstrapService
+- **40-step feedback cycle** running every 5 minutes
 - **DataMiner** bootstraps all historical posts and engagement data at startup
 
 ### Dream Mode & Consciousness
@@ -52,6 +55,9 @@ Same engine architecture as Brain, fed with post/engagement history via DataMine
 - **Prediction Engine** — Holt-Winters forecasting for engagement rates and post performance
 - **AutoResponder** — Automatically adjusts marketing parameters when anomalies detected
 - **Self-Improvement Loop** — Generates improvement suggestions
+- **ReasoningEngine** — Forward chaining, abductive reasoning, temporal inference
+- **EmotionalModel** — 8 emotion dimensions, 6 moods, mood-based recommendations
+- **EvolutionEngine** — Genetic algorithm for parameter optimization
 
 ### Memory & Sessions
 - **Persistent Memory** — Preferences, decisions, context, facts, goals, lessons
@@ -70,7 +76,7 @@ Same engine architecture as Brain, fed with post/engagement history via DataMine
 - **MCP HTTP/SSE** — For Cursor, Windsurf, Cline, Continue (port 7782)
 - **REST API** — Full HTTP API on port 7781
 
-## MCP Tools (64 tools)
+## MCP Tools (128 tools)
 
 **Content**: marketing_post_draft, marketing_post_report, marketing_post_engagement, marketing_post_similar, marketing_extract_patterns, marketing_content_calendar
 
@@ -97,6 +103,30 @@ Same engine architecture as Brain, fed with post/engagement history via DataMine
 **Prediction**: marketing_predict, marketing_prediction_accuracy, marketing_predictions_list
 
 **AutoResponder**: marketing_responder_status, marketing_responder_history, marketing_responder_rules
+
+**Attention**: marketing_focus_status, marketing_focus_set, marketing_focus_history
+
+**Transfer**: marketing_transfer_status, marketing_transfer_analogies, marketing_transfer_rules
+
+**Narrative**: marketing_explain, marketing_ask, marketing_weekly_digest, marketing_contradictions
+
+**Curiosity**: marketing_curiosity_status, marketing_curiosity_gaps, marketing_curiosity_questions, marketing_curiosity_explore
+
+**Emergence**: marketing_emergence_status, marketing_emergence_detect, marketing_emergence_complexity_metrics, marketing_emergence_journal
+
+**Debate**: marketing_debate_start, marketing_debate_synthesize, marketing_debate_perspective, marketing_debate_history
+
+**MetaCognition**: marketing_metacognition_status, marketing_engine_report, marketing_auto_experiment_status, marketing_parameter_registry
+
+**SelfAware**: marketing_selftest_run, marketing_selftest_results, marketing_teach_status, marketing_teach_create, marketing_datascout_status, marketing_datascout_scan, marketing_simulation_run, marketing_simulation_results, marketing_simulation_scenarios, marketing_palace_status, marketing_palace_map, marketing_palace_path, marketing_palace_build, marketing_goal_status, marketing_goal_create, marketing_goal_progress
+
+**Evolution**: marketing_evolution_status, marketing_evolution_history, marketing_evolution_best, marketing_evolution_run
+
+**Reasoning**: marketing_reasoning_status, marketing_reason, marketing_explain_why, marketing_what_if
+
+**Emotions**: marketing_emotional_status, marketing_mood_history, marketing_mood_influences, marketing_mood_advice
+
+**Self-Modification**: marketing_selfmod_status, marketing_selfmod_pending, marketing_selfmod_approve, marketing_selfmod_history
 
 **Memory**: marketing_remember, marketing_recall, marketing_session_start, marketing_session_end, marketing_session_history
 
@@ -153,10 +183,10 @@ marketing config                 Configuration management
 
 | Brain | Version | Purpose | Ports |
 |-------|---------|---------|-------|
-| [Brain](../brain) | v3.19.0 | Error memory, code intelligence, autonomous research & code generation | 7777 / 7778 / 7784 / 7787 |
-| [Trading Brain](../trading-brain) | v2.13.0 | Adaptive trading intelligence with signal learning & backtesting | 7779 / 7780 / 7785 |
-| **Marketing Brain** | v1.14.0 | Content strategy, engagement & cross-platform optimization | **7781** / 7782 / 7783 / 7786 |
-| [Brain Core](../brain-core) | v2.18.0 | Shared infrastructure | — |
+| [Brain](../brain) | v3.33.0 | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7784 / 7787 / 7788 |
+| [Trading Brain](../trading-brain) | v2.28.0 | Adaptive trading intelligence with signal learning & backtesting | 7779 / 7780 / 7785 |
+| **Marketing Brain** | v1.29.0 | Content strategy, engagement & cross-platform optimization | **7781** / 7782 / 7783 / 7786 |
+| [Brain Core](../brain-core) | v2.33.0 | Shared infrastructure — 30+ engines | — |
 
 ## Support
 

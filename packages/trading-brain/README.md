@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**Adaptive Trading Intelligence & Signal Learning System for Claude Code**
+**Adaptive Trading Intelligence & Signal Learning System for Claude Code — 128 MCP Tools, 30+ Engines**
 
-Trading Brain is an MCP server that gives Claude Code a persistent trading memory. It learns from every trade outcome — strengthening connections between signals, strategies, and results through a Hebbian synapse network. Over time, it develops statistical confidence in signal combinations, adapts calibration parameters, and runs 9 autonomous research engines to discover patterns in your trading data.
+Trading Brain is an MCP server that gives Claude Code a persistent trading memory. It learns from every trade outcome — strengthening connections between signals, strategies, and results through a Hebbian synapse network. Over time, it develops statistical confidence in signal combinations, adapts calibration parameters, and runs 30+ autonomous engines in a 40-step feedback cycle to discover patterns, reason about causality, evolve strategies genetically, and improve itself.
 
 ## Quick Start
 
@@ -39,10 +39,13 @@ trading setup
 - **Webhooks** — Push alerts to external systems
 - **History** — Full alert delivery log
 
-### Autonomous Research (9 Engines)
-Same engine architecture as Brain, fed with trade history via DataMiner:
-- SelfObserver, AnomalyDetective, CrossDomain, AdaptiveStrategy, ExperimentEngine, KnowledgeDistiller, ResearchAgenda, CounterfactualEngine, Journal
-- **Feedback loops** running every 5 minutes
+### 30+ Autonomous Engines
+Same full engine suite as Brain, fed with trade history via DataMiner:
+- **Core Research** — SelfObserver, AnomalyDetective, CrossDomain, AdaptiveStrategy, ExperimentEngine, KnowledgeDistiller, ResearchAgenda, CounterfactualEngine, Journal
+- **Intelligence** — AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ReasoningEngine, EmotionalModel
+- **Meta-Cognition** — ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, EvolutionEngine, GoalEngine, MemoryPalace
+- **Autonomy** — SelfTestEngine, TeachEngine, DataScout, SimulationEngine, SelfScanner, SelfModificationEngine, BootstrapService
+- **40-step feedback cycle** running every 5 minutes
 - **DataMiner** bootstraps all historical trades into engines at startup
 
 ### Dream Mode & Consciousness
@@ -51,6 +54,9 @@ Same engine architecture as Brain, fed with trade history via DataMiner:
 - **Prediction Engine** — Holt-Winters forecasting for win rates and PnL with auto-calibration
 - **AutoResponder** — Automatically adjusts trading parameters when anomalies detected
 - **Self-Improvement Loop** — Generates improvement suggestions
+- **ReasoningEngine** — Forward chaining, abductive reasoning, temporal inference
+- **EmotionalModel** — 8 emotion dimensions, 6 moods, mood-based recommendations
+- **EvolutionEngine** — Genetic algorithm for parameter optimization
 
 ### Memory & Sessions
 - **Persistent Memory** — Preferences, decisions, context, facts, goals, lessons
@@ -62,7 +68,7 @@ Same engine architecture as Brain, fed with trade history via DataMiner:
 - **MCP HTTP/SSE** — For Cursor, Windsurf, Cline, Continue (port 7780)
 - **REST API** — Full HTTP API on port 7779
 
-## MCP Tools (64 tools)
+## MCP Tools (128 tools)
 
 **Trading Core**: trading_record_outcome, trading_signal_weights, trading_signal_confidence, trading_explain_signal, trading_dca_multiplier, trading_grid_params, trading_calibration, trading_calibration_history, trading_rules, trading_chains, trading_query, trading_learn, trading_reset
 
@@ -81,6 +87,30 @@ Same engine architecture as Brain, fed with trade history via DataMiner:
 **Prediction**: trading_predict, trading_prediction_accuracy, trading_predictions_list
 
 **AutoResponder**: trading_responder_status, trading_responder_history, trading_responder_rules
+
+**Attention**: trading_focus_status, trading_focus_set, trading_focus_history
+
+**Transfer**: trading_transfer_status, trading_transfer_analogies, trading_transfer_rules
+
+**Narrative**: trading_explain, trading_ask, trading_weekly_digest, trading_contradictions
+
+**Curiosity**: trading_curiosity_status, trading_curiosity_gaps, trading_curiosity_questions, trading_curiosity_explore
+
+**Emergence**: trading_emergence_status, trading_emergence_detect, trading_emergence_complexity_metrics, trading_emergence_journal
+
+**Debate**: trading_debate_start, trading_debate_synthesize, trading_debate_perspective, trading_debate_history
+
+**MetaCognition**: trading_metacognition_status, trading_engine_report, trading_auto_experiment_status, trading_parameter_registry
+
+**SelfAware**: trading_selftest_run, trading_selftest_results, trading_teach_status, trading_teach_create, trading_datascout_status, trading_datascout_scan, trading_simulation_run, trading_simulation_results, trading_simulation_scenarios, trading_palace_status, trading_palace_map, trading_palace_path, trading_palace_build, trading_goal_status, trading_goal_create, trading_goal_progress
+
+**Evolution**: trading_evolution_status, trading_evolution_history, trading_evolution_best, trading_evolution_run
+
+**Reasoning**: trading_reasoning_status, trading_reason, trading_explain_why, trading_what_if
+
+**Emotions**: trading_emotional_status, trading_mood_history, trading_mood_influences, trading_mood_advice
+
+**Self-Modification**: trading_selfmod_status, trading_selfmod_pending, trading_selfmod_approve, trading_selfmod_history
 
 **Memory**: trading_remember, trading_recall, trading_session_start, trading_session_end, trading_session_history
 
@@ -131,10 +161,10 @@ trading import <file>      Import trades from JSON
 
 | Brain | Version | Purpose | Ports |
 |-------|---------|---------|-------|
-| [Brain](../brain) | v3.19.0 | Error memory, code intelligence, autonomous research & code generation | 7777 / 7778 / 7784 / 7787 |
-| **Trading Brain** | v2.13.0 | Adaptive trading intelligence with signal learning & backtesting | **7779** / 7780 / 7785 |
-| [Marketing Brain](../marketing-brain) | v1.14.0 | Content strategy, engagement & cross-platform optimization | 7781 / 7782 / 7783 / 7786 |
-| [Brain Core](../brain-core) | v2.18.0 | Shared infrastructure | — |
+| [Brain](../brain) | v3.33.0 | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7784 / 7787 / 7788 |
+| **Trading Brain** | v2.28.0 | Adaptive trading intelligence with signal learning & backtesting | **7779** / 7780 / 7785 |
+| [Marketing Brain](../marketing-brain) | v1.29.0 | Content strategy, engagement & cross-platform optimization | 7781 / 7782 / 7783 / 7786 |
+| [Brain Core](../brain-core) | v2.33.0 | Shared infrastructure — 30+ engines | — |
 
 ## Support
 

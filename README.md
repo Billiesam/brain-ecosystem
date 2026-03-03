@@ -6,9 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**An autonomous AI research system that observes itself, learns, and improves — built as MCP servers for Claude Code.**
+**An autonomous AI research system that observes itself, learns, evolves, and modifies its own code — built as MCP servers for Claude Code.**
 
-Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. Nine research engines run autonomously in the background — they observe, detect anomalies, form hypotheses, test them statistically, and distill confirmed knowledge into principles. It even has a Dream Mode that consolidates memories like biological sleep, and a CodeGenerator that writes code using its own accumulated knowledge.
+Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 30+ autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. 390 MCP tools. 2496 tests. The brain literally thinks about itself, gets curious, runs experiments, and writes code to improve itself.
 
 ## Packages
 
@@ -17,7 +17,7 @@ Brain Ecosystem is a system of three specialized "brains" connected through a He
 | [@timmeck/brain](packages/brain) | [![npm](https://img.shields.io/npm/v/@timmeck/brain)](https://www.npmjs.com/package/@timmeck/brain) | Error memory, code intelligence, autonomous research & code generation | 7777 / 7778 / 7784 / 7787 |
 | [@timmeck/trading-brain](packages/trading-brain) | [![npm](https://img.shields.io/npm/v/@timmeck/trading-brain)](https://www.npmjs.com/package/@timmeck/trading-brain) | Adaptive trading intelligence with signal learning & backtesting | 7779 / 7780 / 7785 |
 | [@timmeck/marketing-brain](packages/marketing-brain) | [![npm](https://img.shields.io/npm/v/@timmeck/marketing-brain)](https://www.npmjs.com/package/@timmeck/marketing-brain) | Content strategy, engagement & cross-platform optimization | 7781 / 7782 / 7783 / 7786 |
-| [@timmeck/brain-core](packages/brain-core) | [![npm](https://img.shields.io/npm/v/@timmeck/brain-core)](https://www.npmjs.com/package/@timmeck/brain-core) | Shared infrastructure — 9 research engines, synapses, IPC, MCP, dream, consciousness, prediction, codegen | — |
+| [@timmeck/brain-core](packages/brain-core) | [![npm](https://img.shields.io/npm/v/@timmeck/brain-core)](https://www.npmjs.com/package/@timmeck/brain-core) | Shared infrastructure — 30+ engines, synapses, IPC, MCP, dream, consciousness, prediction, codegen, reasoning, emotions, evolution, self-modification | — |
 
 ## Quick Start
 
@@ -52,59 +52,52 @@ All brains support MCP over HTTP with SSE transport:
 
 ## What It Does
 
-### Brain — Error Memory, Code Intelligence & Autonomous Research
+### Brain — Error Memory, Code Intelligence & Full Autonomy
 
-69 MCP tools. Remembers errors, learns solutions, tracks code modules, and runs autonomous research.
+134 MCP tools. Remembers errors, learns solutions, runs 40-step autonomous research cycles, dreams, debates, reasons, feels, and modifies its own code.
 
 - **Error Memory** — Track errors, match against known solutions with hybrid search (TF-IDF + vector + synapse boost)
 - **Code Intelligence** — Register and discover reusable code modules across all projects
 - **Persistent Memory** — Remember preferences, decisions, context, facts, goals, and lessons across sessions
-- **Autonomous Research** — 9 research engines with feedback loops running every 5 minutes
+- **30+ Autonomous Engines** — SelfObserver, AnomalyDetective, HypothesisEngine, KnowledgeDistiller, CuriosityEngine, EmergenceEngine, DebateEngine, NarrativeEngine, ReasoningEngine, EmotionalModel, EvolutionEngine, GoalEngine, MemoryPalace, AttentionEngine, TransferEngine, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, SimulationEngine, DataScout, SelfScanner, SelfModificationEngine, and more
 - **Dream Mode** — Offline memory consolidation: replay, prune, compress, decay during idle
 - **Consciousness Dashboard** — Live neural graph at http://localhost:7784 with thought stream
-- **Prediction Engine** — Holt-Winters forecasting, auto-calibration, predictions resolved against reality
-- **AutoResponder** — Reacts to anomalies: parameter adjustment, escalation, resolution
-- **Self-Improvement Loop** — Generates "Tell Claude:" suggestions in `~/.brain/improvement-requests.md`
-- **Auto-Experiments** — Tests its own parameters (Z-Threshold, Decay Rate, etc.) every 5 cycles
-- **Hypothesis Engine** — Forms and tests hypotheses autonomously from observed patterns
-- **Knowledge Distillation** — Extracts principles from confirmed hypotheses (17+ principles distilled)
-- **CodeGenerator** — Claude API integration using brain knowledge as context (principles, anti-patterns, strategies)
-- **CodeMiner** — Mines GitHub repos (README, package.json, directory structures) for pattern extraction
-- **CodeGen Dashboard** — Review generated code at http://localhost:7787 with approve/reject workflow
+- **Prediction Engine** — Holt-Winters + EWMA forecasting, auto-calibration
+- **ReasoningEngine** — Forward chaining, abductive reasoning, temporal inference, counterfactuals
+- **EmotionalModel** — 8 emotion dimensions, 6 moods, mood-based behavior recommendations
+- **EvolutionEngine** — Genetic algorithm for global parameter optimization (tournament, crossover, mutation)
+- **SelfModificationEngine** — Scans own code, generates improvements via Claude API, tests before applying
+- **BootstrapService** — Cold-start fix: seeds data so engines produce output from cycle 1
+- **CodeGenerator + CodeMiner** — Autonomous code generation and GitHub repo mining
 - **Signal Scanner** — Tracks GitHub trending repos, Hacker News, crypto signals
 - **Semantic Search** — Local all-MiniLM-L6-v2 embeddings (23MB, no cloud required)
-- **Cross-Project Learning** — Solutions from project A help solve errors in project B
-- **Auto Error Detection** — PostToolUse hook catches errors in real-time
-- **197 MCP Tools** across the ecosystem (69 brain + 64 trading + 64 marketing)
+- **390 MCP Tools** across the ecosystem (134 brain + 128 trading + 128 marketing)
 
 ### Trading Brain — Adaptive Trading Intelligence
 
-64 MCP tools. Learns from every trade outcome through Hebbian synapses.
+128 MCP tools. Learns from every trade outcome through Hebbian synapses and autonomous research.
 
 - **Trade Outcome Memory** — Record and query trades with full signal context
 - **Signal Fingerprinting** — RSI, MACD, Trend, Volatility classification
 - **Backtesting Engine** — Run backtests, compare signals, Sharpe/PF/MaxDD/Equity Curve
 - **Risk Management** — Kelly Criterion position sizing, drawdown tracking
 - **Alert System** — 5 condition types, cooldown, webhooks, history
-- **Multi-Timeframe** — Timeframe-aware trade analysis
-- **Autonomous Research** — 9 research engines with DataMiner bootstrapping trade history
-- **Dream Mode** — Offline consolidation during idle periods
+- **30+ Autonomous Engines** — Same full engine suite as Brain, with trading-specific DataMiner
+- **Dream Mode, Consciousness, Prediction, Reasoning, Emotions, Evolution** — All autonomous features active
 - **Consciousness Dashboard** — Live neural graph at http://localhost:7785
-- **Prediction Engine** — Holt-Winters forecasting for win rates and PnL
 
 ### Marketing Brain — Self-Learning Marketing Intelligence
 
-64 MCP tools. Learns what content works across platforms.
+128 MCP tools. Learns what content works across platforms.
 
 - **Post Tracking** — Store posts with platform, format, hashtags, engagement history
 - **Competitor Analysis** — Track and benchmark competitor engagement
 - **Content Generation** — Draft posts from learned patterns, rules, and templates
 - **Scheduling Engine** — Post queue with optimal auto-timing
 - **Cross-Platform** — Optimize for X, LinkedIn, Reddit, Bluesky, Mastodon, Threads
-- **Autonomous Research** — 9 research engines with DataMiner bootstrapping post history
-- **Dream Mode** — Offline consolidation during idle periods
+- **30+ Autonomous Engines** — Same full engine suite as Brain, with marketing-specific DataMiner
+- **Dream Mode, Consciousness, Prediction, Reasoning, Emotions, Evolution** — All autonomous features active
 - **Consciousness Dashboard** — Live neural graph at http://localhost:7786
-- **Prediction Engine** — Holt-Winters forecasting for engagement rates
 
 ## Architecture
 
@@ -143,28 +136,48 @@ Cross-brain peering via IPC named pipes
 
 ### Autonomous Research Layer
 
-Every brain runs the same 9 research engines in feedback loops:
+Every brain runs the ResearchOrchestrator with 40 feedback steps and 30+ engines:
 
 ```
-                        ResearchOrchestrator
+                              ResearchOrchestrator (40 steps)
+                                         |
+          +--------+--------+-----------++-----------+--------+--------+
+          |        |        |            |            |        |        |
+          v        v        v            v            v        v        v
+      Self     Anomaly   Cross       Adaptive     Exper.   Knowl.  Research
+     Observer  Detect.   Domain      Strategy     Engine   Distill  Agenda
+          |        |        |            |            |        |        |
+          +--------+--------+---+--------+------------+--------+--------+
+                                |
+     +----------+----------+---+---+----------+----------+----------+
+     |          |          |       |          |          |          |
+     v          v          v       v          v          v          v
+  Dream     Predict.   AutoResp  Hypoth.  CodeGen   CodeMiner  Attention
+  Engine    Engine     (action)  Engine   (Claude)  (GitHub)   Engine
+     |          |          |       |          |          |          |
+     +----------+----------+---+---+----------+----------+----------+
+                                |
+  +----------+----------+------+------+----------+----------+----------+
+  |          |          |             |          |          |          |
+  v          v          v             v          v          v          v
+Transfer  Narrative  Curiosity    Emergence  Debate    MetaCog    AutoExp
+Engine    Engine     Engine       Engine     Engine    Layer      Engine
+  |          |          |             |          |          |          |
+  +----------+----------+------+------+----------+----------+----------+
                                |
-        +------+------+-------+-------+------+------+
-        |      |      |       |       |      |      |
-        v      v      v       v       v      v      v
-    Self    Anomaly  Cross  Adaptive Exper. Knowl. Research
-   Observer Detect.  Domain Strategy Engine Distill Agenda
-        |      |      |       |       |      |      |
-        +------+------+-------+-------+------+------+
+  +----------+----------+------+------+----------+----------+----------+
+  |          |          |             |          |          |          |
+  v          v          v             v          v          v          v
+SelfTest  Teach    DataScout     Simulation MemPalace  Goal      Evolution
+Engine    Engine   (GitHub/HN)   Engine     (graph)   Engine    Engine
+  |          |          |             |          |          |          |
+  +----------+----------+------+------+----------+----------+----------+
                                |
-                    +----------+----------+
-                    |          |          |
-                    v          v          v
-                 Dream     Prediction  AutoResponder
-                 Engine    Engine      (anomaly → action)
-                    |          |          |
-                    v          v          v
-                 Hypothesis  CodeGen    CodeMiner
-                 Engine      (Claude)   (GitHub)
+              +----------+-----+-----+----------+
+              |          |           |          |
+              v          v           v          v
+          Reasoning  Emotional   SelfScan   SelfMod    Bootstrap
+          Engine     Model       (code)     Engine     Service
 ```
 
 ### Shared Infrastructure (Brain Core)
@@ -176,19 +189,37 @@ Every brain runs the same 9 research engines in feedback loops:
 | **MCP HTTP Server** | SSE transport for Cursor, Windsurf, Cline, Continue |
 | **REST API** | HTTP server with CORS, auth, SSE events, batch RPC |
 | **Hebbian Synapse Network** | Weighted graph — "neurons that fire together wire together" |
-| **9 Research Engines** | SelfObserver, AnomalyDetective, HypothesisEngine, CausalGraph, ExperimentEngine, KnowledgeDistiller, CounterfactualEngine, AdaptiveStrategy, ResearchAgenda |
-| **ResearchOrchestrator** | Feedback loops between all engines, runs every 5 minutes |
+| **ResearchOrchestrator** | 40-step feedback cycle, orchestrates 30+ engines every 5 minutes |
+| **BootstrapService** | Cold-start fix: seeds observations, journal, hypotheses, metrics on first cycle |
 | **DataMiner** | Bootstraps historical DB data into research engines, incremental mining |
 | **Dream Engine** | Offline consolidation — memory replay, synapse pruning, compression, decay |
 | **ThoughtStream + Consciousness** | Real-time thought capture + live neural dashboard with SSE |
 | **Prediction Engine** | Holt-Winters + EWMA forecasting with auto-calibration |
 | **AutoResponder** | Anomaly → automatic parameter adjustment, escalation, resolution |
-| **CodeGenerator** | Claude API with brain knowledge as context (principles, patterns) |
-| **CodeMiner + PatternExtractor** | GitHub repo mining → dependency, tech stack, structure patterns |
+| **AttentionEngine** | Dynamic focus, context detection, engine weight allocation |
+| **TransferEngine** | Cross-brain knowledge transfer, analogies, cross-domain rules |
+| **NarrativeEngine** | Brain explains itself in natural language, finds contradictions |
+| **CuriosityEngine** | Knowledge gap detection, UCB1 explore/exploit, blind spot detection |
+| **EmergenceEngine** | Emergent behavior detection, complexity metrics, phase transitions |
+| **DebateEngine** | Multi-agent debates, advocatus diaboli, consensus synthesis |
+| **MetaCognitionLayer** | Engine performance grading (A-F), frequency adjustment |
+| **ParameterRegistry** | Central tunable parameter store with 30+ parameters |
+| **AutoExperimentEngine** | Autonomous parameter tuning with snapshot/rollback |
+| **EvolutionEngine** | Genetic algorithm for global parameter optimization |
+| **ReasoningEngine** | Forward chaining, abductive reasoning, temporal inference, counterfactuals |
+| **EmotionalModel** | 8 emotion dimensions, 6 moods, mood-based recommendations |
+| **GoalEngine** | Goal planning with progress tracking and forecasting |
+| **MemoryPalace** | Knowledge graph with BFS pathfinding and connection building |
+| **SelfTestEngine** | Tests if brain truly understands its own principles |
+| **TeachEngine** | Generates teaching packages for other brains |
+| **SimulationEngine** | What-if scenarios via CausalGraph + PredictionEngine |
+| **DataScout** | External data from GitHub/npm/HN |
+| **SelfScanner** | Indexes own source code for self-modification context |
+| **SelfModificationEngine** | Generates and tests code changes autonomously via Claude API |
+| **CodeGenerator + CodeMiner** | Code generation with brain context + GitHub repo mining |
 | **CodegenServer** | HTTP + SSE dashboard for code review (approve/reject) |
 | **Signal Scanner** | GitHub trending, Hacker News, crypto signal tracking |
-| **Webhook Service** | HMAC-SHA256 signed webhooks with retry |
-| **Export / Backup** | JSON/CSV export, timestamped SQLite backups with integrity check |
+| **Webhook / Export / Backup** | HMAC webhooks, JSON/CSV export, SQLite backups |
 | **Memory System** | Persistent memory with categories, importance, FTS5 search |
 | **Cross-Brain** | Peer discovery, event notifications, cross-brain correlation |
 
@@ -207,6 +238,7 @@ Every brain runs the same 9 research engines in feedback loops:
 | Trading Consciousness | 7785 | HTTP + SSE |
 | Marketing Consciousness | 7786 | HTTP + SSE |
 | Brain CodeGen Dashboard | 7787 | HTTP + SSE |
+| Unified Dashboard | 7788 | HTTP + SSE |
 
 ## CLI Commands
 
@@ -256,7 +288,7 @@ git clone https://github.com/timmeck/brain-ecosystem.git
 cd brain-ecosystem
 npm install          # installs all workspace dependencies
 npm run build        # builds all packages (brain-core first)
-npm test             # runs all 2075 tests
+npm test             # runs all 2496 tests
 ```
 
 ### Package Dependencies
@@ -279,7 +311,7 @@ brain-core          (no internal deps)
 - **Claude API** — Code generation with brain knowledge context
 - **Commander** — CLI framework
 - **Winston** — Structured logging with file rotation
-- **Vitest** — 2075 tests across the ecosystem
+- **Vitest** — 2496 tests across the ecosystem
 
 ## Support
 
