@@ -65,7 +65,7 @@ import { createMarketingDashboardServer } from './dashboard/server.js';
 import { renderDashboard } from './dashboard/renderer.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, MarketingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, MarketingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction } from '@timmeck/brain-core';
 import type { HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 export class MarketingCore {
@@ -299,7 +299,7 @@ export class MarketingCore {
     services.narrativeEngine = this.narrativeEngine;
 
     // 12l. Curiosity Engine — knowledge gap detection & exploration/exploitation
-    this.curiosityEngine = new CuriosityEngine(this.db!, { brainName: 'marketing-brain' });
+    this.curiosityEngine = new CuriosityEngine(this.db!, { brainName: 'marketing-brain', gapThreshold: 0.3 });
     this.curiosityEngine.setThoughtStream(thoughtStream);
     this.curiosityEngine.setDataSources({
       attentionEngine: this.attentionEngine!,
@@ -404,6 +404,9 @@ export class MarketingCore {
     // 11p. DataScout — discovers external data sources
     runDataScoutMigration(this.db!);
     const dataScout = new DataScout(this.db!);
+    dataScout.addAdapter(new GitHubTrendingAdapter());
+    dataScout.addAdapter(new NpmStatsAdapter());
+    dataScout.addAdapter(new HackerNewsAdapter());
     dataScout.setThoughtStream(thoughtStream);
     this.orchestrator.setDataScout(dataScout);
     services.dataScout = dataScout;

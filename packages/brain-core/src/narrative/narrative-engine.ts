@@ -304,11 +304,11 @@ export class NarrativeEngine {
     const antiPatterns = this.sources.knowledgeDistiller?.getAntiPatterns(undefined, 100) ?? [];
     const hypotheses = this.sources.hypothesisEngine?.list(undefined, 200) ?? [];
 
-    // 1. Confirmed hypotheses vs anti-patterns
+    // 1. Confirmed hypotheses vs anti-patterns (need strong overlap + negation signal)
     const confirmed = hypotheses.filter(h => h.status === 'confirmed');
     for (const h of confirmed) {
       for (const a of antiPatterns) {
-        if (this.topicOverlap(h.statement, a.statement) > 0.25) {
+        if (this.topicOverlap(h.statement, a.statement) > 0.45) {
           contradictions.push({
             id: idCounter++,
             type: 'hypothesis_vs_antipattern',
@@ -327,7 +327,7 @@ export class NarrativeEngine {
     const rejected = hypotheses.filter(h => h.status === 'rejected');
     for (const c of confirmed) {
       for (const r of rejected) {
-        if (this.topicOverlap(c.statement, r.statement) > 0.3) {
+        if (this.topicOverlap(c.statement, r.statement) > 0.45) {
           contradictions.push({
             id: idCounter++,
             type: 'hypothesis_vs_hypothesis',
@@ -380,12 +380,19 @@ export class NarrativeEngine {
       }
     }
 
+    // Cap: keep only the most severe contradictions to avoid noise
+    contradictions.sort((a, b) => {
+      const sev = { high: 3, medium: 2, low: 1 };
+      return (sev[b.severity] ?? 0) - (sev[a.severity] ?? 0);
+    });
+    const capped = contradictions.slice(0, 50);
+
     this.thoughtStream?.emit('narrative', 'discovering',
-      `Found ${contradictions.length} contradictions (${contradictions.filter(c => c.severity === 'high').length} high severity)`,
-      contradictions.length > 0 ? 'notable' : 'routine',
+      `Found ${capped.length} contradictions (${capped.filter(c => c.severity === 'high').length} high severity)`,
+      capped.length > 0 ? 'notable' : 'routine',
     );
 
-    return contradictions;
+    return capped;
   }
 
   // ── Weekly Digest ──────────────────────────────────────
@@ -703,7 +710,7 @@ export class NarrativeEngine {
 
   private seemsContradictory(a: string, b: string): boolean {
     // Simple heuristic: if statements share >30% words but contain negation/opposite signals
-    if (this.topicOverlap(a, b) < 0.3) return false;
+    if (this.topicOverlap(a, b) < 0.4) return false;
     const negations = ['not', 'never', 'no', 'decrease', 'reduce', 'lower', 'worse', 'fail', 'nicht', 'nie', 'kein'];
     const aHasNeg = negations.some(n => a.toLowerCase().includes(n));
     const bHasNeg = negations.some(n => b.toLowerCase().includes(n));
