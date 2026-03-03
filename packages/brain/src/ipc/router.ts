@@ -115,6 +115,7 @@ export interface Services {
   selfScanner?: import('@timmeck/brain-core').SelfScanner;
   selfModificationEngine?: import('@timmeck/brain-core').SelfModificationEngine;
   conceptAbstraction?: import('@timmeck/brain-core').ConceptAbstraction;
+  peerNetwork?: import('@timmeck/brain-core').PeerNetwork;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -772,6 +773,11 @@ export class IpcRouter {
       ['concept.byLevel',          (params) => { if (!s.conceptAbstraction) throw new Error('ConceptAbstraction not available'); return s.conceptAbstraction.getConceptsByLevel(p(params).level ?? 0); }],
       ['concept.transferable',     (params) => { if (!s.conceptAbstraction) throw new Error('ConceptAbstraction not available'); return s.conceptAbstraction.getTransferableConcepts(p(params)?.min ?? 0.3); }],
       ['concept.register',         () => { if (!s.conceptAbstraction) throw new Error('ConceptAbstraction not available'); if (!s.memoryPalace) throw new Error('MemoryPalace not available'); return { registered: s.conceptAbstraction.registerInPalace(s.memoryPalace) }; }],
+
+      // Peer Network
+      ['peer.status',              () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); return s.peerNetwork.getStatus(); }],
+      ['peer.list',                () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); return s.peerNetwork.getAvailablePeers(); }],
+      ['peer.announce',            () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); s.peerNetwork.announce(); return { announced: true }; }],
 
       // Status (cross-brain)
       ['status',                  () => ({

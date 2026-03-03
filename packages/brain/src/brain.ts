@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
@@ -92,6 +92,7 @@ export class BrainCore {
   private curiosityEngine: CuriosityEngine | null = null;
   private emergenceEngine: EmergenceEngine | null = null;
   private debateEngine: DebateEngine | null = null;
+  private peerNetwork: PeerNetwork | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -887,6 +888,31 @@ export class BrainCore {
     // Wire subscription manager into IPC router
     router.setSubscriptionManager(this.subscriptionManager, this.ipcServer);
 
+    // 12b. PeerNetwork — UDP multicast auto-discovery
+    this.peerNetwork = new PeerNetwork({
+      brainName: 'brain',
+      httpPort: config.api.port,
+      packageVersion: '3.36.0',
+      getKnowledgeSummary: () => {
+        try {
+          const p = this.orchestrator?.knowledgeDistiller?.getPrinciples(undefined, 1000) ?? [];
+          const h = this.orchestrator?.hypothesisEngine?.list(undefined, 1000) ?? [];
+          const e = this.orchestrator?.experimentEngine?.list(undefined, 1000) ?? [];
+          return { principles: p.length, hypotheses: h.length, experiments: e.length };
+        } catch { return { principles: 0, hypotheses: 0, experiments: 0 }; }
+      },
+    });
+    this.peerNetwork.onPeerDiscovered((peer) => {
+      logger.info(`[peer-network] Discovered peer: ${peer.name} (v${peer.packageVersion})`);
+      this.crossBrain?.addPeer({ name: peer.name, pipeName: peer.pipeName });
+    });
+    this.peerNetwork.onPeerLost((peer) => {
+      logger.warn(`[peer-network] Lost peer: ${peer.name}`);
+      this.crossBrain?.removePeer(peer.name);
+    });
+    this.peerNetwork.startDiscovery();
+    services.peerNetwork = this.peerNetwork;
+
     // 11a. REST API Server
     if (config.api.enabled) {
       this.apiServer = new ApiServer({
@@ -965,6 +991,7 @@ export class BrainCore {
       this.cleanupTimer = null;
     }
 
+    this.peerNetwork?.stopDiscovery();
     this.subscriptionManager?.disconnectAll();
     this.attentionEngine?.stop();
     this.unifiedServer?.stop();
@@ -994,6 +1021,7 @@ export class BrainCore {
     this.correlator = null;
     this.ecosystemService = null;
     this.researchScheduler = null;
+    this.peerNetwork = null;
   }
 
   restart(): void {

@@ -27,6 +27,7 @@ import { registerReasoningToolsDirect } from './reasoning-tools.js';
 import { registerEmotionalToolsDirect } from './emotional-tools.js';
 import { registerSelfmodToolsDirect } from './selfmod-tools.js';
 import { registerConceptToolsDirect } from './concept-tools.js';
+import { registerPeerToolsDirect } from './peer-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -65,6 +66,7 @@ export class McpHttpServer {
         registerEmotionalToolsDirect(server, router);
         registerSelfmodToolsDirect(server, router);
         registerConceptToolsDirect(server, router);
+        registerPeerToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

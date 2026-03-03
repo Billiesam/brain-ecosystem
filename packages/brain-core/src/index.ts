@@ -340,6 +340,10 @@ export type {
   ConceptHistoryEntry, ConceptHierarchy, ConceptStatus,
 } from './concept-abstraction/index.js';
 
+// ── Peer Network ────────────────────────────────────────
+export { PeerNetwork } from './peer-network/index.js';
+export type { PeerInfo, PeerNetworkConfig, PeerNetworkStatus } from './peer-network/index.js';
+
 // ── Scanner ──────────────────────────────────────────────
 export { SignalScanner, runScannerMigration } from './scanner/index.js';
 export { GitHubCollector } from './scanner/index.js';

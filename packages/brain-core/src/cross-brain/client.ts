@@ -91,4 +91,17 @@ export class CrossBrainClient {
   getPeerNames(): string[] {
     return this.peers.map(p => p.name);
   }
+
+  /** Dynamically add a peer (no duplicates). */
+  addPeer(peer: BrainPeer): void {
+    if (peer.name === this.selfName) return;
+    if (this.peers.some(p => p.name === peer.name)) return;
+    this.peers.push(peer);
+  }
+
+  /** Dynamically remove a peer by name. */
+  removePeer(name: string): void {
+    const idx = this.peers.findIndex(p => p.name === name);
+    if (idx !== -1) this.peers.splice(idx, 1);
+  }
 }

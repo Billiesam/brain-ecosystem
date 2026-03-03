@@ -19,6 +19,7 @@ import { registerMemoryPalaceToolsDirect } from './memory-palace-tools.js';
 import { registerGoalToolsDirect } from './goal-tools.js';
 import { registerEvolutionToolsDirect } from './evolution-tools.js';
 import { registerConceptToolsDirect } from './concept-tools.js';
+import { registerPeerToolsDirect } from './peer-tools.js';
 
 export class McpHttpServer {
   private inner: CoreMcpHttpServer;
@@ -48,6 +49,7 @@ export class McpHttpServer {
         registerGoalToolsDirect(server, router);
         registerEvolutionToolsDirect(server, router);
         registerConceptToolsDirect(server, router);
+        registerPeerToolsDirect(server, router);
       },
     );
   }

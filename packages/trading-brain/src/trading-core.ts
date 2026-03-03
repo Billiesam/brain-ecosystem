@@ -53,7 +53,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork } from '@timmeck/brain-core';
 import type { HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 export class TradingCore {
@@ -74,6 +74,7 @@ export class TradingCore {
   private curiosityEngine: CuriosityEngine | null = null;
   private emergenceEngine: EmergenceEngine | null = null;
   private debateEngine: DebateEngine | null = null;
+  private peerNetwork: PeerNetwork | null = null;
   private config: TradingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -616,6 +617,31 @@ export class TradingCore {
     // Wire subscription manager into IPC router
     router.setSubscriptionManager(this.subscriptionManager, this.ipcServer);
 
+    // 13b. PeerNetwork — UDP multicast auto-discovery
+    this.peerNetwork = new PeerNetwork({
+      brainName: 'trading-brain',
+      httpPort: config.api.port,
+      packageVersion: '2.31.0',
+      getKnowledgeSummary: () => {
+        try {
+          const p = this.orchestrator?.knowledgeDistiller?.getPrinciples(undefined, 1000) ?? [];
+          const h = this.orchestrator?.hypothesisEngine?.list(undefined, 1000) ?? [];
+          const e = this.orchestrator?.experimentEngine?.list(undefined, 1000) ?? [];
+          return { principles: p.length, hypotheses: h.length, experiments: e.length };
+        } catch { return { principles: 0, hypotheses: 0, experiments: 0 }; }
+      },
+    });
+    this.peerNetwork.onPeerDiscovered((peer) => {
+      logger.info(`[peer-network] Discovered peer: ${peer.name} (v${peer.packageVersion})`);
+      this.crossBrain?.addPeer({ name: peer.name, pipeName: peer.pipeName });
+    });
+    this.peerNetwork.onPeerLost((peer) => {
+      logger.warn(`[peer-network] Lost peer: ${peer.name}`);
+      this.crossBrain?.removePeer(peer.name);
+    });
+    this.peerNetwork.startDiscovery();
+    services.peerNetwork = this.peerNetwork;
+
     // 13. REST API Server
     if (config.api.enabled) {
       this.apiServer = new ApiServer({
@@ -682,6 +708,7 @@ export class TradingCore {
   }
 
   private cleanup(): void {
+    this.peerNetwork?.stopDiscovery();
     this.subscriptionManager?.disconnectAll();
     this.attentionEngine?.stop();
     // consciousnessServer removed
@@ -705,6 +732,7 @@ export class TradingCore {
     this.curiosityEngine = null;
     this.emergenceEngine = null;
     this.debateEngine = null;
+    this.peerNetwork = null;
     this.subscriptionManager = null;
     this.correlator = null;
   }
