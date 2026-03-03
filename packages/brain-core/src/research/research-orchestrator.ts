@@ -40,6 +40,8 @@ import type { GoalEngine } from '../goals/goal-engine.js';
 import type { EvolutionEngine } from '../metacognition/evolution-engine.js';
 import type { ReasoningEngine } from '../reasoning/reasoning-engine.js';
 import type { EmotionalModel } from '../emotional/emotional-model.js';
+import type { SelfScanner } from '../self-scanner/self-scanner.js';
+import type { SelfModificationEngine } from '../self-modification/self-modification-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -97,6 +99,8 @@ export class ResearchOrchestrator {
   private evolutionEngine: EvolutionEngine | null = null;
   private reasoningEngine: ReasoningEngine | null = null;
   private emotionalModel: EmotionalModel | null = null;
+  private selfScanner: SelfScanner | null = null;
+  private selfModificationEngine: SelfModificationEngine | null = null;
 
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -238,6 +242,12 @@ export class ResearchOrchestrator {
   /** Set the ReasoningEngine — multi-step logical inference chains. */
   setReasoningEngine(engine: ReasoningEngine): void { this.reasoningEngine = engine; }
   setEmotionalModel(model: EmotionalModel): void { this.emotionalModel = model; }
+
+  /** Set the SelfScanner — indexes own source code for self-modification context. */
+  setSelfScanner(scanner: SelfScanner): void { this.selfScanner = scanner; }
+
+  /** Set the SelfModificationEngine — generates and applies code changes autonomously. */
+  setSelfModificationEngine(engine: SelfModificationEngine): void { this.selfModificationEngine = engine; }
 
   /** Set the PredictionEngine — wires journal into it. */
   setPredictionEngine(engine: PredictionEngine): void {
@@ -1375,6 +1385,52 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 38 error: ${(err as Error).message}`); }
     }
 
+    // Step 39: SelfScanner — index own source code (every 20 cycles)
+    if (this.selfScanner && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('self-scanner', 'analyzing', 'Step 39: Scanning own source code...', 'routine');
+        const scanResult = this.selfScanner.scan(this.selfModificationEngine ? (this.selfModificationEngine as unknown as { config: { projectRoot: string } }).config?.projectRoot || '.' : '.');
+        this.log.info(`[orchestrator] SelfScanner: ${scanResult.totalFiles} files (${scanResult.newFiles} new, ${scanResult.updatedFiles} updated, ${scanResult.durationMs}ms)`);
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('self_scanner', this.cycleCount, { insights: scanResult.totalFiles, thoughts: scanResult.totalEntities });
+      } catch (err) { this.log.warn(`[orchestrator] Step 39 error: ${(err as Error).message}`); }
+    }
+
+    // Step 40: SelfModification — propose and test code changes (every 20 cycles)
+    if (this.selfModificationEngine && this.cycleCount % 20 === 0) {
+      try {
+        // Skip if there are already pending modifications
+        const pending = this.selfModificationEngine.getPending();
+        if (pending.length === 0) {
+          ts?.emit('self-modification', 'analyzing', 'Step 40: Looking for self-improvement opportunities...', 'routine');
+          const suggestion = this.findActionableSuggestion();
+          if (suggestion) {
+            const mod = this.selfModificationEngine.proposeModification(
+              suggestion.title,
+              suggestion.problem,
+              suggestion.targetFiles,
+              'orchestrator',
+            );
+            ts?.emit('self-modification', 'discovering', `Self-modification proposed: ${mod.title}`, 'notable');
+
+            // Try to generate + test
+            try {
+              await this.selfModificationEngine.generateCode(mod.id);
+              this.selfModificationEngine.testModification(mod.id);
+              const tested = this.selfModificationEngine.getModification(mod.id);
+              if (tested?.status === 'ready') {
+                ts?.emit('self-modification', 'discovering', `Self-modification ready for review: ${mod.title}`, 'breakthrough');
+              }
+            } catch (genErr) {
+              this.log.warn(`[orchestrator] Step 40 generation/test failed: ${(genErr as Error).message}`);
+            }
+          }
+          if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('self_modification', this.cycleCount, { insights: suggestion ? 1 : 0 });
+        } else {
+          ts?.emit('self-modification', 'reflecting', `Step 40: ${pending.length} pending modification(s) awaiting review`, 'routine');
+        }
+      } catch (err) { this.log.warn(`[orchestrator] Step 40 error: ${(err as Error).message}`); }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -2117,6 +2173,63 @@ export class ResearchOrchestrator {
     }
   }
 
+  /** Find a concrete self-improvement suggestion that maps to specific files. */
+  private findActionableSuggestion(): { title: string; problem: string; targetFiles: string[] } | null {
+    const suggestions = this.generateSelfImprovementSuggestions();
+    if (suggestions.length === 0 || !this.selfScanner) return null;
+
+    // Engine name → module file mapping heuristics
+    const engineMap: Record<string, string[]> = {
+      SelfObserver: ['research/self-observer'],
+      PredictionEngine: ['prediction/prediction-engine'],
+      AutoResponder: ['research/auto-responder'],
+      DreamEngine: ['dream/dream-engine'],
+      CuriosityEngine: ['curiosity/curiosity-engine'],
+      EmergenceEngine: ['emergence/emergence-engine'],
+      DebateEngine: ['debate/debate-engine'],
+      MetaCognitionLayer: ['metacognition/meta-cognition-layer'],
+      NarrativeEngine: ['narrative/narrative-engine'],
+      AttentionEngine: ['attention/attention-engine'],
+      TransferEngine: ['transfer/transfer-engine'],
+      ReasoningEngine: ['reasoning/reasoning-engine'],
+      EmotionalModel: ['emotional/emotional-model'],
+      GoalEngine: ['goals/goal-engine'],
+      EvolutionEngine: ['metacognition/evolution-engine'],
+      MemoryPalace: ['memory-palace/memory-palace'],
+    };
+
+    for (const suggestion of suggestions) {
+      // Find engine names in suggestion text
+      for (const [engineName, filePaths] of Object.entries(engineMap)) {
+        if (suggestion.toLowerCase().includes(engineName.toLowerCase())) {
+          // Find the actual file via SelfScanner
+          const entities = this.selfScanner.getEntities({ entityName: engineName, entityType: 'class' });
+          if (entities.length > 0) {
+            const targetFiles = entities.map(e => e.file_path).slice(0, 2);
+            return {
+              title: `Improve ${engineName}`,
+              problem: suggestion,
+              targetFiles,
+            };
+          }
+          // Fall back to known paths
+          const knownTargets = filePaths
+            .map(fp => `packages/brain-core/src/${fp}.ts`)
+            .filter(fp => this.selfScanner!.getFileContent(fp) !== null);
+          if (knownTargets.length > 0) {
+            return {
+              title: `Improve ${engineName}`,
+              problem: suggestion,
+              targetFiles: knownTargets,
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   /** Get a comprehensive research summary for dashboards/API. */
   getSummary(): Record<string, unknown> {
     return {
@@ -2152,6 +2265,8 @@ export class ResearchOrchestrator {
       goals: this.goalEngine?.getStatus() ?? null,
       reasoning: this.reasoningEngine?.getStatus() ?? null,
       emotional: this.emotionalModel?.getStatus() ?? null,
+      selfScanner: this.selfScanner?.getStatus() ?? null,
+      selfModification: this.selfModificationEngine?.getStatus() ?? null,
     };
   }
 }

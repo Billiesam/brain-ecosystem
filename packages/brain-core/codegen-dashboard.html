@@ -540,6 +540,117 @@
   .flash-approved { animation: flash-green 1.5s ease-out; }
   .flash-rejected { animation: flash-red 1.5s ease-out; }
 
+  /* ── Self-Modification Panel ─────────────────── */
+  .selfmod-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .selfmod-panel .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .selfmod-status-cards {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .selfmod-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .selfmod-stat .val { font-size: 22px; font-weight: 700; color: var(--cyan); }
+  .selfmod-stat .lbl { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .selfmod-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .selfmod-card .title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .selfmod-card .title-row .title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .selfmod-card .desc { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+  .selfmod-card .files { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; }
+  .selfmod-card .diff-viewer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .selfmod-card .diff-side {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .selfmod-card .diff-side pre { white-space: pre-wrap; word-break: break-all; }
+  .selfmod-card .diff-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .diff-label-old { color: var(--red); }
+  .diff-label-new { color: var(--green); }
+  .selfmod-card .test-output {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+  }
+  .selfmod-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .selfmod-actions button {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .btn-selfmod-approve { background: var(--green); color: #000; }
+  .btn-selfmod-approve:hover { box-shadow: var(--glow-green); }
+  .btn-selfmod-reject { background: var(--red); color: #fff; }
+  .btn-selfmod-reject:hover { box-shadow: var(--glow-red); }
+  .btn-selfmod-test { background: var(--blue); color: #fff; }
+  .btn-selfmod-test:hover { box-shadow: 0 0 15px rgba(68,138,255,0.4); }
+  .badge-proposed { background: rgba(179, 136, 255, 0.2); color: var(--purple); }
+  .badge-testing { background: rgba(68, 138, 255, 0.2); color: var(--blue); }
+  .badge-ready { background: rgba(0, 229, 255, 0.2); color: var(--cyan); }
+  .badge-applied { background: rgba(0, 255, 136, 0.2); color: var(--green); }
+  .badge-rolled_back { background: rgba(255, 145, 0, 0.2); color: var(--orange); }
+
   /* ── Responsive ─────────────────────────────── */
   @media (max-width: 900px) {
     .status-cards { grid-template-columns: repeat(2, 1fr); }
@@ -650,6 +761,21 @@
     </div>
   </div>
 
+  <!-- Self-Modification Panel -->
+  <div class="selfmod-panel" id="selfmodPanel">
+    <div class="panel-title">&#9881; Self-Modification</div>
+    <div class="selfmod-status-cards">
+      <div class="selfmod-stat"><div class="val" id="smProposed">0</div><div class="lbl">Proposed</div></div>
+      <div class="selfmod-stat"><div class="val" id="smTesting">0</div><div class="lbl">Testing</div></div>
+      <div class="selfmod-stat"><div class="val" id="smReady" style="color:var(--cyan)">0</div><div class="lbl">Ready</div></div>
+      <div class="selfmod-stat"><div class="val" id="smApplied" style="color:var(--green)">0</div><div class="lbl">Applied</div></div>
+      <div class="selfmod-stat"><div class="val" id="smFailed" style="color:var(--red)">0</div><div class="lbl">Failed</div></div>
+    </div>
+    <div id="selfmodList">
+      <div class="no-pending">No self-modifications yet</div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <div class="footer">
     <span>CodeGen Dashboard &mdash; Brain Ecosystem</span>
@@ -660,7 +786,7 @@
 
 <script>
 // ── State ──────────────────────────────────────
-let state = { summary: null, generations: [], pending: [], minerSummary: null, patterns: null };
+let state = { summary: null, generations: [], pending: [], minerSummary: null, patterns: null, selfmod: null };
 let connected = false;
 let startTime = Date.now();
 let currentTab = 'dependencies';
@@ -696,6 +822,13 @@ function connectSSE() {
     loadState();
   });
 
+  // Self-Modification SSE events
+  eventSource.addEventListener('selfmod:ready', () => { loadState(); });
+  eventSource.addEventListener('selfmod:approved', () => { loadState(); });
+  eventSource.addEventListener('selfmod:rejected', () => { loadState(); });
+  eventSource.addEventListener('selfmod:applied', () => { loadState(); });
+  eventSource.addEventListener('selfmod:failed', () => { loadState(); });
+
   eventSource.addEventListener('heartbeat', () => {
     // keep-alive
   });
@@ -723,6 +856,7 @@ function render() {
   renderPending();
   renderHistory();
   renderPatterns();
+  renderSelfmod();
 }
 
 function renderStats() {
@@ -869,6 +1003,93 @@ async function reviewGeneration(id, action) {
         card.classList.add(action === 'approve' ? 'flash-approved' : 'flash-rejected');
         setTimeout(() => loadState(), 800);
       }
+    } else {
+      const data = await res.json();
+      showNotification('Error: ' + data.error, 'error');
+    }
+  } catch {
+    showNotification('Network error', 'error');
+  }
+}
+
+// ── Self-Modification ──────────────────────────
+function renderSelfmod() {
+  const sm = state.selfmod;
+  if (!sm) {
+    document.getElementById('selfmodPanel').style.display = 'none';
+    return;
+  }
+  document.getElementById('selfmodPanel').style.display = '';
+
+  const s = sm.status?.byStatus || {};
+  document.getElementById('smProposed').textContent = s.proposed || 0;
+  document.getElementById('smTesting').textContent = s.testing || 0;
+  document.getElementById('smReady').textContent = s.ready || 0;
+  document.getElementById('smApplied').textContent = s.applied || 0;
+  document.getElementById('smFailed').textContent = s.failed || 0;
+
+  const all = [...(sm.pending || []), ...(sm.history || [])];
+  // Deduplicate by id
+  const seen = new Set();
+  const unique = [];
+  for (const m of all) {
+    if (!seen.has(m.id)) { seen.add(m.id); unique.push(m); }
+  }
+  unique.sort((a, b) => b.id - a.id);
+
+  const container = document.getElementById('selfmodList');
+  if (unique.length === 0) {
+    container.innerHTML = '<div class="no-pending">No self-modifications yet</div>';
+    return;
+  }
+
+  container.innerHTML = unique.slice(0, 20).map(mod => {
+    const diffs = mod.generated_diff || [];
+    const diffHtml = diffs.length > 0 ? diffs.map(d => `
+      <div class="diff-viewer">
+        <div class="diff-side">
+          <div class="diff-label diff-label-old">Old: ${escapeHtml(d.filePath)}</div>
+          <pre>${highlightSyntax(d.oldContent || '(new file)', 'typescript')}</pre>
+        </div>
+        <div class="diff-side">
+          <div class="diff-label diff-label-new">New: ${escapeHtml(d.filePath)}</div>
+          <pre>${highlightSyntax(d.newContent || '', 'typescript')}</pre>
+        </div>
+      </div>
+    `).join('') : '';
+
+    const testHtml = mod.test_output ? `<div class="test-output">${escapeHtml(mod.test_output)}</div>` : '';
+
+    const actions = mod.status === 'ready' ? `
+      <div class="selfmod-actions">
+        <button class="btn-selfmod-approve" onclick="selfmodAction(${mod.id}, 'approve')">Approve & Apply</button>
+        <button class="btn-selfmod-reject" onclick="selfmodAction(${mod.id}, 'reject')">Reject</button>
+      </div>` : '';
+
+    return `
+      <div class="selfmod-card" id="selfmod-${mod.id}">
+        <div class="title-row">
+          <span class="title">${escapeHtml(mod.title)}</span>
+          <span class="badge badge-${mod.status}">${mod.status}</span>
+        </div>
+        <div class="desc">${escapeHtml(mod.problem_description)}</div>
+        <div class="files">Files: ${(mod.target_files || []).join(', ')} | Engine: ${mod.source_engine} | ${mod.tokens_used} tokens | ${mod.generation_time_ms}ms</div>
+        ${diffHtml}
+        ${testHtml}
+        ${actions}
+      </div>
+    `;
+  }).join('');
+}
+
+async function selfmodAction(id, action) {
+  try {
+    const res = await fetch('/api/selfmod/' + id + '/' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      setTimeout(() => loadState(), 500);
     } else {
       const data = await res.json();
       showNotification('Error: ' + data.error, 'error');

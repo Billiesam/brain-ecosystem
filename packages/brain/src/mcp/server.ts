@@ -25,12 +25,13 @@ import { registerGoalTools } from './goal-tools.js';
 import { registerEvolutionTools } from './evolution-tools.js';
 import { registerReasoningTools } from './reasoning-tools.js';
 import { registerEmotionalTools } from './emotional-tools.js';
+import { registerSelfmodTools } from './selfmod-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
   await coreStartMcpServer({
     name: 'brain',
-    version: '3.26.0',
+    version: '3.32.0',
     entryPoint: path.resolve(import.meta.dirname, '../index.ts'),
     registerTools: (server, ipc) => {
       registerTools(server, ipc);
@@ -58,6 +59,7 @@ export async function startMcpServer(): Promise<void> {
       registerEvolutionTools(server, ipc);
       registerReasoningTools(server, ipc);
       registerEmotionalTools(server, ipc);
+      registerSelfmodTools(server, ipc);
     },
     registerPrompts,
   });

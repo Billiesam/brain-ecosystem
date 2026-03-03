@@ -5,6 +5,7 @@ import { getLogger } from '../utils/logger.js';
 import type { CodeGenerator } from './code-generator.js';
 import type { CodeMiner } from './code-miner.js';
 import type { PatternExtractor } from './pattern-extractor.js';
+import type { SelfModificationEngine } from '../self-modification/self-modification-engine.js';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface CodegenServerOptions {
   codeGenerator: CodeGenerator;
   codeMiner?: CodeMiner | null;
   patternExtractor?: PatternExtractor | null;
+  selfModificationEngine?: SelfModificationEngine | null;
 }
 
 // ── Server ───────────────────────────────────────────────
@@ -88,6 +90,36 @@ export class CodegenServer {
         return;
       }
 
+      // ─── Self-Modification Routes ────────────────────
+      if (url.pathname === '/api/selfmod/list' && req.method === 'GET') {
+        this.handleSelfmodList(res);
+        return;
+      }
+
+      const selfmodGetMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)$/);
+      if (selfmodGetMatch && req.method === 'GET') {
+        this.handleSelfmodGet(res, Number(selfmodGetMatch[1]));
+        return;
+      }
+
+      const selfmodApproveMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/approve$/);
+      if (selfmodApproveMatch && req.method === 'POST') {
+        this.handleSelfmodAction(res, Number(selfmodApproveMatch[1]), 'approve');
+        return;
+      }
+
+      const selfmodRejectMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/reject$/);
+      if (selfmodRejectMatch && req.method === 'POST') {
+        this.handleSelfmodAction(res, Number(selfmodRejectMatch[1]), 'reject');
+        return;
+      }
+
+      const selfmodTestMatch = url.pathname.match(/^\/api\/selfmod\/(\d+)\/test$/);
+      if (selfmodTestMatch && req.method === 'POST') {
+        this.handleSelfmodAction(res, Number(selfmodTestMatch[1]), 'test');
+        return;
+      }
+
       // SSE stream
       if (url.pathname === '/events') {
         res.writeHead(200, {
@@ -160,7 +192,7 @@ export class CodegenServer {
   // ── Route Handlers ──────────────────────────────────────
 
   private handleGetState(res: http.ServerResponse): void {
-    const { codeGenerator, codeMiner, patternExtractor } = this.options;
+    const { codeGenerator, codeMiner, patternExtractor, selfModificationEngine } = this.options;
     try {
       const state = {
         summary: codeGenerator.getSummary(),
@@ -172,6 +204,11 @@ export class CodegenServer {
           tech_stacks: patternExtractor.getPatterns('tech_stack', 10),
           structures: patternExtractor.getPatterns('structure', 20),
           readme: patternExtractor.getPatterns('readme', 15),
+        } : null,
+        selfmod: selfModificationEngine ? {
+          status: selfModificationEngine.getStatus(),
+          pending: selfModificationEngine.getPending(),
+          history: selfModificationEngine.getHistory(20),
         } : null,
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -239,5 +276,81 @@ export class CodegenServer {
         res.end(JSON.stringify({ error: (err as Error).message }));
       }
     });
+  }
+
+  // ─── Self-Modification Handlers ──────────────────────
+
+  private handleSelfmodList(res: http.ServerResponse): void {
+    const engine = this.options.selfModificationEngine;
+    if (!engine) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'SelfModificationEngine not available' }));
+      return;
+    }
+    try {
+      const data = {
+        status: engine.getStatus(),
+        pending: engine.getPending(),
+        history: engine.getHistory(50),
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+  }
+
+  private handleSelfmodGet(res: http.ServerResponse, id: number): void {
+    const engine = this.options.selfModificationEngine;
+    if (!engine) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'SelfModificationEngine not available' }));
+      return;
+    }
+    try {
+      const mod = engine.getModification(id);
+      if (!mod) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Modification #${id} not found` }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(mod));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+  }
+
+  private handleSelfmodAction(res: http.ServerResponse, id: number, action: 'approve' | 'reject' | 'test'): void {
+    const engine = this.options.selfModificationEngine;
+    if (!engine) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'SelfModificationEngine not available' }));
+      return;
+    }
+    try {
+      let result;
+      switch (action) {
+        case 'approve':
+          result = engine.approveModification(id);
+          this.broadcast('selfmod:approved', result);
+          break;
+        case 'reject':
+          result = engine.rejectModification(id);
+          this.broadcast('selfmod:rejected', result);
+          break;
+        case 'test':
+          result = engine.testModification(id);
+          this.broadcast(result.test_result === 'passed' ? 'selfmod:ready' : 'selfmod:failed', result);
+          break;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
   }
 }

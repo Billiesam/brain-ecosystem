@@ -53,7 +53,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine } from '@timmeck/brain-core';
 import type { HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 export class TradingCore {
@@ -572,6 +572,22 @@ export class TradingCore {
     });
     this.orchestrator.setEmotionalModel(emotionalModel);
     services.emotionalModel = emotionalModel;
+
+    // ── SelfScanner + SelfModificationEngine ───────
+    const projectRoot = path.resolve(path.dirname(config.dbPath), '..');
+    const selfScanner = new SelfScanner(this.db!, { brainName: 'trading-brain' });
+    this.orchestrator.setSelfScanner(selfScanner);
+    services.selfScanner = selfScanner;
+
+    const selfModificationEngine = new SelfModificationEngine(this.db!, {
+      brainName: 'trading-brain',
+      projectRoot,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+    selfModificationEngine.setSelfScanner(selfScanner);
+    selfModificationEngine.setThoughtStream(thoughtStream);
+    this.orchestrator.setSelfModificationEngine(selfModificationEngine);
+    services.selfModificationEngine = selfModificationEngine;
 
     logger.info('Research orchestrator started (9 engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active, Consciousness on :7785)');
 

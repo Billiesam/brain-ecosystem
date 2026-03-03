@@ -314,6 +314,20 @@ export type { ScoutDiscovery, ScoutAdapter, DataScoutStatus } from './research/d
 export { UnifiedDashboardServer } from './unified/index.js';
 export type { UnifiedDashboardOptions } from './unified/index.js';
 
+// ── Self-Scanner ─────────────────────────────────────────
+export { SelfScanner, runSelfScannerMigration } from './self-scanner/index.js';
+export type {
+  SelfScannerConfig, SourceFile, CodeEntity, EntityType,
+  EntityFilter, ModuleMapEntry, SelfScanResult, SelfScannerStatus,
+} from './self-scanner/index.js';
+
+// ── Self-Modification ────────────────────────────────────
+export { SelfModificationEngine, runSelfModificationMigration } from './self-modification/index.js';
+export type {
+  SelfModificationConfig, ModificationStatus, FileDiff,
+  SelfModification, SelfModificationStatus,
+} from './self-modification/index.js';
+
 // ── Scanner ──────────────────────────────────────────────
 export { SignalScanner, runScannerMigration } from './scanner/index.js';
 export { GitHubCollector } from './scanner/index.js';

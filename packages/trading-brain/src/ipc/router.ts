@@ -97,6 +97,8 @@ export interface Services {
   evolutionEngine?: import('@timmeck/brain-core').EvolutionEngine;
   reasoningEngine?: import('@timmeck/brain-core').ReasoningEngine;
   emotionalModel?: import('@timmeck/brain-core').EmotionalModel;
+  selfScanner?: import('@timmeck/brain-core').SelfScanner;
+  selfModificationEngine?: import('@timmeck/brain-core').SelfModificationEngine;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -608,6 +610,16 @@ export class IpcRouter {
       ['emotional.influences',      (params) => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getInfluences(p(params)?.limit ?? 20); }],
       ['emotional.recommendations', () => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.getRecommendations(); }],
       ['emotional.sense',           () => { if (!s.emotionalModel) throw new Error('EmotionalModel not available'); return s.emotionalModel.sense(); }],
+
+      // ─── Self-Modification ──────────────────────────
+      ['selfmod.status',           () => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.getStatus(); }],
+      ['selfmod.list',             (params) => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.getHistory(p(params)?.limit ?? 20); }],
+      ['selfmod.pending',          () => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.getPending(); }],
+      ['selfmod.get',              (params) => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.getModification(p(params).id); }],
+      ['selfmod.approve',          (params) => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.approveModification(p(params).id); }],
+      ['selfmod.reject',           (params) => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.rejectModification(p(params).id, p(params)?.notes); }],
+      ['selfmod.scan',             () => { if (!s.selfScanner) throw new Error('SelfScanner not available'); return s.selfScanner.scan(s.selfModificationEngine?.getStatus()?.projectRoot || '.'); }],
+      ['selfmod.propose',          (params) => { if (!s.selfModificationEngine) throw new Error('SelfModificationEngine not available'); return s.selfModificationEngine.proposeModification(p(params).title, p(params).problem, p(params).targetFiles, p(params)?.sourceEngine); }],
 
       ['status', () => ({
         name: 'trading-brain',

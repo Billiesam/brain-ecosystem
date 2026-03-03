@@ -2,6 +2,7 @@ import type { KnowledgeDistiller } from '../research/knowledge-distiller.js';
 import type { ResearchJournal } from '../research/journal.js';
 import type { PatternExtractor } from './pattern-extractor.js';
 import type { SignalScanner } from '../scanner/signal-scanner.js';
+import type { SelfScanner } from '../self-scanner/self-scanner.js';
 import type { ContextBuilderConfig, BuiltContext, GenerationRequest } from './types.js';
 
 // ── ContextBuilder ───────────────────────────────────────
@@ -11,6 +12,7 @@ export class ContextBuilder {
   private journal: ResearchJournal | null;
   private patternExtractor: PatternExtractor | null;
   private signalScanner: SignalScanner | null;
+  private selfScanner: SelfScanner | null = null;
   private config: Required<ContextBuilderConfig>;
 
   constructor(
@@ -33,6 +35,9 @@ export class ContextBuilder {
       maxTrending: config.maxTrending ?? 5,
     };
   }
+
+  /** Set the SelfScanner for own codebase context. */
+  setSelfScanner(scanner: SelfScanner): void { this.selfScanner = scanner; }
 
   /** Build the complete system prompt from brain knowledge. */
   build(request: GenerationRequest): BuiltContext {
@@ -134,7 +139,30 @@ export class ContextBuilder {
       } catch { /* scanner may not be available */ }
     }
 
-    // 7. Task section
+    // 7. Own codebase architecture (from SelfScanner)
+    if (this.selfScanner) {
+      const archSummary = this.selfScanner.getArchitectureSummary();
+      if (archSummary && archSummary !== 'No source files scanned yet.') {
+        sections.push('## Eigene Codebase (Architektur-Übersicht)');
+        sections.push(archSummary);
+        sections.push('');
+      }
+
+      // Include target file source code if specified
+      if (request.target_file) {
+        const content = this.selfScanner.getFileContent(request.target_file);
+        if (content) {
+          const truncated = content.length > 8000 ? content.substring(0, 8000) + '\n// ... (truncated)' : content;
+          sections.push('## Aktueller Quellcode der Zieldatei');
+          sections.push('```typescript');
+          sections.push(truncated);
+          sections.push('```');
+          sections.push('');
+        }
+      }
+    }
+
+    // 8. Task section
     sections.push('## Aufgabe');
     sections.push(request.task);
     if (request.context) {
@@ -144,7 +172,7 @@ export class ContextBuilder {
       sections.push(`\nZieldatei: ${request.target_file}`);
     }
 
-    // 8. Output instructions
+    // 9. Output instructions
     const lang = request.language ?? 'typescript';
     sections.push(`\nGeneriere den Code als ${lang === 'typescript' ? 'TypeScript ESM, nutze .js Extensions bei Imports' : lang}.`);
     sections.push('Antworte mit dem Code in einem ```code``` Block, gefolgt von einer kurzen Erklärung.');

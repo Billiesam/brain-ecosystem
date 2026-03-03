@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
@@ -643,6 +643,22 @@ export class BrainCore {
     this.orchestrator.setEmotionalModel(emotionalModel);
     services.emotionalModel = emotionalModel;
 
+    // ── Section 11j.21: SelfScanner + SelfModificationEngine ───────
+    const projectRoot = path.resolve(path.dirname(config.dbPath), '..');
+    const selfScanner = new SelfScanner(this.db!, { brainName: 'brain' });
+    this.orchestrator.setSelfScanner(selfScanner);
+    services.selfScanner = selfScanner;
+
+    const selfModificationEngine = new SelfModificationEngine(this.db!, {
+      brainName: 'brain',
+      projectRoot,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+    selfModificationEngine.setSelfScanner(selfScanner);
+    selfModificationEngine.setThoughtStream(thoughtStream);
+    this.orchestrator.setSelfModificationEngine(selfModificationEngine);
+    services.selfModificationEngine = selfModificationEngine;
+
     this.consciousnessServer = new ConsciousnessServer({
       port: 7784,
       thoughtStream,
@@ -785,10 +801,23 @@ export class BrainCore {
         codeGenerator,
         codeMiner: services.codeMiner ?? null,
         patternExtractor: patternExtractor ?? null,
+        selfModificationEngine: services.selfModificationEngine ?? null,
       });
       this.codegenServer.start();
       services.codegenServer = this.codegenServer;
       logger.info('CodeGenerator activated (ANTHROPIC_API_KEY set, dashboard on :' + (config.codegenDashboard?.port ?? 7787) + ')');
+
+      // Wire ContextBuilder with SelfScanner into SelfModificationEngine
+      if (services.selfModificationEngine && services.selfScanner) {
+        const selfmodCtx = new ContextBuilder(
+          this.orchestrator.knowledgeDistiller,
+          this.orchestrator.journal,
+          patternExtractor ?? null,
+          services.signalScanner ?? null,
+        );
+        selfmodCtx.setSelfScanner(services.selfScanner);
+        services.selfModificationEngine.setContextBuilder(selfmodCtx);
+      }
     }
 
     // 12. IPC Server
