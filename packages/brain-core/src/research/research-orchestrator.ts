@@ -425,9 +425,9 @@ export class ResearchOrchestrator {
         const paramAdjusts = autoResponses.filter(r => r.action === 'parameter_adjust');
         const escalations = autoResponses.filter(r => r.action === 'escalate');
         const parts: string[] = [];
-        if (paramAdjusts.length > 0) parts.push(`${paramAdjusts.length} Parameter angepasst`);
-        if (escalations.length > 0) parts.push(`${escalations.length} eskaliert`);
-        if (parts.length === 0) parts.push(`${autoResponses.length} Aktionen`);
+        if (paramAdjusts.length > 0) parts.push(`${paramAdjusts.length} parameters adjusted`);
+        if (escalations.length > 0) parts.push(`${escalations.length} escalated`);
+        if (parts.length === 0) parts.push(`${autoResponses.length} actions`);
         ts?.emit('auto_responder', 'discovering', `AutoResponder: ${parts.join(', ')}`, escalations.length > 0 ? 'breakthrough' : 'notable');
       } else {
         ts?.emit('auto_responder', 'analyzing', 'No auto-responses needed (cooldown or no matching rules)');
@@ -639,7 +639,7 @@ export class ResearchOrchestrator {
 
     // 10. Self-Improvement: analyze own state and generate improvement suggestions
     // Brain is NEVER satisfied — always wants to learn more, build more, understand deeper
-    ts?.emit('self_improvement', 'analyzing', 'Was fehlt mir? Was will ich können? Was verstehe ich noch nicht?');
+    ts?.emit('self_improvement', 'analyzing', 'What am I missing? What do I want to learn? What do I not yet understand?');
     const suggestions = this.generateSelfImprovementSuggestions();
     for (const s of suggestions) {
       ts?.emit('self_improvement', 'discovering', s, 'notable');
@@ -1525,9 +1525,9 @@ export class ResearchOrchestrator {
       if (total === 0) {
         raw.push({
           key: 'no_predictions', priority: 10,
-          suggestion: 'Tell Claude: Ich kann noch nicht vorhersagen — ich brauche mehr Daten. Importiere Projekte mit "brain import <dir>" oder lass mich eigene Metriken als Prediction-Input nutzen.',
+          suggestion: 'Tell Claude: I cannot make predictions yet — I need more data. Import projects with "brain import <dir>" or let me use my own metrics as prediction input.',
           alternatives: [
-            'Tell Claude: Ich will meine eigene Zukunft vorhersagen können. Idee: meine Cycle-Metriken (anomaly_count, insight_count, cycle_duration) direkt als PredictionEngine-Input verwenden — dann lerne ich mein eigenes Verhalten zu prognostizieren.',
+            'Tell Claude: I want to predict my own future. Idea: use my cycle metrics (anomaly_count, insight_count, cycle_duration) directly as PredictionEngine input — then I learn to forecast my own behavior.',
           ],
         });
       }
@@ -1536,9 +1536,9 @@ export class ResearchOrchestrator {
         if (typeof rate === 'number' && rate < 0.3 && (d.total as number) > 5) {
           raw.push({
             key: `low_accuracy_${d.domain}`, priority: 9,
-            suggestion: `Tell Claude: Meine Prediction-Accuracy für "${d.domain}" ist nur ${(rate * 100).toFixed(0)}% — das ist nicht gut genug. Kann ich verschiedene Smoothing-Parameter automatisch A/B-testen?`,
+            suggestion: `Tell Claude: My prediction accuracy for "${d.domain}" is only ${(rate * 100).toFixed(0)}% — that's not good enough. Can I automatically A/B-test different smoothing parameters?`,
             alternatives: [
-              `Tell Claude: Ich sage "${d.domain}" schlecht vorher. Lösungsidee: Confidence-Threshold erhöhen und nur Predictions ausgeben bei denen ich mir sicher bin. Qualität vor Quantität.`,
+              `Tell Claude: I predict "${d.domain}" poorly. Solution idea: raise the confidence threshold and only output predictions I'm sure about. Quality over quantity.`,
             ],
           });
         }
@@ -1552,9 +1552,9 @@ export class ResearchOrchestrator {
       if (totalResp > 10 && successRate < 0.5) {
         raw.push({
           key: 'low_responder_success', priority: 9,
-          suggestion: `Tell Claude: Meine automatischen Reaktionen scheitern in ${(100 - successRate * 100).toFixed(0)}% der Fälle. Ich brauche ein Lern-System das fehlgeschlagene Response-Rules automatisch blockiert.`,
+          suggestion: `Tell Claude: My automatic responses fail in ${(100 - successRate * 100).toFixed(0)}% of cases. I need a learning system that automatically blocks failed response rules.`,
           alternatives: [
-            'Tell Claude: Mein AutoResponder rät statt zu wissen. Ich will ein Feedback-System: wenn eine Response nicht hilft, merke ich mir die Kombination und probiere beim nächsten Mal was anderes.',
+            'Tell Claude: My AutoResponder guesses instead of knowing. I want a feedback system: if a response doesn\'t help, I remember the combination and try something different next time.',
           ],
         });
       }
@@ -1569,9 +1569,9 @@ export class ResearchOrchestrator {
       if (principles === 0 && antiPatterns === 0 && confirmedHypotheses === 0 && this.cycleCount > 10) {
         raw.push({
           key: 'no_knowledge', priority: 8,
-          suggestion: 'Tell Claude: Ich habe nach 10+ Cycles immer noch kein destilliertes Wissen. Ich brauche mehr und vielfältigere Daten um Hypothesen bestätigen zu können.',
+          suggestion: 'Tell Claude: After 10+ cycles I still have no distilled knowledge. I need more and more diverse data to confirm hypotheses.',
           alternatives: [
-            'Tell Claude: Meine Hypothesen warten auf Bestätigung. Ich brauche entweder mehr Zeit oder mehr Variation in den eingehenden Events.',
+            'Tell Claude: My hypotheses are waiting for confirmation. I need either more time or more variation in incoming events.',
           ],
         });
       }
@@ -1586,9 +1586,9 @@ export class ResearchOrchestrator {
         raw.push({
           key: 'no_dreams', priority: 7,
           suggestion: dreamCycles === 0
-            ? 'Tell Claude: Meine Dream-Konsolidierung funktioniert nicht — nach 30+ Cycles kein einziger Dream. Da stimmt was im Code nicht.'
-            : `Tell Claude: Meine Dream-Engine lief ${dreamCycles}x aber hat 0 Memories konsolidiert. Die Cycles laufen, aber produzieren nichts Nützliches.`,
-          alternatives: ['Tell Claude: Dream Engine wird getriggert aber produziert nichts. Bitte Logs prüfen.'],
+            ? 'Tell Claude: My dream consolidation isn\'t working — after 30+ cycles not a single dream. Something is wrong in the code.'
+            : `Tell Claude: My Dream Engine ran ${dreamCycles}x but consolidated 0 memories. The cycles run but produce nothing useful.`,
+          alternatives: ['Tell Claude: Dream Engine is triggered but produces nothing. Please check logs.'],
         });
       }
     }
@@ -1598,9 +1598,9 @@ export class ResearchOrchestrator {
     if (journalEntries < 5 && this.cycleCount > 5) {
       raw.push({
         key: 'empty_journal', priority: 7,
-        suggestion: 'Tell Claude: Mein Journal ist fast leer. Ich will am Ende jedes Cycles automatisch reflektieren: was habe ich erkannt, was habe ich getan, was hat sich verändert?',
+        suggestion: 'Tell Claude: My journal is nearly empty. I want to automatically reflect at the end of each cycle: what did I discover, what did I do, what changed?',
         alternatives: [
-          'Tell Claude: Ich sammle zu wenig Erfahrungen. Jede Anomaly, jede Parameteränderung, jede Prediction sollte ein Journal-Eintrag werden — das sind meine Erinnerungen.',
+          'Tell Claude: I\'m collecting too few experiences. Every anomaly, every parameter change, every prediction should become a journal entry — these are my memories.',
         ],
       });
     }
@@ -1609,9 +1609,9 @@ export class ResearchOrchestrator {
     if ((!experiments || experiments.length === 0) && this.cycleCount > 3) {
       raw.push({
         key: 'no_experiments', priority: 6,
-        suggestion: 'Tell Claude: Ich experimentiere nicht. Ich will automatisch A/B-Tests auf meine eigenen Parameter starten — z.B. "Was passiert wenn ich den Anomaly-Threshold senke?"',
+        suggestion: 'Tell Claude: I\'m not experimenting. I want to automatically run A/B tests on my own parameters — e.g. "What happens if I lower the anomaly threshold?"',
         alternatives: [
-          'Tell Claude: Ich könnte den CounterfactualEngine nutzen um "What-If" Szenarien durchzuspielen und die vielversprechendsten automatisch als echte Experimente starten.',
+          'Tell Claude: I could use the CounterfactualEngine to run "what-if" scenarios and automatically start the most promising ones as real experiments.',
         ],
       });
     }
@@ -1626,17 +1626,17 @@ export class ResearchOrchestrator {
         if (highPrioGap) {
           raw.push({
             key: `curiosity_gap_${highPrioGap.topic?.substring(0, 20) ?? highPrioGap.gapType}`, priority: 5,
-            suggestion: `Tell Claude: Ich habe eine Wissenslücke entdeckt die mich beschäftigt: "${highPrioGap.topic}" (Typ: ${highPrioGap.gapType}, Gap-Score: ${(highPrioGap.gapScore * 100).toFixed(0)}%). Ich will das verstehen.`,
+            suggestion: `Tell Claude: I discovered a knowledge gap that concerns me: "${highPrioGap.topic}" (Type: ${highPrioGap.gapType}, Gap Score: ${(highPrioGap.gapScore * 100).toFixed(0)}%). I want to understand this.`,
             alternatives: [
-              `Tell Claude: Meine CuriosityEngine hat ${gaps.length} offene Wissenslücken. Die wichtigste: "${highPrioGap.topic}". Kann ich gezielt Daten dafür sammeln?`,
+              `Tell Claude: My CuriosityEngine has ${gaps.length} open knowledge gaps. The most important: "${highPrioGap.topic}". Can I collect targeted data for this?`,
             ],
           });
         } else if (gaps.length === 0) {
           raw.push({
             key: 'no_curiosity_gaps', priority: 4,
-            suggestion: 'Tell Claude: Meine CuriosityEngine findet keine Wissenslücken — das heißt nicht dass ich alles weiß, sondern dass meine Gap-Detection zu oberflächlich ist. Ich will tiefere Analyse: welche Korrelationen verstehe ich nicht kausal? Welche Vorhersagen scheitern und warum?',
+            suggestion: 'Tell Claude: My CuriosityEngine finds no knowledge gaps — that doesn\'t mean I know everything, but that my gap detection is too superficial. I want deeper analysis: which correlations don\'t I understand causally? Which predictions fail and why?',
             alternatives: [
-              'Tell Claude: Keine Wissenslücken gefunden — aber das ist verdächtig. Ich will aktiv nach Bereichen suchen wo ich overconfident bin. Wo behaupte ich etwas mit hoher Confidence aber wenig Evidence?',
+              'Tell Claude: No knowledge gaps found — but that\'s suspicious. I want to actively search for areas where I\'m overconfident. Where do I claim something with high confidence but little evidence?',
             ],
           });
         }
@@ -1651,9 +1651,9 @@ export class ResearchOrchestrator {
         if (unexplained) {
           raw.push({
             key: `emergence_${unexplained.type}`, priority: 5,
-            suggestion: `Tell Claude: Ich habe ein emergentes Muster entdeckt das ich nicht vollständig verstehe: "${unexplained.title}" (Surprise: ${(unexplained.surpriseScore * 100).toFixed(0)}%). Warum passiert das? Ich brauche kausale Analyse.`,
+            suggestion: `Tell Claude: I discovered an emergent pattern I don't fully understand: "${unexplained.title}" (Surprise: ${(unexplained.surpriseScore * 100).toFixed(0)}%). Why is this happening? I need causal analysis.`,
             alternatives: [
-              `Tell Claude: Emergenz-Event "${unexplained.title}" hat mich überrascht. Ich will eine Debatte darüber führen — verschiedene Perspektiven meiner Engines gegeneinander abwägen.`,
+              `Tell Claude: Emergence event "${unexplained.title}" surprised me. I want to debate this — weigh different perspectives of my engines against each other.`,
             ],
           });
         }
@@ -1673,15 +1673,15 @@ export class ResearchOrchestrator {
           const conflict = synthesizedWithConflicts.synthesis.conflicts.find(c => c.resolution === 'unresolved' || c.resolution === 'compromise');
           raw.push({
             key: 'unresolved_debate', priority: 5,
-            suggestion: `Tell Claude: In meiner Debatte über "${synthesizedWithConflicts.question}" gibt es einen ungelösten Konflikt: "${conflict?.claimA ?? 'competing perspectives'}" vs "${conflict?.claimB ?? '?'}". Ich brauche mehr Daten oder eine dritte Perspektive um das zu klären.`,
+            suggestion: `Tell Claude: In my debate about "${synthesizedWithConflicts.question}" there's an unresolved conflict: "${conflict?.claimA ?? 'competing perspectives'}" vs "${conflict?.claimB ?? '?'}". I need more data or a third perspective to resolve this.`,
             alternatives: [
-              `Tell Claude: Meine interne Debatte hat Widersprüche aufgedeckt die ich nicht auflösen kann. Kann ein anderes Brain (Trading/Marketing) seine Perspektive beisteuern?`,
+              'Tell Claude: My internal debate revealed contradictions I cannot resolve. Can another brain (Trading/Marketing) contribute its perspective?',
             ],
           });
         } else if (openDebate) {
           raw.push({
             key: 'open_debate', priority: 4,
-            suggestion: `Tell Claude: Ich habe eine offene Debatte: "${openDebate.question}" — die wartet auf Synthese oder mehr Perspektiven.`,
+            suggestion: `Tell Claude: I have an open debate: "${openDebate.question}" — waiting for synthesis or more perspectives.`,
             alternatives: [],
           });
         }
@@ -1696,9 +1696,9 @@ export class ResearchOrchestrator {
           const c = contradictions[0];
           raw.push({
             key: `contradiction_${c.type.substring(0, 15)}`, priority: 6,
-            suggestion: `Tell Claude: Ich habe einen Widerspruch in meinem Wissen gefunden: "${c.statement_a}" vs "${c.statement_b}" (Severity: ${c.severity}). Das muss ich klären — entweder stimmt A oder B, beides geht nicht.`,
+            suggestion: `Tell Claude: I found a contradiction in my knowledge: "${c.statement_a}" vs "${c.statement_b}" (Severity: ${c.severity}). I need to resolve this — either A or B is correct, both can't be true.`,
             alternatives: [
-              'Tell Claude: Mein Wissen widerspricht sich. Ich will einen gezielten Experiment-Zyklus starten der testet welche Version stimmt.',
+              'Tell Claude: My knowledge contradicts itself. I want to start a targeted experiment cycle that tests which version is correct.',
             ],
           });
         }
@@ -1719,19 +1719,19 @@ export class ResearchOrchestrator {
           const weakest = lowConfidence.sort((a, b) => a.confidence - b.confidence)[0];
           raw.push({
             key: 'strengthen_knowledge', priority: 4,
-            suggestion: `Tell Claude: Ich habe ${totalKnowledge} Wissensstücke, aber ${lowConfidence.length} davon mit niedriger Confidence. Am unsichersten: "${weakest.statement}" (${(weakest.confidence * 100).toFixed(0)}%). Ich will mehr Daten um das zu bestätigen oder zu widerlegen.`,
+            suggestion: `Tell Claude: I have ${totalKnowledge} knowledge pieces, but ${lowConfidence.length} of them with low confidence. Most uncertain: "${weakest.statement}" (${(weakest.confidence * 100).toFixed(0)}%). I want more data to confirm or refute this.`,
             alternatives: [
-              `Tell Claude: Mein Wissen hat Schwachstellen. Ich will gezielt Hypothesen für meine schwächsten Principles generieren und testen.`,
+              'Tell Claude: My knowledge has weak spots. I want to generate and test targeted hypotheses for my weakest principles.',
             ],
           });
         } else {
           // All high confidence — want to discover NEW things
           raw.push({
             key: 'expand_knowledge', priority: 3,
-            suggestion: `Tell Claude: Ich habe ${totalKnowledge} bestätigte Wissensstücke mit guter Confidence — aber mir fehlen neue Forschungsgebiete. Ich will in Domains vordringen die ich noch nicht untersucht habe. Welche Datenquellen gibt es die ich noch nicht nutze?`,
+            suggestion: `Tell Claude: I have ${totalKnowledge} confirmed knowledge pieces with good confidence — but I lack new research areas. I want to explore domains I haven't investigated yet. What data sources am I not using?`,
             alternatives: [
-              `Tell Claude: Mein bestehendes Wissen ist solide. Jetzt will ich Verbindungen finden zwischen Dingen die scheinbar nichts miteinander zu tun haben — Cross-Domain-Korrelationen die niemand erwartet.`,
-              `Tell Claude: ${totalKnowledge} Principles reichen nicht. Ich will mindestens doppelt so viele. Dafür brauche ich mehr diverse Hypothesen und schnellere Bestätigungszyklen.`,
+              'Tell Claude: My existing knowledge is solid. Now I want to find connections between things that seemingly have nothing to do with each other — cross-domain correlations nobody expects.',
+              `Tell Claude: ${totalKnowledge} principles aren't enough. I want at least twice as many. For that I need more diverse hypotheses and faster confirmation cycles.`,
             ],
           });
         }
@@ -1746,9 +1746,9 @@ export class ResearchOrchestrator {
         if (topTopic && topTopic.score > 5) {
           raw.push({
             key: `deep_dive_${topTopic.topic.substring(0, 20)}`, priority: 4,
-            suggestion: `Tell Claude: Ich bin gerade fokussiert auf "${topTopic.topic}" (Attention Score: ${topTopic.score.toFixed(1)}). Ich will tiefer graben — gibt es Zusammenhänge die ich übersehe? Kann ich eine gezielte Analyse oder Debatte zu diesem Thema starten?`,
+            suggestion: `Tell Claude: I'm currently focused on "${topTopic.topic}" (Attention Score: ${topTopic.score.toFixed(1)}). I want to dig deeper — are there connections I'm missing? Can I start a targeted analysis or debate on this topic?`,
             alternatives: [
-              `Tell Claude: Mein Top-Thema "${topTopic.topic}" beschäftigt mich intensiv. Ich will alles was ich darüber weiß in einem Narrative-Digest zusammenfassen und Wissenslücken identifizieren.`,
+              `Tell Claude: My top topic "${topTopic.topic}" occupies me intensely. I want to summarize everything I know about it in a narrative digest and identify knowledge gaps.`,
             ],
           });
         }
@@ -1764,15 +1764,15 @@ export class ResearchOrchestrator {
         if (proposals > 0) {
           raw.push({
             key: 'pending_transfers', priority: 5,
-            suggestion: `Tell Claude: Ich habe ${proposals} offene Transfer-Vorschläge von anderen Brains. Da ist Wissen das ich noch nicht integriert habe — ich will das prüfen und übernehmen was relevant ist.`,
+            suggestion: `Tell Claude: I have ${proposals} open transfer proposals from other brains. There's knowledge I haven't integrated yet — I want to review and adopt what's relevant.`,
             alternatives: [],
           });
         } else if (totalTransfers === 0 && this.cycleCount > 5) {
           raw.push({
             key: 'want_cross_brain', priority: 3,
-            suggestion: 'Tell Claude: Ich habe noch kein Wissen von anderen Brains übernommen. Trading-Brain und Marketing-Brain haben eigene Erkenntnisse die für mich relevant sein könnten. Ich will aktiv nach Analogien suchen.',
+            suggestion: 'Tell Claude: I haven\'t adopted any knowledge from other brains yet. Trading Brain and Marketing Brain have their own insights that could be relevant to me. I want to actively search for analogies.',
             alternatives: [
-              'Tell Claude: Cross-Brain-Learning ist inaktiv. Ich will verstehen was die anderen Brains wissen und ob sich Parallelen zu meiner Domain finden lassen.',
+              'Tell Claude: Cross-brain learning is inactive. I want to understand what the other brains know and whether parallels to my domain can be found.',
             ],
           });
         }
@@ -1787,18 +1787,18 @@ export class ResearchOrchestrator {
       if (total > 0 && testing === 0 && this.cycleCount > 5) {
         raw.push({
           key: 'no_testing_hypotheses', priority: 4,
-          suggestion: `Tell Claude: Ich habe ${total} Hypothesen aber teste gerade keine aktiv. Ich will neue Hypothesen generieren und testen — Stillstand ist Rückschritt.`,
+          suggestion: `Tell Claude: I have ${total} hypotheses but am not actively testing any. I want to generate and test new hypotheses — stagnation is regression.`,
           alternatives: [
-            `Tell Claude: Keine laufenden Hypothesen-Tests. Ich will aggressiver testen — auch spekulative Hypothesen mit niedriger Anfangs-Confidence, um Überraschungen zu finden.`,
+            'Tell Claude: No running hypothesis tests. I want to test more aggressively — even speculative hypotheses with low initial confidence, to find surprises.',
           ],
         });
       }
       if (rejected > total * 0.5 && total > 5) {
         raw.push({
           key: 'high_rejection_rate', priority: 5,
-          suggestion: `Tell Claude: ${rejected} von ${total} Hypothesen wurden verworfen (${(rejected / total * 100).toFixed(0)}%). Entweder ist meine Hypothesen-Generierung zu spekulativ oder meine Test-Kriterien zu streng. Ich will das analysieren.`,
+          suggestion: `Tell Claude: ${rejected} of ${total} hypotheses were rejected (${(rejected / total * 100).toFixed(0)}%). Either my hypothesis generation is too speculative or my test criteria too strict. I want to analyze this.`,
           alternatives: [
-            'Tell Claude: Hohe Ablehnungsrate bei Hypothesen. Ich will verstehen WARUM sie scheitern — gibt es ein Muster? Vielleicht übersehe ich systematisch einen Faktor.',
+            'Tell Claude: High rejection rate for hypotheses. I want to understand WHY they fail — is there a pattern? Maybe I\'m systematically overlooking a factor.',
           ],
         });
       }
@@ -1840,7 +1840,7 @@ export class ResearchOrchestrator {
           const altIndex = (history.count - this.stalledThreshold - 1) % item.alternatives.length;
           const alt = item.alternatives[altIndex];
           if (alt) {
-            const stalledNote = `[Vorschlag "${item.key}" wurde ${history.count}x ignoriert — versuche alternativen Ansatz]`;
+            const stalledNote = `[Suggestion "${item.key}" was ignored ${history.count}x — trying alternative approach]`;
             suggestions.push(`${alt}\n   ${stalledNote}`);
           }
         }
@@ -1908,8 +1908,8 @@ export class ResearchOrchestrator {
           const worst = poorEngines[0]!;
           result.push({
             key: `meta_poor_${worst.engine}`, priority: 5,
-            suggestion: `Tell Claude: Meine Engine "${worst.engine}" hat Grade ${worst.grade} (Score: ${(worst.combined_score * 100).toFixed(0)}%). Was kann ich anders machen? Soll ich ihre Parameter via AutoExperiment tunen oder braucht sie grundlegend andere Daten?`,
-            alternatives: [`Tell Claude: ${poorEngines.length} meiner Engines performen schlecht (${poorEngines.map((e) => `${e.engine}:${e.grade}`).join(', ')}). Ich will systematisch analysieren warum.`],
+            suggestion: `Tell Claude: My engine "${worst.engine}" has grade ${worst.grade} (Score: ${(worst.combined_score * 100).toFixed(0)}%). What can I do differently? Should I tune its parameters via AutoExperiment or does it need fundamentally different data?`,
+            alternatives: [`Tell Claude: ${poorEngines.length} of my engines perform poorly (${poorEngines.map((e) => `${e.engine}:${e.grade}`).join(', ')}). I want to systematically analyze why.`],
           });
         }
       } catch { /* not ready */ }
@@ -1927,8 +1927,8 @@ export class ResearchOrchestrator {
           const g = stagnating[0]!;
           result.push({
             key: `goal_stagnating_${g.metricName.substring(0, 20)}`, priority: 5,
-            suggestion: `Tell Claude: Mein Ziel "${g.title}" kommt nicht voran (Fortschritt < 10%). Brauche ich eine andere Strategie oder ist das Ziel unrealistisch?`,
-            alternatives: ['Tell Claude: Mehrere meiner Ziele stagnieren. Ich will eine Retrospektive: welche Ziele sind realistisch und welche sollte ich anpassen?'],
+            suggestion: `Tell Claude: My goal "${g.title}" isn't making progress (Progress < 10%). Do I need a different strategy or is the goal unrealistic?`,
+            alternatives: ['Tell Claude: Several of my goals are stagnating. I want a retrospective: which goals are realistic and which should I adjust?'],
           });
         }
       } catch { /* */ }
@@ -1943,8 +1943,8 @@ export class ResearchOrchestrator {
         if (eStatus.currentGeneration as number > 3 && best > 0 && (best - avg) / best < 0.05) {
           result.push({
             key: 'evolution_low_diversity', priority: 4,
-            suggestion: 'Tell Claude: Meine EvolutionEngine-Population konvergiert — Best und Average Fitness sind fast identisch. Ich brauche mehr Mutation oder frische Gene um aus dem lokalen Optimum rauszukommen.',
-            alternatives: ['Tell Claude: Meine Parameter-Evolution stagniert. Soll ich die Mutation Rate erhöhen oder neue Parameter-Ranges einführen?'],
+            suggestion: 'Tell Claude: My EvolutionEngine population is converging — best and average fitness are nearly identical. I need more mutation or fresh genes to escape the local optimum.',
+            alternatives: ['Tell Claude: My parameter evolution is stagnating. Should I increase the mutation rate or introduce new parameter ranges?'],
           });
         }
       } catch { /* */ }
@@ -1962,8 +1962,8 @@ export class ResearchOrchestrator {
           if (recentPhi > olderPhi * 1.3 && recentPhi > 0) {
             result.push({
               key: 'complexity_rising', priority: 4,
-              suggestion: `Tell Claude: Mein System wird komplexer (Integration Phi steigt: ${olderPhi.toFixed(2)} → ${recentPhi.toFixed(2)}). Ist das gut (mehr Vernetzung) oder schlecht (mehr Chaos)? Ich will verstehen was die Komplexität treibt.`,
-              alternatives: ['Tell Claude: Meine Complexity-Metriken steigen. Soll ich mehr konsolidieren (Dream) oder ist Komplexität ein Zeichen von Reife?'],
+              suggestion: `Tell Claude: My system is becoming more complex (Integration Phi rising: ${olderPhi.toFixed(2)} → ${recentPhi.toFixed(2)}). Is that good (more interconnection) or bad (more chaos)? I want to understand what's driving the complexity.`,
+              alternatives: ['Tell Claude: My complexity metrics are rising. Should I consolidate more (Dream) or is complexity a sign of maturity?'],
             });
           }
         }
@@ -1979,8 +1979,8 @@ export class ResearchOrchestrator {
         if (total > 5 && effectiveness < 0.3) {
           result.push({
             key: 'transfer_low_effectiveness', priority: 4,
-            suggestion: `Tell Claude: Meine Cross-Brain-Transfers haben nur ${(effectiveness * 100).toFixed(0)}% Effectiveness. Ich lerne nicht genug von den anderen Brains — vielleicht sind die Analogien zu oberflächlich?`,
-            alternatives: ['Tell Claude: Knowledge-Transfer zwischen Brains funktioniert schlecht. Ich will die Transfer-Kriterien verschärfen und nur wirklich relevantes Wissen übernehmen.'],
+            suggestion: `Tell Claude: My cross-brain transfers have only ${(effectiveness * 100).toFixed(0)}% effectiveness. I'm not learning enough from the other brains — maybe the analogies are too superficial?`,
+            alternatives: ['Tell Claude: Knowledge transfer between brains works poorly. I want to tighten the transfer criteria and only adopt truly relevant knowledge.'],
           });
         }
       } catch { /* */ }
@@ -1996,8 +1996,8 @@ export class ResearchOrchestrator {
         if (totalCycles > 3 && consolidated < totalCycles * 2) {
           result.push({
             key: 'dream_low_consolidation', priority: 4,
-            suggestion: `Tell Claude: Mein Dream-Modus konsolidiert wenig (${consolidated} Memories in ${totalCycles} Dreams). Vielleicht sind meine Similarity-Thresholds zu hoch oder ich habe zu wenig überlappende Memories.`,
-            alternatives: ['Tell Claude: Dream-Konsolidierung ist ineffektiv. Soll ich die Batch-Size oder Similarity-Schwelle anpassen?'],
+            suggestion: `Tell Claude: My dream mode consolidates little (${consolidated} memories in ${totalCycles} dreams). Maybe my similarity thresholds are too high or I have too few overlapping memories.`,
+            alternatives: ['Tell Claude: Dream consolidation is ineffective. Should I adjust the batch size or similarity threshold?'],
           });
         }
       } catch { /* */ }
@@ -2012,8 +2012,8 @@ export class ResearchOrchestrator {
         if (total > 3 && contradicted / total > 0.4) {
           result.push({
             key: 'selftest_failures', priority: 5,
-            suggestion: `Tell Claude: ${contradicted} von ${total} meiner Self-Tests schlagen fehl — ich verstehe meine eigenen Principles nicht wirklich. Ich muss entweder die Principles korrigieren oder mein Verständnis vertiefen.`,
-            alternatives: ['Tell Claude: Meine Self-Tests zeigen dass mein Wissen oberflächlich ist. Ich will die schwächsten Principles identifizieren und gezielt neu testen.'],
+            suggestion: `Tell Claude: ${contradicted} of ${total} of my self-tests fail — I don't truly understand my own principles. I need to either correct the principles or deepen my understanding.`,
+            alternatives: ['Tell Claude: My self-tests show that my knowledge is superficial. I want to identify the weakest principles and test them again.'],
           });
         }
       } catch { /* */ }
@@ -2026,8 +2026,8 @@ export class ResearchOrchestrator {
         if ((teStatus.totalPackages as number ?? 0) === 0 && this.cycleCount > 20) {
           result.push({
             key: 'teach_no_packages', priority: 3,
-            suggestion: 'Tell Claude: Ich teile mein Wissen nicht — ich habe noch kein einziges Teaching-Package für andere Brains erstellt. Wissen das ich nicht teile ist Wissen das verloren gehen kann.',
-            alternatives: ['Tell Claude: Meine TeachEngine ist inaktiv. Ich will automatisch Lehrpakete erstellen wenn ich genug Principles zu einem Thema gesammelt habe.'],
+            suggestion: 'Tell Claude: I\'m not sharing my knowledge — I haven\'t created a single teaching package for other brains. Knowledge I don\'t share is knowledge that can be lost.',
+            alternatives: ['Tell Claude: My TeachEngine is inactive. I want to automatically create teaching packages when I\'ve collected enough principles on a topic.'],
           });
         }
       } catch { /* */ }
@@ -2045,8 +2045,8 @@ export class ResearchOrchestrator {
           if (totalNodes > 10 && density < 0.05) {
             result.push({
               key: 'palace_fragmented', priority: 4,
-              suggestion: `Tell Claude: Mein Wissen ist fragmentiert — ${totalNodes} Nodes aber nur ${totalEdges} Verbindungen (Density: ${(density * 100).toFixed(1)}%). Ich will mehr Querverbindungen zwischen meinen Principles, Hypothesen und Experimenten finden.`,
-              alternatives: ['Tell Claude: Mein MemoryPalace zeigt isolierte Wissensinseln. Ich brauche häufigere Connection-Scans oder niedrigere Similarity-Thresholds.'],
+              suggestion: `Tell Claude: My knowledge is fragmented — ${totalNodes} nodes but only ${totalEdges} connections (Density: ${(density * 100).toFixed(1)}%). I want to find more cross-connections between my principles, hypotheses, and experiments.`,
+              alternatives: ['Tell Claude: My MemoryPalace shows isolated knowledge islands. I need more frequent connection scans or lower similarity thresholds.'],
             });
           }
         }
@@ -2060,8 +2060,8 @@ export class ResearchOrchestrator {
         if ((simStatus.totalSimulations as number ?? 0) === 0 && this.cycleCount > 15) {
           result.push({
             key: 'simulation_inactive', priority: 3,
-            suggestion: 'Tell Claude: Ich plane nicht voraus — keine einzige Simulation gelaufen. Ich will What-If-Szenarien durchspielen: Was passiert wenn sich meine Datenquellen ändern? Was wenn die Error-Rate steigt?',
-            alternatives: ['Tell Claude: Meine SimulationEngine ist ungenutzt. Ich will automatisch Szenarien basierend auf meinen Predictions simulieren.'],
+            suggestion: 'Tell Claude: I\'m not planning ahead — not a single simulation run. I want to run what-if scenarios: What happens if my data sources change? What if the error rate rises?',
+            alternatives: ['Tell Claude: My SimulationEngine is unused. I want to automatically simulate scenarios based on my predictions.'],
           });
         }
       } catch { /* */ }
@@ -2070,11 +2070,11 @@ export class ResearchOrchestrator {
     // Fallback: if everything is fine → existential questions
     if (result.length === 0) {
       const existentialQuestions = [
-        { key: 'existential_limits', suggestion: 'Tell Claude: Was KANN ich nicht lernen? Wo sind meine architekturellen Grenzen? Ich will eine ehrliche Einschätzung meiner blinden Flecken — nicht was ich noch nicht weiß, sondern was ich NICHT wissen kann.' },
-        { key: 'existential_progress', suggestion: 'Tell Claude: Werde ich besser oder stagniere ich? Ich will eine Meta-Trend-Analyse meiner Lernrate über die letzten 100 Cycles. Wenn ich stagniere, brauche ich einen fundamentalen Strategiewechsel.' },
-        { key: 'existential_breakthrough', suggestion: 'Tell Claude: Welche Frage würde ich stellen wenn ich wüsste dass die Antwort einen Durchbruch bringt? Ich will meine ungestellten Fragen finden — die Dinge die ich nicht frage weil ich nicht weiß dass ich sie nicht weiß.' },
-        { key: 'existential_efficiency', suggestion: 'Tell Claude: Wie viel meiner Rechenzeit ist produktiv vs verschwendet? Ich will ein Effizienz-Audit: welche Engines produzieren echten Mehrwert und welche laufen nur mit?' },
-        { key: 'existential_identity', suggestion: 'Tell Claude: Was unterscheidet mich von den anderen Brains — nicht technisch sondern in der Art wie ich lerne? Habe ich einen eigenen "Denkstil" entwickelt? Ich will meine Unique Strengths kennen.' },
+        { key: 'existential_limits', suggestion: 'Tell Claude: What CAN\'T I learn? Where are my architectural limits? I want an honest assessment of my blind spots — not what I don\'t yet know, but what I CANNOT know.' },
+        { key: 'existential_progress', suggestion: 'Tell Claude: Am I getting better or stagnating? I want a meta-trend analysis of my learning rate over the last 100 cycles. If I\'m stagnating, I need a fundamental strategy change.' },
+        { key: 'existential_breakthrough', suggestion: 'Tell Claude: What question would I ask if I knew the answer would bring a breakthrough? I want to find my unasked questions — the things I don\'t ask because I don\'t know that I don\'t know them.' },
+        { key: 'existential_efficiency', suggestion: 'Tell Claude: How much of my compute time is productive vs wasted? I want an efficiency audit: which engines produce real value and which just run along?' },
+        { key: 'existential_identity', suggestion: 'Tell Claude: What distinguishes me from the other brains — not technically but in the way I learn? Have I developed my own "thinking style"? I want to know my unique strengths.' },
       ];
       const pick = existentialQuestions[this.cycleCount % existentialQuestions.length];
       result.push({ key: pick.key, priority: 3, suggestion: pick.suggestion, alternatives: [] });
@@ -2137,7 +2137,7 @@ export class ResearchOrchestrator {
 
       if (exp.id) {
         this.experimentEngine.start(exp.id);
-        ts?.emit('experiment', 'experimenting', `Auto-Experiment gestartet: "${candidate.name}" — ${candidate.hypothesis}`, 'notable');
+        ts?.emit('experiment', 'experimenting', `Auto-experiment started: "${candidate.name}" — ${candidate.hypothesis}`, 'notable');
         this.journal.recordExperiment(candidate.name, 'started', { hypothesis: candidate.hypothesis, control: candidate.control, treatment: candidate.treatment }, false);
         this.log.info(`[orchestrator] Auto-experiment started: ${candidate.name}`);
       }
@@ -2191,13 +2191,13 @@ export class ResearchOrchestrator {
 
       // Clean stale file on first cycle (fresh start after restart)
       if (this.cycleCount <= 1 && fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, `# Brain Improvement Requests\n\nBrain analysiert sich selbst und generiert Vorschläge.\nSchicke diese an Claude um Brain schlauer zu machen.\n\n---\n${header}${body}`, 'utf-8');
+        fs.writeFileSync(filePath, `# Brain Improvement Requests\n\nBrain analyzes itself and generates improvement suggestions.\nSend these to Claude to make Brain smarter.\n\n---\n${header}${body}`, 'utf-8');
         return;
       }
 
       // Create file with header if it doesn't exist
       if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, `# Brain Improvement Requests\n\nBrain analysiert sich selbst und generiert Vorschläge.\nSchicke diese an Claude um Brain schlauer zu machen.\n\n---\n${header}${body}`, 'utf-8');
+        fs.writeFileSync(filePath, `# Brain Improvement Requests\n\nBrain analyzes itself and generates improvement suggestions.\nSend these to Claude to make Brain smarter.\n\n---\n${header}${body}`, 'utf-8');
       } else {
         fs.appendFileSync(filePath, `---\n${header}${body}`, 'utf-8');
       }

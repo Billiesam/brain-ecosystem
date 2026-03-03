@@ -227,7 +227,7 @@ export class SelfModificationEngine {
       if (this.selfScanner) {
         const archSummary = this.selfScanner.getArchitectureSummary();
         if (archSummary) {
-          systemPrompt += '\n\n## Eigene Codebase (Architektur-Übersicht)\n' + archSummary;
+          systemPrompt += '\n\n## Own Codebase (Architecture Overview)\n' + archSummary;
         }
       }
 
@@ -249,31 +249,31 @@ export class SelfModificationEngine {
       }
 
       if (fileContents.length > 0) {
-        systemPrompt += '\n\n## Aktueller Quellcode der Zieldateien\n' + fileContents.join('\n\n');
+        systemPrompt += '\n\n## Current Source Code of Target Files\n' + fileContents.join('\n\n');
       }
 
       // User message
       const userMessage = [
-        `## Aufgabe: ${mod.title}`,
+        `## Task: ${mod.title}`,
         '',
         mod.problem_description,
         '',
-        '## Anweisungen',
-        '- Ändere NUR die angegebenen Dateien',
-        '- Halte Änderungen minimal und fokussiert',
-        `- Maximal ${this.config.maxChangedLines} geänderte Zeilen`,
-        '- Behalte alle bestehenden Imports und Exports bei',
-        '- Nutze TypeScript ESM mit .js Extensions',
+        '## Instructions',
+        '- Modify ONLY the specified files',
+        '- Keep changes minimal and focused',
+        `- Maximum ${this.config.maxChangedLines} changed lines`,
+        '- Keep all existing imports and exports',
+        '- Use TypeScript ESM with .js extensions',
         '',
         '## Output-Format',
-        'Gib für jede geänderte Datei den VOLLSTÄNDIGEN neuen Dateiinhalt aus:',
+        'Output the COMPLETE new file content for each changed file:',
         '',
-        '### FILE: <relativer-pfad>',
+        '### FILE: <relative-path>',
         '```typescript',
-        '<vollständiger neuer dateiinhalt>',
+        '<complete new file content>',
         '```',
         '',
-        'Gib NICHT nur Diffs, sondern den kompletten neuen Inhalt jeder Datei.',
+        'Do NOT output just diffs, but the complete new content of each file.',
       ].join('\n');
 
       // Claude API call (raw fetch, same pattern as CodeGenerator)

@@ -47,15 +47,15 @@ export class ContextBuilder {
     let patternsUsed = 0;
 
     // Header
-    sections.push('Du bist ein Code-Generator im Brain Ecosystem.');
-    sections.push('Du hast Zugriff auf das gesammelte Wissen des Brains:\n');
+    sections.push('You are a code generator in the Brain Ecosystem.');
+    sections.push('You have access to the Brain\'s accumulated knowledge:\n');
 
     // 1. Principles from KnowledgeDistiller
     if (this.knowledgeDistiller) {
       const domain = request.knowledge_domains?.[0];
       const principles = this.knowledgeDistiller.getPrinciples(domain, this.config.maxPrinciples);
       if (principles.length > 0) {
-        sections.push('## Bewährte Principles');
+        sections.push('## Proven Principles');
         for (const p of principles) {
           sections.push(`- ${p.statement} (confidence: ${p.confidence.toFixed(2)}, success: ${(p.success_rate * 100).toFixed(0)}%)`);
           principlesUsed++;
@@ -66,9 +66,9 @@ export class ContextBuilder {
       // 2. Anti-Patterns
       const antiPatterns = this.knowledgeDistiller.getAntiPatterns(domain, this.config.maxAntiPatterns);
       if (antiPatterns.length > 0) {
-        sections.push('## Anti-Patterns (vermeide!)');
+        sections.push('## Anti-Patterns (avoid!)');
         for (const ap of antiPatterns) {
-          const alt = ap.alternative ? ` → Stattdessen: ${ap.alternative}` : '';
+          const alt = ap.alternative ? ` → Instead: ${ap.alternative}` : '';
           sections.push(`- ${ap.statement} (failure: ${(ap.failure_rate * 100).toFixed(0)}%)${alt}`);
           antiPatternsUsed++;
         }
@@ -78,7 +78,7 @@ export class ContextBuilder {
       // 3. Strategies
       const pkg = this.knowledgeDistiller.getPackage(domain ?? 'general');
       if (pkg.strategies && pkg.strategies.length > 0) {
-        sections.push('## Bewährte Strategien');
+        sections.push('## Proven Strategies');
         for (const s of pkg.strategies.slice(0, this.config.maxStrategies)) {
           sections.push(`- ${s.description} (effectiveness: ${(s.effectiveness * 100).toFixed(0)}%)`);
         }
@@ -92,7 +92,7 @@ export class ContextBuilder {
       const stacks = this.patternExtractor.getPatterns('tech_stack', 5);
 
       if (deps.length > 0 || stacks.length > 0) {
-        sections.push('## Beliebte Tech-Patterns (aus gescannten Repos)');
+        sections.push('## Popular Tech Patterns (from scanned repos)');
         if (deps.length > 0) {
           const depList = deps.map(d => {
             const data = JSON.parse(d.pattern_data) as { name: string; percentage: number };
@@ -106,7 +106,7 @@ export class ContextBuilder {
             const data = JSON.parse(s.pattern_data) as { stack: string; count: number };
             return `${data.stack} (${data.count}x)`;
           }).join(', ');
-          sections.push(`- Häufigste Stacks: ${stackList}`);
+          sections.push(`- Most common stacks: ${stackList}`);
           patternsUsed += stacks.length;
         }
         sections.push('');
@@ -117,7 +117,7 @@ export class ContextBuilder {
     if (this.journal) {
       const discoveries = this.journal.getEntries('discovery', this.config.maxJournalInsights);
       if (discoveries.length > 0) {
-        sections.push('## Letzte Entdeckungen');
+        sections.push('## Recent Discoveries');
         for (const d of discoveries) {
           sections.push(`- ${d.title}: ${d.content.substring(0, 150)}`);
         }
@@ -143,7 +143,7 @@ export class ContextBuilder {
     if (this.selfScanner) {
       const archSummary = this.selfScanner.getArchitectureSummary();
       if (archSummary && archSummary !== 'No source files scanned yet.') {
-        sections.push('## Eigene Codebase (Architektur-Übersicht)');
+        sections.push('## Own Codebase (Architecture Overview)');
         sections.push(archSummary);
         sections.push('');
       }
@@ -153,7 +153,7 @@ export class ContextBuilder {
         const content = this.selfScanner.getFileContent(request.target_file);
         if (content) {
           const truncated = content.length > 8000 ? content.substring(0, 8000) + '\n// ... (truncated)' : content;
-          sections.push('## Aktueller Quellcode der Zieldatei');
+          sections.push('## Current Source Code of Target File');
           sections.push('```typescript');
           sections.push(truncated);
           sections.push('```');
@@ -163,19 +163,19 @@ export class ContextBuilder {
     }
 
     // 8. Task section
-    sections.push('## Aufgabe');
+    sections.push('## Task');
     sections.push(request.task);
     if (request.context) {
-      sections.push(`\nZusätzlicher Kontext: ${request.context}`);
+      sections.push(`\nAdditional context: ${request.context}`);
     }
     if (request.target_file) {
-      sections.push(`\nZieldatei: ${request.target_file}`);
+      sections.push(`\nTarget file: ${request.target_file}`);
     }
 
     // 9. Output instructions
     const lang = request.language ?? 'typescript';
-    sections.push(`\nGeneriere den Code als ${lang === 'typescript' ? 'TypeScript ESM, nutze .js Extensions bei Imports' : lang}.`);
-    sections.push('Antworte mit dem Code in einem ```code``` Block, gefolgt von einer kurzen Erklärung.');
+    sections.push(`\nGenerate the code as ${lang === 'typescript' ? 'TypeScript ESM, use .js extensions in imports' : lang}.`);
+    sections.push('Respond with the code in a ```code``` block, followed by a brief explanation.');
 
     const systemPrompt = sections.join('\n');
 

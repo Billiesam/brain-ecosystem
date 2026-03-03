@@ -71,7 +71,7 @@ const DEFAULT_RULES: ResponseRule[] = [
     strategy: 'recall',
     parameter: 'min_match_score',
     adjustment: -0.05,
-    description: 'Hohe Error-Rate → Match-Score-Threshold senken für bessere Lösungsvorschläge',
+    description: 'High error rate → lower match score threshold for better solution suggestions',
   },
   // Learning drift → adjust decay rate
   {
@@ -81,7 +81,7 @@ const DEFAULT_RULES: ResponseRule[] = [
     strategy: 'learning',
     parameter: 'synapse_decay_rate',
     adjustment: -0.01,
-    description: 'Synapse/Learning-Drift → Decay-Rate reduzieren für stabilere Verbindungen',
+    description: 'Synapse/learning drift → reduce decay rate for more stable connections',
   },
   // Research stagnation → lower hypothesis confidence bar
   {
@@ -91,7 +91,7 @@ const DEFAULT_RULES: ResponseRule[] = [
     strategy: 'research',
     parameter: 'hypothesis_min_confidence',
     adjustment: -0.05,
-    description: 'Research-Stagnation → Hypothesen-Threshold senken für mehr Experimente',
+    description: 'Research stagnation → lower hypothesis threshold for more experiments',
   },
   // High anomaly count → escalate (log for human review)
   {
@@ -99,7 +99,7 @@ const DEFAULT_RULES: ResponseRule[] = [
     min_severity: 'critical',
     action: 'escalate',
     adjustment: 0,
-    description: 'Kritische Anomalie → Eskalation für menschliche Überprüfung',
+    description: 'Critical anomaly → escalation for human review',
   },
   // General high-severity → auto-resolve with note
   {
@@ -107,7 +107,7 @@ const DEFAULT_RULES: ResponseRule[] = [
     min_severity: 'high',
     action: 'resolve',
     adjustment: 0,
-    description: 'Hohe Anomalie erkannt und als behandelt markiert',
+    description: 'High anomaly detected and marked as handled',
   },
 ];
 
@@ -303,7 +303,7 @@ export class AutoResponder {
     switch (rule.action) {
       case 'parameter_adjust': {
         if (!this.adaptiveStrategy || !rule.strategy || !rule.parameter) {
-          return this.logOnlyResponse(anomaly, rule, now, 'AdaptiveStrategy nicht verfügbar');
+          return this.logOnlyResponse(anomaly, rule, now, 'AdaptiveStrategy not available');
         }
         const status = this.adaptiveStrategy.getStatus();
         const domain = status.strategies[rule.strategy];
@@ -322,14 +322,14 @@ export class AutoResponder {
         );
 
         if (!adaptation) {
-          ts?.emit('auto_responder', 'analyzing', `Parameter-Anpassung abgelehnt: ${rule.parameter} (Stabilitätsgrenze)`);
+          ts?.emit('auto_responder', 'analyzing', `Parameter adjustment rejected: ${rule.parameter} (stability limit)`);
           return null;
         }
 
         ts?.emit('auto_responder', 'discovering', description, 'notable');
         this.journal?.write({
           type: 'adaptation',
-          title: `AutoResponder: ${rule.parameter} angepasst`,
+          title: `AutoResponder: ${rule.parameter} adjusted`,
           content: description,
           tags: [this.config.brainName, 'auto_response', rule.action, anomaly.severity],
           references: [],
@@ -350,11 +350,11 @@ export class AutoResponder {
       }
 
       case 'escalate': {
-        const description = `ESKALATION: ${anomaly.title} (${anomaly.severity}) — ${anomaly.metric} weicht ${anomaly.deviation.toFixed(1)}σ ab`;
+        const description = `ESCALATION: ${anomaly.title} (${anomaly.severity}) — ${anomaly.metric} deviates ${anomaly.deviation.toFixed(1)}σ`;
         ts?.emit('auto_responder', 'discovering', description, 'breakthrough');
         this.journal?.write({
           type: 'anomaly',
-          title: `AutoResponder ESKALATION: ${anomaly.title}`,
+          title: `AutoResponder ESCALATION: ${anomaly.title}`,
           content: `${description}\n\nExpected: ${anomaly.expected_value}, Actual: ${anomaly.actual_value}\n${anomaly.description}`,
           tags: [this.config.brainName, 'escalation', 'auto_response', anomaly.severity],
           references: [],

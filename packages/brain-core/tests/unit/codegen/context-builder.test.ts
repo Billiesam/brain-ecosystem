@@ -24,7 +24,7 @@ describe('ContextBuilder', () => {
       const request: GenerationRequest = { task: 'Write a hello world function' };
       const result = builder.build(request);
 
-      expect(result.systemPrompt).toContain('Code-Generator');
+      expect(result.systemPrompt).toContain('code generator');
       expect(result.systemPrompt).toContain('Write a hello world function');
       expect(result.systemPrompt).toContain('TypeScript ESM');
       expect(result.principlesUsed).toBe(0);

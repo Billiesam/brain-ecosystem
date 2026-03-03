@@ -59,7 +59,7 @@ describe('Self-Improvement Suggestions', () => {
       const perfSuggestion = suggestions.find(s => s.key.startsWith('meta_poor_'));
       expect(perfSuggestion).toBeDefined();
       expect(perfSuggestion!.suggestion).toContain('anomalyDetective');
-      expect(perfSuggestion!.suggestion).toContain('Grade F');
+      expect(perfSuggestion!.suggestion).toContain('grade F');
     });
 
     it('generates goal suggestion when goals stagnate', () => {
@@ -83,7 +83,7 @@ describe('Self-Improvement Suggestions', () => {
       const suggestions = callDynamic(orch, summary);
       const goalSuggestion = suggestions.find(s => s.key.startsWith('goal_stagnating_'));
       expect(goalSuggestion).toBeDefined();
-      expect(goalSuggestion!.suggestion).toContain('kommt nicht voran');
+      expect(goalSuggestion!.suggestion).toContain('making progress');
     });
 
     it('generates selftest suggestion when many tests fail', () => {
@@ -102,7 +102,7 @@ describe('Self-Improvement Suggestions', () => {
       const suggestions = callDynamic(orch, summary);
       const stSuggestion = suggestions.find(s => s.key === 'selftest_failures');
       expect(stSuggestion).toBeDefined();
-      expect(stSuggestion!.suggestion).toContain('7 von 10');
+      expect(stSuggestion!.suggestion).toContain('7 of 10');
     });
 
     it('generates existential fallback when all engines are healthy', () => {
@@ -135,7 +135,7 @@ describe('Self-Improvement Suggestions', () => {
       (orch as unknown as { dreamEngine: unknown }).dreamEngine = mockDream;
 
       const suggestions = callSuggestions(orch);
-      const dreamBroken = suggestions.find(s => s.includes('Dream-Konsolidierung funktioniert nicht') || s.includes('0 Memories konsolidiert'));
+      const dreamBroken = suggestions.find(s => s.includes('consolidated 0 memories') || s.includes('produce nothing'));
       expect(dreamBroken).toBeUndefined();
     });
 
@@ -153,7 +153,7 @@ describe('Self-Improvement Suggestions', () => {
       (orch as unknown as { dreamEngine: unknown }).dreamEngine = mockDream;
 
       const suggestions = callSuggestions(orch);
-      const dreamBroken = suggestions.find(s => s.includes('0 Memories konsolidiert'));
+      const dreamBroken = suggestions.find(s => s.includes('consolidated 0 memories'));
       expect(dreamBroken).toBeDefined();
     });
   });
