@@ -72,7 +72,7 @@ describe('Self-Improvement Suggestions', () => {
           pausedGoals: 0,
           recentAchievements: [],
           topActive: [
-            { name: 'Reach 80% accuracy', metric: 'prediction_accuracy', current_value: 0.02, target_value: 0.8, status: 'active', priority: 1 },
+            { title: 'Reach 80% accuracy', metricName: 'prediction_accuracy', currentValue: 0.02, targetValue: 0.8, status: 'active', priority: 1, description: '', type: 'metric_target', baselineValue: 0, deadlineCycles: 100, startedCycle: 1, createdAt: '', achievedAt: null },
           ],
           uptime: 100000,
         }),

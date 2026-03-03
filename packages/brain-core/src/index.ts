@@ -295,7 +295,7 @@ export type {
   ReasoningEngineConfig, ReasoningDataSources,
   InferenceRule, InferenceStep, InferenceChain,
   AbductiveExplanation, TemporalStep, TemporalChain,
-  CounterfactualResult, ReasoningStatus,
+  CounterfactualResult as ReasoningCounterfactualResult, ReasoningStatus,
 } from './reasoning/index.js';
 
 // ── Emotional Model ─────────────────────────────────────

@@ -530,13 +530,13 @@ export class MarketingCore {
       getCuriosityStatus: () => {
         try {
           const s = services.curiosityEngine!.getStatus();
-          return { activeGaps: s.gapCount, avgGapScore: s.avgGapScore ?? 0, explorationRate: s.explorationCount / Math.max(s.gapCount, 1) };
+          return { activeGaps: s.activeGaps, avgGapScore: s.topGaps.length > 0 ? s.topGaps.reduce((a, g) => a + g.gapScore, 0) / s.topGaps.length : 0, explorationRate: s.explorationRate };
         } catch { return { activeGaps: 0, avgGapScore: 0, explorationRate: 0 }; }
       },
       getEmergenceStatus: () => {
         try {
           const s = services.emergenceEngine!.getStatus();
-          return { recentEvents: s.recentEventCount ?? 0, avgSurprise: s.avgSurprise ?? 0 };
+          return { recentEvents: s.totalEvents, avgSurprise: s.avgSurpriseScore };
         } catch { return { recentEvents: 0, avgSurprise: 0 }; }
       },
       getHypothesisConfidence: () => {
@@ -548,15 +548,19 @@ export class MarketingCore {
         } catch { return { avgConfidence: 0.5, confirmedRate: 0 }; }
       },
       getPredictionAccuracy: () => {
-        try { return services.predictionEngine?.getStatus()?.accuracy ?? 0.5; } catch { return 0.5; }
+        try {
+          const summary = services.predictionEngine?.getSummary();
+          return (summary as Record<string, unknown> | undefined)?.overallAccuracy as number ?? 0.5;
+        } catch { return 0.5; }
       },
       getReportCards: () => {
-        try { return services.metaCognitionLayer?.getReportCards() ?? []; } catch { return []; }
+        try { return services.metaCognitionLayer?.getLatestReportCards() ?? []; } catch { return []; }
       },
       getAttentionStatus: () => {
         try {
           const s = services.attentionEngine!.getStatus();
-          return { avgUrgency: s.avgUrgency ?? 0, burstCount: s.burstCount ?? 0, contextSwitches: s.contextSwitchCount ?? 0 };
+          const topUrgency = s.urgentTopics.length / 10;
+          return { avgUrgency: Math.min(topUrgency, 1), burstCount: s.totalEvents > 50 ? Math.floor(s.totalEvents / 10) : 0, contextSwitches: s.contextHistory.length };
         } catch { return { avgUrgency: 0, burstCount: 0, contextSwitches: 0 }; }
       },
       getReasoningChainCount: () => {

@@ -1350,26 +1350,26 @@ export class ResearchOrchestrator {
     // Step 38: EmotionalModel — sense emotions + recommend behavior
     if (this.emotionalModel) {
       try {
-        ts?.emit('emotional', 'sensing', 'Step 38: Sensing emotional state...', 'routine');
+        ts?.emit('emotional', 'analyzing', 'Step 38: Sensing emotional state...', 'routine');
         this.emotionalModel.sense();
         const mood = this.emotionalModel.getMood();
         this.log.info(`[orchestrator] Mood: ${mood.mood} (score=${mood.score.toFixed(2)}, valence=${mood.valence.toFixed(2)}, arousal=${mood.arousal.toFixed(2)})`);
 
         // Log mood change to journal
-        if (this.cycleCount % (this.config.reflectEvery ?? 10) === 0) {
+        if (this.cycleCount % this.reflectEvery === 0) {
           const recs = this.emotionalModel.getRecommendations();
           if (recs.length > 0) {
-            this.journal.addEntry('emotional_reflection', `Mood: ${mood.mood} — ${recs.join('; ')}`, { mood: mood.mood, score: mood.score, valence: mood.valence });
+            this.journal.recordDiscovery(`Emotional state: ${mood.mood}`, `Mood: ${mood.mood} — ${recs.join('; ')}`, { mood: mood.mood, score: mood.score, valence: mood.valence });
           }
         }
 
         // Emit recommendations as thoughts
         const recs = this.emotionalModel.getRecommendations();
         for (const rec of recs) {
-          ts?.emit('emotional', 'recommending', `[${mood.mood}] ${rec}`, 'observation');
+          ts?.emit('emotional', 'reflecting', `[${mood.mood}] ${rec}`, 'notable');
         }
 
-        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('emotional_model', this.cycleCount, { mood: mood.mood, score: mood.score, valence: mood.valence });
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('emotional_model', this.cycleCount, { insights: 1 });
       } catch (err) { this.log.warn(`[orchestrator] Step 38 error: ${(err as Error).message}`); }
     }
 
@@ -1812,13 +1812,13 @@ export class ResearchOrchestrator {
     if (this.metaCognitionLayer) {
       try {
         const mcStatus = this.metaCognitionLayer.getStatus();
-        const poorEngines = (mcStatus.reportCards ?? []).filter((rc: Record<string, unknown>) => rc.grade === 'D' || rc.grade === 'F');
+        const poorEngines = (mcStatus.reportCards ?? []).filter((rc) => rc.grade === 'D' || rc.grade === 'F');
         if (poorEngines.length > 0) {
-          const worst = poorEngines[0] as Record<string, unknown>;
+          const worst = poorEngines[0]!;
           result.push({
             key: `meta_poor_${worst.engine}`, priority: 5,
-            suggestion: `Tell Claude: Meine Engine "${worst.engine}" hat Grade ${worst.grade} (Score: ${((worst.combined_score as number) * 100).toFixed(0)}%). Was kann ich anders machen? Soll ich ihre Parameter via AutoExperiment tunen oder braucht sie grundlegend andere Daten?`,
-            alternatives: [`Tell Claude: ${poorEngines.length} meiner Engines performen schlecht (${poorEngines.map((e: Record<string, unknown>) => `${e.engine}:${e.grade}`).join(', ')}). Ich will systematisch analysieren warum.`],
+            suggestion: `Tell Claude: Meine Engine "${worst.engine}" hat Grade ${worst.grade} (Score: ${(worst.combined_score * 100).toFixed(0)}%). Was kann ich anders machen? Soll ich ihre Parameter via AutoExperiment tunen oder braucht sie grundlegend andere Daten?`,
+            alternatives: [`Tell Claude: ${poorEngines.length} meiner Engines performen schlecht (${poorEngines.map((e) => `${e.engine}:${e.grade}`).join(', ')}). Ich will systematisch analysieren warum.`],
           });
         }
       } catch { /* not ready */ }
@@ -1828,17 +1828,15 @@ export class ResearchOrchestrator {
     if (this.goalEngine) {
       try {
         const gStatus = this.goalEngine.getStatus();
-        const active = gStatus.topActive as Array<Record<string, unknown>> | undefined;
-        const stagnating = (active ?? []).filter((g: Record<string, unknown>) => {
-          const progress = g.current_value as number ?? 0;
-          const target = g.target_value as number ?? 1;
-          return progress / target < 0.1 && (g.status === 'active');
+        const active = gStatus.topActive ?? [];
+        const stagnating = active.filter((g) => {
+          return g.currentValue / Math.max(g.targetValue, 1) < 0.1 && (g.status === 'active');
         });
         if (stagnating.length > 0) {
-          const g = stagnating[0];
+          const g = stagnating[0]!;
           result.push({
-            key: `goal_stagnating_${(g.metric as string ?? 'unknown').substring(0, 20)}`, priority: 5,
-            suggestion: `Tell Claude: Mein Ziel "${g.name ?? g.metric}" kommt nicht voran (Fortschritt < 10%). Brauche ich eine andere Strategie oder ist das Ziel unrealistisch?`,
+            key: `goal_stagnating_${g.metricName.substring(0, 20)}`, priority: 5,
+            suggestion: `Tell Claude: Mein Ziel "${g.title}" kommt nicht voran (Fortschritt < 10%). Brauche ich eine andere Strategie oder ist das Ziel unrealistisch?`,
             alternatives: ['Tell Claude: Mehrere meiner Ziele stagnieren. Ich will eine Retrospektive: welche Ziele sind realistisch und welche sollte ich anpassen?'],
           });
         }
@@ -1948,7 +1946,7 @@ export class ResearchOrchestrator {
     if (this.memoryPalace) {
       try {
         const mpStatus = this.memoryPalace.getStatus();
-        const stats = mpStatus.stats as Record<string, unknown> | undefined;
+        const stats = mpStatus.stats as unknown as Record<string, unknown> | undefined;
         if (stats) {
           const totalNodes = stats.totalNodes as number ?? 0;
           const totalEdges = stats.totalEdges as number ?? 0;

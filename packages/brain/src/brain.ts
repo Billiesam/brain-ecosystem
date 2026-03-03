@@ -580,20 +580,20 @@ export class BrainCore {
     emotionalModel.setDataSources({
       getAutoResponderStatus: () => {
         try {
-          const stats = this.orchestrator!.autoResponder.getStats();
-          return { totalResponses: stats.totalActions, successRate: stats.successRate, recentSeverity: stats.recentSeverity ?? [] };
+          const s = this.orchestrator!.autoResponder.getStatus();
+          return { totalResponses: s.total_responses, successRate: s.success_rate, recentSeverity: s.recent.map(() => 'medium') };
         } catch { return { totalResponses: 0, successRate: 1, recentSeverity: [] }; }
       },
       getCuriosityStatus: () => {
         try {
           const s = services.curiosityEngine!.getStatus();
-          return { activeGaps: s.gapCount, avgGapScore: s.avgGapScore ?? 0, explorationRate: s.explorationCount / Math.max(s.gapCount, 1) };
+          return { activeGaps: s.activeGaps, avgGapScore: s.topGaps.length > 0 ? s.topGaps.reduce((a, g) => a + g.gapScore, 0) / s.topGaps.length : 0, explorationRate: s.explorationRate };
         } catch { return { activeGaps: 0, avgGapScore: 0, explorationRate: 0 }; }
       },
       getEmergenceStatus: () => {
         try {
           const s = services.emergenceEngine!.getStatus();
-          return { recentEvents: s.recentEventCount ?? 0, avgSurprise: s.avgSurprise ?? 0 };
+          return { recentEvents: s.totalEvents, avgSurprise: s.avgSurpriseScore };
         } catch { return { recentEvents: 0, avgSurprise: 0 }; }
       },
       getHypothesisConfidence: () => {
@@ -605,29 +605,36 @@ export class BrainCore {
         } catch { return { avgConfidence: 0.5, confirmedRate: 0 }; }
       },
       getPredictionAccuracy: () => {
-        try { return services.predictionEngine?.getStatus()?.accuracy ?? 0.5; } catch { return 0.5; }
+        try {
+          const summary = services.predictionEngine?.getSummary();
+          return (summary as Record<string, unknown> | undefined)?.overallAccuracy as number ?? 0.5;
+        } catch { return 0.5; }
       },
       getReportCards: () => {
-        try { return services.metaCognitionLayer?.getReportCards() ?? []; } catch { return []; }
+        try { return services.metaCognitionLayer?.getLatestReportCards() ?? []; } catch { return []; }
       },
       getAttentionStatus: () => {
         try {
           const s = services.attentionEngine!.getStatus();
-          return { avgUrgency: s.avgUrgency ?? 0, burstCount: s.burstCount ?? 0, contextSwitches: s.contextSwitchCount ?? 0 };
+          const topUrgency = s.urgentTopics.length / 10;
+          return { avgUrgency: Math.min(topUrgency, 1), burstCount: s.totalEvents > 50 ? Math.floor(s.totalEvents / 10) : 0, contextSwitches: s.contextHistory.length };
         } catch { return { avgUrgency: 0, burstCount: 0, contextSwitches: 0 }; }
       },
       getMetaTrend: () => {
         try {
-          const trends = services.metaCognitionLayer?.getMetaTrends();
-          if (!trends) return { learningRate: 0.5, discoveryRate: 0.5, direction: 'stable' };
-          return { learningRate: trends.learningRate ?? 0.5, discoveryRate: trends.discoveryRate ?? 0.5, direction: trends.direction ?? 'stable' };
+          const trends = services.metaCognitionLayer?.getMetaTrend();
+          if (!trends || trends.length === 0) return { learningRate: 0.5, discoveryRate: 0.5, direction: 'stable' };
+          const latest = trends[trends.length - 1]!;
+          const prev = trends.length > 1 ? trends[trends.length - 2]! : latest;
+          const direction = latest.learningRate > prev.learningRate ? 'improving' : latest.learningRate < prev.learningRate ? 'declining' : 'stable';
+          return { learningRate: latest.learningRate, discoveryRate: latest.discoveryRate, direction };
         } catch { return { learningRate: 0.5, discoveryRate: 0.5, direction: 'stable' }; }
       },
       getReasoningChainCount: () => {
         try { return reasoningEngine.getStatus().chainCount; } catch { return 0; }
       },
       getCreativeHypothesisCount: () => {
-        try { return this.orchestrator!.hypothesisEngine.getCreativeCount?.() ?? 0; } catch { return 0; }
+        try { return this.orchestrator!.hypothesisEngine.getCreativeStats().total; } catch { return 0; }
       },
       getDebateCount: () => {
         try { return services.debateEngine?.getStatus()?.totalDebates ?? 0; } catch { return 0; }

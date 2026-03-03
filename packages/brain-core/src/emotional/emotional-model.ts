@@ -331,7 +331,7 @@ export class EmotionalModel {
       this.stmtCleanupInfluences.run(this.config.historyRetentionDays);
     }
 
-    this.ts?.emit('emotional', 'sensing', `Mood: ${mood.mood} (${(mood.score * 100).toFixed(0)}%) | valence=${mood.valence > 0 ? '+' : ''}${mood.valence.toFixed(2)} arousal=${mood.arousal.toFixed(2)}`, 'routine');
+    this.ts?.emit('emotional', 'analyzing', `Mood: ${mood.mood} (${(mood.score * 100).toFixed(0)}%) | valence=${mood.valence > 0 ? '+' : ''}${mood.valence.toFixed(2)} arousal=${mood.arousal.toFixed(2)}`, 'routine');
 
     return this.dimensions;
   }
