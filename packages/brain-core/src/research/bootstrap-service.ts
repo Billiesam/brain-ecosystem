@@ -196,18 +196,26 @@ export class BootstrapService {
       }
     }
 
-    // 1c. System state — 5 observations
-    const systemObs: Array<{ event_type: string; metrics: Record<string, unknown> }> = [
-      { event_type: 'system:engine_count', metrics: { count: this.config.engineCount } },
-      { event_type: 'system:mcp_tool_count', metrics: { count: this.config.mcpToolCount } },
-      { event_type: 'system:startup_time', metrics: { timestamp: Date.now() } },
-      { event_type: 'system:memory_rss', metrics: { bytes: process.memoryUsage().rss } },
-      { event_type: 'system:version', metrics: { version: this.config.version, brain: this.config.brainName } },
+    // 1c. System state — varied categories + event types for richer insight detection
+    const systemObs: Array<{ category: 'tool_usage' | 'query' | 'error' | 'learning'; event_type: string; metrics: Record<string, unknown> }> = [
+      { category: 'tool_usage', event_type: 'system:engine_count', metrics: { count: this.config.engineCount } },
+      { category: 'tool_usage', event_type: 'system:mcp_tool_count', metrics: { count: this.config.mcpToolCount } },
+      { category: 'tool_usage', event_type: 'system:startup_time', metrics: { timestamp: Date.now() } },
+      { category: 'tool_usage', event_type: 'system:memory_rss', metrics: { bytes: process.memoryUsage().rss } },
+      { category: 'tool_usage', event_type: 'system:version', metrics: { version: this.config.version, brain: this.config.brainName } },
+      // Varied categories for SelfObserver insight detection
+      { category: 'query', event_type: 'query:knowledge_lookup', metrics: { results: 0, duration_ms: 12 } },
+      { category: 'query', event_type: 'query:hypothesis_search', metrics: { results: 0, duration_ms: 8 } },
+      { category: 'query', event_type: 'query:journal_scan', metrics: { results: 0, duration_ms: 15 } },
+      { category: 'error', event_type: 'error:empty_result', metrics: { source: 'bootstrap', severity: 'low' } },
+      { category: 'error', event_type: 'error:no_data', metrics: { source: 'cold_start', severity: 'info' } },
+      { category: 'learning', event_type: 'learning:bootstrap_init', metrics: { phase: 'seed', progress: 0.5 } },
+      { category: 'learning', event_type: 'learning:first_cycle', metrics: { engines_ready: this.config.engineCount, data_available: false } },
     ];
 
     for (const obs of systemObs) {
       this.engines.selfObserver.record({
-        category: 'tool_usage',
+        category: obs.category as 'tool_usage',
         event_type: obs.event_type,
         metrics: obs.metrics,
       });
@@ -356,16 +364,25 @@ export class BootstrapService {
 
     let count = 0;
     const now = Date.now();
-    const metricsToSeed = ['journal_entries', 'observation_count', 'hypothesis_count'];
+    // Align with orchestrator Step 11 metrics exactly
+    const metricsToSeed: Array<{ name: string; baseValue: number; variance: number }> = [
+      { name: 'cycle_duration_ms', baseValue: 200, variance: 50 },
+      { name: 'anomaly_count', baseValue: 0.3, variance: 0.5 },
+      { name: 'insight_count', baseValue: 0.5, variance: 0.8 },
+      { name: 'correlation_count', baseValue: 0.1, variance: 0.3 },
+      { name: 'journal_entries', baseValue: 4, variance: 2 },
+      { name: 'auto_response_count', baseValue: 0, variance: 1 },
+    ];
 
     for (const metric of metricsToSeed) {
-      // Seed 5 data points with slightly varying values over the last 5 intervals
-      for (let i = 4; i >= 0; i--) {
+      // Seed 10 data points (≥7 needed for drift detection)
+      for (let i = 9; i >= 0; i--) {
         const timestamp = now - (i * 300_000); // 5-min intervals
-        const baseValue = metric === 'journal_entries' ? 3 + i : metric === 'observation_count' ? 10 + i * 2 : 1 + i;
+        const noise = (Math.random() * 2 - 1) * metric.variance;
+        const value = Math.max(0, Math.round((metric.baseValue + noise + i * 0.1) * 100) / 100);
         this.db.prepare(`
           INSERT INTO prediction_metrics (metric, value, domain, timestamp) VALUES (?, ?, ?, ?)
-        `).run(metric, baseValue, 'metric', timestamp);
+        `).run(metric.name, value, 'metric', timestamp);
         count++;
       }
     }
@@ -381,24 +398,30 @@ export class BootstrapService {
 
     let count = 0;
     const now = Date.now();
-    const anomalyMetrics = ['insight_count', 'anomaly_count', 'cycle_duration_ms', 'journal_entries', 'hypothesis_count'];
+    // Predefined variance patterns to avoid monotone baselines
+    const anomalyPattern = [0, 1, 0, 0, 2, 0, 1, 0, 0, 1];
+    const anomalyMetrics: Array<{ name: string; base: number; variance: number; pattern?: number[] }> = [
+      { name: 'insight_count', base: 1, variance: 0.8 },
+      { name: 'anomaly_count', base: 0.3, variance: 0.5, pattern: anomalyPattern },
+      { name: 'cycle_duration_ms', base: 180, variance: 40 },
+      { name: 'journal_entries', base: 4, variance: 2 },
+      { name: 'hypothesis_count', base: 2, variance: 1 },
+    ];
 
     for (const metric of anomalyMetrics) {
-      // Seed 5 baseline data points over the last 5 intervals
-      for (let i = 4; i >= 0; i--) {
+      // Seed 10 baseline data points (≥7 for drift detection)
+      for (let i = 9; i >= 0; i--) {
         const timestamp = now - (i * 300_000);
-        let baseValue: number;
-        switch (metric) {
-          case 'insight_count': baseValue = 1 + Math.floor(i * 0.5); break;
-          case 'anomaly_count': baseValue = 0; break;
-          case 'cycle_duration_ms': baseValue = 150 + i * 10; break;
-          case 'journal_entries': baseValue = 3 + i; break;
-          case 'hypothesis_count': baseValue = 1 + i; break;
-          default: baseValue = 0;
+        let value: number;
+        if (metric.pattern) {
+          value = metric.pattern[9 - i] ?? 0;
+        } else {
+          const noise = (Math.random() * 2 - 1) * metric.variance;
+          value = Math.max(0, Math.round((metric.base + noise) * 100) / 100);
         }
         this.db.prepare(`
           INSERT INTO metric_history (metric, value, timestamp) VALUES (?, ?, ?)
-        `).run(metric, baseValue, timestamp);
+        `).run(metric.name, value, timestamp);
         count++;
       }
     }

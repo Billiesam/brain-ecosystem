@@ -106,6 +106,7 @@ export class ResearchOrchestrator {
   private bootstrapService: BootstrapService | null = null;
   private conceptAbstraction: ConceptAbstraction | null = null;
 
+  private db: Database.Database;
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
   private cycleCount = 0;
@@ -122,6 +123,7 @@ export class ResearchOrchestrator {
   private lastSuggestionsHash = '';
 
   constructor(db: Database.Database, config: ResearchOrchestratorConfig, causalGraph?: CausalGraph) {
+    this.db = db;
     this.brainName = config.brainName;
     this.distillEvery = config.distillEvery ?? 5;
     this.agendaEvery = config.agendaEvery ?? 3;
@@ -140,7 +142,7 @@ export class ResearchOrchestrator {
     this.autoResponder = new AutoResponder(db, { brainName: config.brainName });
     this.autoResponder.setAdaptiveStrategy(this.adaptiveStrategy);
     this.autoResponder.setJournal(this.journal);
-    this.hypothesisEngine = new HypothesisEngine(db, { minEvidence: 5, confirmThreshold: 0.05, rejectThreshold: 0.5 });
+    this.hypothesisEngine = new HypothesisEngine(db, { minEvidence: 3, confirmThreshold: 0.05, rejectThreshold: 0.5 });
   }
 
   /** Set the DataMiner instance for DB-driven engine feeding. */
@@ -186,6 +188,8 @@ export class ResearchOrchestrator {
   /** Set the TransferEngine — cross-domain knowledge transfer. */
   setTransferEngine(engine: TransferEngine): void {
     this.transferEngine = engine;
+    // Register own distiller as peer for self-analysis and transfer proposals
+    engine.registerPeerDistiller(this.brainName + '_self', this.knowledgeDistiller);
   }
 
   /** Set the NarrativeEngine — brain explains itself in natural language. */
@@ -449,6 +453,69 @@ export class ResearchOrchestrator {
       }
     }
 
+    // 2e. Accumulate evidence for hypotheses based on cycle observations
+    {
+      const pendingHypotheses = this.hypothesisEngine.list('proposed', 50)
+        .concat(this.hypothesisEngine.list('testing', 50));
+      for (const hyp of pendingHypotheses) {
+        if (!hyp.id) continue;
+        const vars = hyp.variables ?? [];
+        const statement = hyp.statement.toLowerCase();
+        let evidenceType: 'for' | 'against' | null = null;
+        let reason = '';
+
+        // Check if cycle metrics match hypothesis variables
+        if (vars.includes('journal_entries') || statement.includes('journal')) {
+          const journalStats = this.journal.getSummary();
+          const entries = (journalStats.total_entries as number) ?? 0;
+          if (entries > this.cycleCount) {
+            evidenceType = 'for';
+            reason = `journal_entries=${entries} growing (cycle ${this.cycleCount})`;
+          } else if (this.cycleCount > 5 && entries < 3) {
+            evidenceType = 'against';
+            reason = `journal_entries=${entries} stagnant after ${this.cycleCount} cycles`;
+          }
+        } else if (vars.includes('anomaly_count') || statement.includes('anomal')) {
+          if (anomalies.length > 0) {
+            evidenceType = 'for';
+            reason = `${anomalies.length} anomalies detected this cycle`;
+          }
+        } else if (vars.includes('insight_count') || vars.includes('observation_type_count') || statement.includes('observation')) {
+          if (insights.length > 0) {
+            evidenceType = 'for';
+            reason = `${insights.length} insights from observations this cycle`;
+          }
+        } else if (statement.includes('dream') || statement.includes('memor')) {
+          // Dream-related: check if dream engine produced output
+          if (this.dreamEngine) {
+            const dStatus = this.dreamEngine.getStatus();
+            const totals = dStatus.totals as Record<string, number> | undefined;
+            if ((totals?.memoriesConsolidated ?? 0) > 0) {
+              evidenceType = 'for';
+              reason = `dream consolidated ${totals?.memoriesConsolidated} memories`;
+            }
+          }
+        } else if (statement.includes('attention') || statement.includes('focus')) {
+          if (this.attentionEngine) {
+            const topTopics = this.attentionEngine.getTopTopics(1);
+            if (topTopics.length > 0) {
+              evidenceType = 'for';
+              reason = `attention active: top topic "${topTopics[0].topic}" (score=${topTopics[0].score.toFixed(1)})`;
+            }
+          }
+        }
+
+        if (evidenceType && hyp.id) {
+          try {
+            const col = evidenceType === 'for' ? 'evidence_for' : 'evidence_against';
+            this.db.prepare(`UPDATE hypotheses SET ${col} = ${col} + 1 WHERE id = ?`).run(hyp.id);
+          } catch {
+            // Hypothesis table might not have these columns yet — skip
+          }
+        }
+      }
+    }
+
     // 2d. Attention Engine: decay scores, compute engine weights, persist focus
     if (this.attentionEngine) {
       ts?.emit('attention', 'focusing', 'Updating attention scores and engine weights...');
@@ -611,18 +678,40 @@ export class ResearchOrchestrator {
       ts?.emit('journal', 'reflecting', 'Reflection complete', 'notable');
     }
 
-    // 8b. Cycle-end journal entry — guarantees journal grows every cycle
+    // 8b. Cycle-end journal entry — guarantees journal grows every cycle (enriched with engine state)
     {
       const cycleDuration = Date.now() - start;
       const journalStats = this.journal.getSummary();
+      const hypSummary = this.hypothesisEngine.getSummary();
+      const predAccuracy = (() => {
+        try {
+          const predSummary = this.predictionEngine?.getSummary();
+          const domains = (predSummary?.by_domain ?? []) as Array<{ accuracy_rate?: number }>;
+          if (domains.length > 0) return Math.round((domains[0]?.accuracy_rate ?? 0) * 100);
+        } catch { /* */ }
+        return 0;
+      })();
+      const attTopics = (() => {
+        try { return this.attentionEngine?.getTopTopics?.(3) ?? []; }
+        catch { return []; }
+      })();
+      const focusStr = attTopics.length > 0
+        ? attTopics.map((t: { topic: string }) => t.topic).join(', ')
+        : 'none';
+
       this.journal.write({
         type: 'insight',
         title: `Cycle #${this.cycleCount} summary`,
-        content: `Completed feedback cycle #${this.cycleCount} in ${cycleDuration}ms. ${insights.length} insights, ${anomalies.length} anomalies detected. Journal now has ${(journalStats.total_entries as number) ?? 0} entries.`,
+        content: `Completed feedback cycle #${this.cycleCount} in ${cycleDuration}ms. ${insights.length} insights, ${anomalies.length} anomalies detected. Hypotheses: ${hypSummary.proposed} pending, ${hypSummary.confirmed} confirmed. Predictions: accuracy ${predAccuracy}%. Focus: ${focusStr}. Journal: ${(journalStats.total_entries as number) ?? 0} entries.`,
         tags: [this.brainName, 'cycle-summary'],
         references: [],
         significance: 'routine',
-        data: { cycle: this.cycleCount, duration_ms: cycleDuration, insights: insights.length, anomalies: anomalies.length },
+        data: {
+          cycle: this.cycleCount, duration_ms: cycleDuration,
+          insights: insights.length, anomalies: anomalies.length,
+          hypotheses_confirmed: hypSummary.confirmed, hypotheses_total: hypSummary.total,
+          prediction_accuracy: predAccuracy, focus: focusStr,
+        },
       });
     }
 
@@ -669,6 +758,11 @@ export class ResearchOrchestrator {
     if (this.autoExperimentEngine && this.cycleCount > 3 && this.cycleCount % 5 === 0) {
       ts?.emit('auto_experiment', 'experimenting', 'Processing auto-experiments...');
       try {
+        // Ensure MetaCognition has fresh report cards before AutoExperiment discovers candidates
+        if (this.metaCognitionLayer) {
+          try { this.metaCognitionLayer.evaluate(); }
+          catch (mcErr) { this.log.warn(`[orchestrator] MetaCog pre-eval for AutoExp: ${(mcErr as Error).message}`); }
+        }
         // Feed measurements
         this.autoExperimentEngine.feedMeasurement('insight_count', insights.length);
         this.autoExperimentEngine.feedMeasurement('anomaly_count', anomalies.length);
@@ -701,6 +795,27 @@ export class ResearchOrchestrator {
 
     // 13. Periodic Dream Consolidation: don't wait for idle, consolidate every 10 cycles
     if (this.dreamEngine && this.cycleCount % 10 === 0) {
+      ts?.emit('dream', 'dreaming', 'Feeding knowledge into memories for consolidation...');
+      try {
+        // Feed current knowledge into memories table so consolidation has material
+        const principles = this.knowledgeDistiller.getPrinciples(undefined, 50);
+        const journalEntries = this.journal.search('', 30);
+        const insertMemory = this.db.prepare(`
+          INSERT OR IGNORE INTO memories (category, key, content, importance, source, tags, active)
+          VALUES (?, ?, ?, ?, 'orchestrator_feed', ?, 1)
+        `);
+        for (const p of principles) {
+          insertMemory.run('principle', `principle:${p.id ?? p.statement.substring(0, 50)}`, p.statement, Math.min(1, (p.confidence ?? 0.5) + 0.3), JSON.stringify(['principle', this.brainName]));
+        }
+        for (const j of journalEntries) {
+          if (j.significance === 'breakthrough' || j.significance === 'notable') {
+            insertMemory.run('journal', `journal:${j.id ?? j.title.substring(0, 50)}`, `${j.title}: ${j.content?.substring(0, 200) ?? ''}`, j.significance === 'breakthrough' ? 0.9 : 0.6, JSON.stringify(['journal', j.type, this.brainName]));
+          }
+        }
+        ts?.emit('dream', 'dreaming', `Fed ${principles.length} principles + ${journalEntries.filter(j => j.significance === 'breakthrough' || j.significance === 'notable').length} journal entries into memories`);
+      } catch (feedErr) {
+        this.log.warn(`[orchestrator] Dream memory feed error: ${(feedErr as Error).message}`);
+      }
       ts?.emit('dream', 'dreaming', 'Scheduled consolidation starting (every 10 cycles)...');
       try {
         this.dreamEngine.consolidate('auto');
@@ -1038,6 +1153,38 @@ export class ResearchOrchestrator {
         }
       } catch (err) {
         this.log.error(`[orchestrator] MetaCognition error: ${(err as Error).message}`);
+      }
+    }
+
+    // 21b. Adaptive Strategy: adjust parameters for poorly performing engines
+    if (this.metaCognitionLayer && this.cycleCount % this.reflectEvery === 0) {
+      try {
+        const cards = this.metaCognitionLayer.getLatestReportCards();
+        const poorCards = cards.filter(c => c.grade === 'D' || c.grade === 'F');
+        for (const card of poorCards.slice(0, 3)) {
+          // Try adapting the engine's research strategy parameters
+          const strategyDomains: Array<'recall' | 'learning' | 'research'> = ['research', 'learning'];
+          for (const domain of strategyDomains) {
+            const currentVal = this.adaptiveStrategy.getParam(domain, card.engine);
+            if (currentVal !== null) {
+              const direction = card.grade === 'F' ? 0.2 : 0.1;
+              this.adaptiveStrategy.adapt(
+                domain,
+                card.engine,
+                currentVal * (1 + direction),
+                `MetaCog grade ${card.grade} — boosting ${card.engine}`,
+                { reportCard: card },
+              );
+              ts?.emit('adaptive_strategy', 'discovering',
+                `Adapted ${domain}.${card.engine}: grade ${card.grade} → boost ${(direction * 100).toFixed(0)}%`,
+                'routine',
+              );
+              break; // Only adapt one domain per engine
+            }
+          }
+        }
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 21b AdaptiveStrategy error: ${(err as Error).message}`);
       }
     }
 

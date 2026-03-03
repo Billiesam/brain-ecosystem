@@ -114,11 +114,11 @@ describe('BootstrapService', () => {
       service.setEngines(engines);
       const result = service.bootstrap();
 
-      // 3 metrics × 5 data points = 15
-      expect(result.predictions).toBe(15);
+      // 6 metrics × 10 data points = 60
+      expect(result.predictions).toBe(60);
 
       const metricCount = (db.prepare('SELECT COUNT(*) as cnt FROM prediction_metrics').get() as { cnt: number }).cnt;
-      expect(metricCount).toBe(15);
+      expect(metricCount).toBe(60);
     });
 
     it('seeds anomaly baseline metrics', () => {
@@ -126,11 +126,11 @@ describe('BootstrapService', () => {
       service.setEngines(engines);
       const result = service.bootstrap();
 
-      // 5 metrics × 5 data points = 25
-      expect(result.metrics).toBe(25);
+      // 5 metrics × 10 data points = 50
+      expect(result.metrics).toBe(50);
 
       const metricCount = (db.prepare('SELECT COUNT(*) as cnt FROM metric_history').get() as { cnt: number }).cnt;
-      expect(metricCount).toBe(25);
+      expect(metricCount).toBe(50);
     });
 
     it('is idempotent — second call returns alreadyBootstrapped', () => {
@@ -212,7 +212,7 @@ describe('BootstrapService', () => {
       expect(state.observations_seeded).toBeGreaterThan(0);
       expect(state.journal_entries_seeded).toBeGreaterThanOrEqual(3);
       expect(state.hypotheses_seeded).toBe(4);
-      expect(state.predictions_seeded).toBe(15);
+      expect(state.predictions_seeded).toBe(60);
     });
   });
 
