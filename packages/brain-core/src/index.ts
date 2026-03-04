@@ -313,6 +313,11 @@ export type {
 // ── DataScout ──────────────────────────────────────────
 export { DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter } from './research/data-scout.js';
 export type { ScoutDiscovery, ScoutAdapter, DataScoutStatus } from './research/data-scout.js';
+export { BraveSearchAdapter, JinaReaderAdapter } from './research/adapters/web-research-adapter.js';
+
+// ── Research Missions ─────────────────────────────────
+export { ResearchMissionEngine, runMissionMigration } from './missions/mission-engine.js';
+export type { Mission, MissionPhase, MissionSource, MissionStatus, MissionDepth } from './missions/mission-engine.js';
 
 // ── Unified Dashboard ──────────────────────────────────
 export { UnifiedDashboardServer } from './unified/index.js';
