@@ -398,6 +398,11 @@ export class BrainCore {
     this.debateEngine = debateEngine;
     services.debateEngine = debateEngine;
 
+    // Re-propagate LLM to engines registered after initial setLLMService call
+    if (llmService.isAvailable()) {
+      this.orchestrator.setLLMService(llmService);
+    }
+
     // 11j.11 Meta-Cognition: ParameterRegistry + MetaCognitionLayer + AutoExperimentEngine
     const parameterRegistry = new ParameterRegistry(this.db!);
     parameterRegistry.registerAll([
