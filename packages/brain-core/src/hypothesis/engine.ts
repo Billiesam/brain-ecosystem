@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { getLogger } from '../utils/logger.js';
+import type { LLMService } from '../llm/llm-service.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export class HypothesisEngine {
   private minEvidence: number;
   private confirmThreshold: number;   // p-value below this → confirmed
   private rejectThreshold: number;    // p-value above this → rejected
+  private llm: LLMService | null = null;
 
   constructor(
     private db: Database.Database,
@@ -112,6 +114,8 @@ export class HypothesisEngine {
     this.confirmThreshold = config?.confirmThreshold ?? 0.05;
     this.rejectThreshold = config?.rejectThreshold ?? 0.5;
   }
+
+  setLLMService(llm: LLMService): void { this.llm = llm; }
 
   /** Record an observation for hypothesis generation and testing. */
   observe(observation: Observation): void {
@@ -320,10 +324,86 @@ export class HypothesisEngine {
 
   /**
    * Generate "wild" hypotheses using creative strategies.
-   * These push the boundaries of what the system considers possible.
-   * Each gets a source like 'creative_inversion', 'creative_combination', etc.
+   * Uses LLM if available, otherwise falls back to heuristic strategies.
    */
   generateCreative(count = 3): Hypothesis[] {
+    // Try LLM creative generation (fire-and-forget — results used in async version)
+    if (this.llm?.isAvailable()) {
+      void this.generateCreativeLLMAsync(count).catch(() => {});
+    }
+
+    // Always run heuristic version for sync compat
+    return this.generateCreativeHeuristic(count);
+  }
+
+  /**
+   * Async creative hypothesis generation via LLM.
+   * Generates truly novel hypotheses by reasoning about the knowledge base.
+   */
+  async generateCreativeLLM(count = 3): Promise<Hypothesis[]> {
+    if (!this.llm?.isAvailable()) return this.generateCreativeHeuristic(count);
+
+    try {
+      // Gather knowledge context
+      const confirmed = this.list('confirmed', 10);
+      const rejected = this.list('rejected', 5);
+      const types = this.getObservationTypes();
+
+      const context = [
+        'Confirmed hypotheses:',
+        ...confirmed.map(h => `- ${h.statement} (confidence: ${(h.confidence * 100).toFixed(0)}%)`),
+        '',
+        'Rejected hypotheses:',
+        ...rejected.map(h => `- ${h.statement}`),
+        '',
+        'Known observation types:',
+        ...types.map(t => `- ${t}`),
+      ].join('\n');
+
+      const prompt = `${context}\n\nGenerate ${count} novel, testable hypotheses. Each should explore non-obvious connections.\n\nOutput as JSON array: [{"statement": "...", "variables": ["var1", "var2"], "reasoning": "why this is interesting"}]`;
+
+      const result = await this.llm.call('creative_hypothesis', prompt, { temperature: 0.9 });
+      if (!result?.text) return this.generateCreativeHeuristic(count);
+
+      // Parse JSON from LLM response
+      const jsonMatch = result.text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return this.generateCreativeHeuristic(count);
+
+      const hypotheses: Array<{ statement: string; variables: string[]; reasoning: string }> = JSON.parse(jsonMatch[0]);
+      const generated: Hypothesis[] = [];
+
+      for (const h of hypotheses.slice(0, count)) {
+        // Check for duplicate
+        const existing = this.db.prepare(
+          "SELECT id FROM hypotheses WHERE statement = ? AND status != 'rejected'",
+        ).get(h.statement) as { id: number } | undefined;
+        if (existing) continue;
+
+        generated.push(this.propose({
+          statement: h.statement,
+          type: 'creative',
+          source: 'creative_llm',
+          variables: h.variables || [],
+          condition: { type: 'correlation', params: { strategy: 'llm', reasoning: h.reasoning } },
+        }));
+      }
+
+      if (generated.length > 0) {
+        this.logger.info(`Generated ${generated.length} LLM creative hypotheses`);
+      }
+
+      return generated.length > 0 ? generated : this.generateCreativeHeuristic(count);
+    } catch (err) {
+      this.logger.debug(`[HypothesisEngine] LLM creative failed: ${(err as Error).message}`);
+      return this.generateCreativeHeuristic(count);
+    }
+  }
+
+  private async generateCreativeLLMAsync(count: number): Promise<void> {
+    await this.generateCreativeLLM(count);
+  }
+
+  private generateCreativeHeuristic(count = 3): Hypothesis[] {
     const generated: Hypothesis[] = [];
     const strategies = [
       () => this.creativeInversion(),
@@ -333,7 +413,6 @@ export class HypothesisEngine {
       () => this.creativeRandomWalk(),
     ];
 
-    // Rotate through strategies to fill the requested count
     for (let i = 0; i < count; i++) {
       const strategy = strategies[i % strategies.length]!;
       const hypothesis = strategy();

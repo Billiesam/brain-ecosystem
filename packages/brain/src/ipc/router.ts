@@ -116,6 +116,7 @@ export interface Services {
   selfModificationEngine?: import('@timmeck/brain-core').SelfModificationEngine;
   conceptAbstraction?: import('@timmeck/brain-core').ConceptAbstraction;
   peerNetwork?: import('@timmeck/brain-core').PeerNetwork;
+  llmService?: import('@timmeck/brain-core').LLMService;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -778,6 +779,11 @@ export class IpcRouter {
       ['peer.status',              () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); return s.peerNetwork.getStatus(); }],
       ['peer.list',                () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); return s.peerNetwork.getAvailablePeers(); }],
       ['peer.announce',            () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); s.peerNetwork.announce(); return { announced: true }; }],
+
+      // LLM Service
+      ['llm.status',               () => { if (!s.llmService) throw new Error('LLMService not available'); return s.llmService.getStats(); }],
+      ['llm.history',              (p) => { if (!s.llmService) throw new Error('LLMService not available'); const { hours } = (p ?? {}) as { hours?: number }; return s.llmService.getUsageHistory(hours); }],
+      ['llm.byTemplate',           () => { if (!s.llmService) throw new Error('LLMService not available'); return s.llmService.getUsageByTemplate(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({

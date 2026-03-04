@@ -40,6 +40,10 @@ export interface UnifiedDashboardOptions {
   onChat?: (question: string) => ChatMessage;
   // Ingest — Feed data into Brain (observations + journal)
   onIngest?: (content: string, source: string) => { stored: boolean; items: number };
+  // LLM Service stats
+  getLLMStats?: () => unknown;
+  getLLMHistory?: (hours: number) => unknown;
+  getLLMByTemplate?: () => unknown;
 }
 
 // ── Server ───────────────────────────────────────────────
@@ -209,6 +213,12 @@ export class UnifiedDashboardServer {
       // ── Ingest (File Upload) ───────────────────────────
       if (url.pathname === '/api/ingest' && req.method === 'POST') {
         this.handleIngest(req, res);
+        return;
+      }
+
+      // ── LLM Stats Route ────────────────────────────────
+      if (url.pathname === '/api/llm/stats' && req.method === 'GET') {
+        this.handleLlmStats(res);
         return;
       }
 
@@ -530,6 +540,27 @@ export class UnifiedDashboardServer {
         res.end(JSON.stringify({ error: (err as Error).message }));
       }
     });
+  }
+
+  private handleLlmStats(res: http.ServerResponse): void {
+    if (!this.options.getLLMStats) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ available: false }));
+      return;
+    }
+    try {
+      const data = {
+        available: true,
+        stats: this.options.getLLMStats(),
+        history: this.options.getLLMHistory?.(24) ?? [],
+        byTemplate: this.options.getLLMByTemplate?.() ?? [],
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
   }
 
   private handleSelfmodAction(res: http.ServerResponse, id: number, action: 'approve' | 'reject' | 'test'): void {

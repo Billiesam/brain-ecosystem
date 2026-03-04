@@ -44,6 +44,7 @@ import type { SelfScanner } from '../self-scanner/self-scanner.js';
 import type { SelfModificationEngine } from '../self-modification/self-modification-engine.js';
 import type { BootstrapService } from './bootstrap-service.js';
 import type { ConceptAbstraction } from '../concept-abstraction/concept-abstraction.js';
+import type { LLMService } from '../llm/llm-service.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -105,6 +106,7 @@ export class ResearchOrchestrator {
   private selfModificationEngine: SelfModificationEngine | null = null;
   private bootstrapService: BootstrapService | null = null;
   private conceptAbstraction: ConceptAbstraction | null = null;
+  private llmService: LLMService | null = null;
 
   private db: Database.Database;
   private brainName: string;
@@ -264,6 +266,19 @@ export class ResearchOrchestrator {
 
   /** Set the ConceptAbstraction — clusters knowledge into abstract concepts. */
   setConceptAbstraction(engine: ConceptAbstraction): void { this.conceptAbstraction = engine; }
+
+  /** Set the LLMService — propagates to all engines that can use LLM. */
+  setLLMService(llm: LLMService): void {
+    this.llmService = llm;
+    // Propagate to engines that support LLM
+    this.hypothesisEngine.setLLMService(llm);
+    this.narrativeEngine?.setLLMService(llm);
+    this.debateEngine?.setLLMService(llm);
+    this.curiosityEngine?.setLLMService(llm);
+  }
+
+  /** Get the LLMService instance. */
+  getLLMService(): LLMService | null { return this.llmService; }
 
   /** Set the PredictionEngine — wires journal into it. */
   setPredictionEngine(engine: PredictionEngine): void {

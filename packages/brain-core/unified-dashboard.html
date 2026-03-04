@@ -398,6 +398,10 @@ body::before{
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span>Intelligence</span>
       </div>
+      <div class="nav-item" data-page="llm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg>
+        <span>LLM Costs</span>
+      </div>
     </div>
     <div class="sidebar-footer">
       <span class="conn-dot off" id="connDot"></span>
@@ -491,6 +495,14 @@ body::before{
         <div class="engine-grid" id="engineGrid"></div>
       </div>
 
+      <!-- LLM COSTS PAGE -->
+      <div class="page" id="page-llm">
+        <div class="section-title">LLM Token Costs</div>
+        <div id="llmContent">
+          <div class="glass" style="padding:20px;color:var(--text-dim)">Loading LLM stats...</div>
+        </div>
+      </div>
+
       <!-- INTELLIGENCE PAGE -->
       <div class="page" id="page-intelligence">
         <div class="two-col">
@@ -520,7 +532,7 @@ let state = {
   overview: null, transfer: null, attention: null,
   thoughts: [], engines: {}, stats: {},
   notifications: [], network: { nodes: [], edges: [] },
-  codegen: null, selfmod: null,
+  codegen: null, selfmod: null, llm: null,
   emotional: { mood: 'reflective', score: 0.5, valence: 0, arousal: 0, dimensions: { frustration: 0, curiosity: 0.5, surprise: 0, confidence: 0.5, satisfaction: 0.5, stress: 0, momentum: 0, creativity: 0.5 } },
 };
 let connected = false;
@@ -620,6 +632,7 @@ async function fetchInitial() {
   fetchEmotional();
   fetchCodegen();
   fetchSelfmod();
+  fetchLlm();
 }
 
 async function fetchCodegen() {
@@ -636,6 +649,14 @@ async function fetchSelfmod() {
     state.selfmod = await r.json();
     renderSelfmod();
   } catch(e) { console.warn('fetchSelfmod failed', e); }
+}
+
+async function fetchLlm() {
+  try {
+    const r = await fetch('/api/llm/stats');
+    state.llm = await r.json();
+    renderLlm();
+  } catch(e) { console.warn('fetchLlm failed', e); }
 }
 
 async function fetchEmotional() {
@@ -665,6 +686,7 @@ document.querySelectorAll('.nav-item').forEach(function(el) {
     if (page === 'chat') { fetchChatHistory(); setTimeout(function() { document.getElementById('chatInput').focus(); }, 100); }
     if (page === 'codegen') fetchCodegen();
     if (page === 'selfmod') fetchSelfmod();
+    if (page === 'llm') fetchLlm();
   });
 });
 
@@ -1028,6 +1050,103 @@ function renderIntelligence() {
   } else {
     anaEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:16px">No analogies found</div>';
   }
+}
+
+// ── LLM Costs ──
+function renderLlm() {
+  var el = document.getElementById('llmContent');
+  var d = state.llm;
+  if (!d || !d.available) {
+    el.innerHTML = '<div class="glass" style="padding:20px;color:var(--text-muted);text-align:center">No LLM service configured (set ANTHROPIC_API_KEY)</div>';
+    return;
+  }
+  var s = d.stats || {};
+  var hist = d.history || [];
+  var tmpl = d.byTemplate || [];
+
+  // Budget bar helper
+  function budgetBar(label, remaining, total, color) {
+    var pct = total > 0 ? Math.round((remaining / total) * 100) : 0;
+    var barColor = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--gold)' : 'var(--red)';
+    return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px">' +
+      '<span>' + label + '</span><span style="color:' + barColor + '">' + (remaining || 0).toLocaleString() + ' / ' + (total || 0).toLocaleString() + '</span></div>' +
+      '<div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">' +
+      '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.5s"></div></div></div>';
+  }
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">';
+  // Stat cards
+  html += '<div class="glass" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--text-dim)">Total Calls</div><div style="font-size:22px;color:var(--cyan);margin-top:4px">' + (s.totalCalls || 0) + '</div></div>';
+  html += '<div class="glass" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--text-dim)">Total Tokens</div><div style="font-size:22px;color:var(--gold);margin-top:4px">' + (s.totalTokens || 0).toLocaleString() + '</div></div>';
+  html += '<div class="glass" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--text-dim)">Cache Hit Rate</div><div style="font-size:22px;color:var(--green);margin-top:4px">' + ((s.cacheHitRate || 0) * 100).toFixed(1) + '%</div></div>';
+  html += '<div class="glass" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--text-dim)">Avg Latency</div><div style="font-size:22px;color:var(--purple);margin-top:4px">' + Math.round(s.averageLatencyMs || 0) + 'ms</div></div>';
+  html += '</div>';
+
+  // Budget bars
+  html += '<div class="glass" style="padding:16px;margin-bottom:16px">';
+  html += '<div style="font-size:11px;font-weight:600;margin-bottom:10px;color:var(--text)">Token Budget</div>';
+  html += budgetBar('Hourly', s.budgetRemainingHour, s.budgetRemainingHour + (s.tokensThisHour || 0));
+  html += budgetBar('Daily', s.budgetRemainingDay, s.budgetRemainingDay + (s.tokensToday || 0));
+  html += '<div style="display:flex;gap:16px;font-size:10px;color:var(--text-dim);margin-top:8px">';
+  html += '<span>Rate Limits Hit: <b style="color:var(--orange)">' + (s.rateLimitHits || 0) + '</b></span>';
+  html += '<span>Errors: <b style="color:var(--red)">' + (s.errors || 0) + '</b></span>';
+  html += '<span>Model: <b style="color:var(--cyan)">' + escapeHtml(s.model || 'N/A') + '</b></span>';
+  if (s.lastCallAt) html += '<span>Last Call: ' + new Date(s.lastCallAt).toLocaleTimeString() + '</span>';
+  html += '</div></div>';
+
+  // Two columns: Usage by Template + 24h History
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+  // Template breakdown
+  html += '<div class="glass" style="padding:16px"><div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--text)">Usage by Template</div>';
+  if (tmpl.length) {
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse">';
+    html += '<tr style="color:var(--text-dim)"><th style="text-align:left;padding:4px 0;border-bottom:1px solid var(--border)">Template</th><th style="text-align:right;padding:4px 0;border-bottom:1px solid var(--border)">Calls</th><th style="text-align:right;padding:4px 0;border-bottom:1px solid var(--border)">Tokens</th><th style="text-align:right;padding:4px 0;border-bottom:1px solid var(--border)">Avg</th></tr>';
+    for (var i = 0; i < tmpl.length; i++) {
+      var t = tmpl[i];
+      html += '<tr><td style="padding:3px 0;border-bottom:1px solid var(--border)">' + escapeHtml(t.template) + '</td>' +
+        '<td style="text-align:right;padding:3px 0;border-bottom:1px solid var(--border);color:var(--cyan)">' + t.calls + '</td>' +
+        '<td style="text-align:right;padding:3px 0;border-bottom:1px solid var(--border);color:var(--gold)">' + (t.tokens || 0).toLocaleString() + '</td>' +
+        '<td style="text-align:right;padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-dim)">' + Math.round(t.avg_tokens || 0) + '</td></tr>';
+    }
+    html += '</table>';
+  } else {
+    html += '<div style="color:var(--text-muted);text-align:center;padding:12px">No calls yet</div>';
+  }
+  html += '</div>';
+
+  // 24h history
+  html += '<div class="glass" style="padding:16px"><div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--text)">Last 24h (by hour)</div>';
+  if (hist.length) {
+    // Mini bar chart
+    var maxT = 1;
+    for (var j = 0; j < hist.length; j++) maxT = Math.max(maxT, hist[j].tokens || 0);
+    html += '<div style="display:flex;align-items:flex-end;gap:2px;height:80px;margin-bottom:8px">';
+    for (var k = 0; k < Math.min(hist.length, 24); k++) {
+      var h = hist[k];
+      var barH = Math.max(2, Math.round(((h.tokens || 0) / maxT) * 70));
+      var barC = (h.cached || 0) > 0 ? 'var(--green)' : 'var(--cyan)';
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center" title="' + escapeHtml(h.hour) + ': ' + (h.tokens||0) + ' tokens, ' + (h.calls||0) + ' calls">' +
+        '<div style="width:100%;height:' + barH + 'px;background:' + barC + ';border-radius:2px 2px 0 0;opacity:0.8"></div></div>';
+    }
+    html += '</div>';
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse">';
+    html += '<tr style="color:var(--text-dim)"><th style="text-align:left;padding:3px 0;border-bottom:1px solid var(--border)">Hour</th><th style="text-align:right;padding:3px 0;border-bottom:1px solid var(--border)">Calls</th><th style="text-align:right;padding:3px 0;border-bottom:1px solid var(--border)">Tokens</th><th style="text-align:right;padding:3px 0;border-bottom:1px solid var(--border)">Cached</th></tr>';
+    for (var l = 0; l < Math.min(hist.length, 12); l++) {
+      var hr = hist[l];
+      html += '<tr><td style="padding:2px 0;border-bottom:1px solid var(--border)">' + escapeHtml(hr.hour) + '</td>' +
+        '<td style="text-align:right;padding:2px 0;border-bottom:1px solid var(--border)">' + (hr.calls||0) + '</td>' +
+        '<td style="text-align:right;padding:2px 0;border-bottom:1px solid var(--border);color:var(--gold)">' + (hr.tokens||0).toLocaleString() + '</td>' +
+        '<td style="text-align:right;padding:2px 0;border-bottom:1px solid var(--border);color:var(--green)">' + (hr.cached||0) + '</td></tr>';
+    }
+    html += '</table>';
+  } else {
+    html += '<div style="color:var(--text-muted);text-align:center;padding:12px">No usage history</div>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 // ═══ THE ENTITY — CONSCIOUSNESS VISUALIZATION ═══

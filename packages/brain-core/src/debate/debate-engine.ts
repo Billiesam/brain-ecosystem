@@ -7,6 +7,7 @@ import type { ResearchJournal } from '../research/journal.js';
 import type { AnomalyDetective } from '../research/anomaly-detective.js';
 import type { PredictionEngine } from '../prediction/prediction-engine.js';
 import type { NarrativeEngine } from '../narrative/narrative-engine.js';
+import type { LLMService } from '../llm/llm-service.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ export class DebateEngine {
   private readonly log = getLogger();
   private ts: ThoughtStream | null = null;
   private sources: DebateDataSources = {};
+  private llm: LLMService | null = null;
   private startTime = Date.now();
 
   // Prepared statements
@@ -199,6 +201,8 @@ export class DebateEngine {
   setDataSources(sources: DebateDataSources): void {
     this.sources = sources;
   }
+
+  setLLMService(llm: LLMService): void { this.llm = llm; }
 
   // ── Core: Start a Debate ─────────────────────────────
 
@@ -410,16 +414,28 @@ export class DebateEngine {
     // 1. Find conflicts between perspectives
     const conflicts = this.findConflicts(debate.perspectives);
 
-    // 2. Build weighted consensus
-    const consensus = this.buildConsensus(debate.perspectives, conflicts);
+    // 2. Build weighted consensus (heuristic)
+    let consensus = this.buildConsensus(debate.perspectives, conflicts);
 
-    // 3. Generate recommendations
+    // 3. Generate recommendations (heuristic)
     const recommendations = this.generateRecommendations(debate.perspectives, conflicts);
 
     // 4. Compute overall confidence
     const totalWeight = debate.perspectives.reduce((s, p) => s + p.confidence * p.relevance, 0);
     const totalRelevance = debate.perspectives.reduce((s, p) => s + p.relevance, 0);
     const avgConfidence = totalRelevance > 0 ? totalWeight / totalRelevance : 0;
+
+    // 5. Try LLM synthesis for richer output (async warm-up for next call)
+    if (this.llm?.isAvailable() && debate.perspectives.length > 0) {
+      const perspectiveSummary = debate.perspectives.map(p =>
+        `[${p.brainName}] (confidence: ${(p.confidence * 100).toFixed(0)}%, relevance: ${(p.relevance * 100).toFixed(0)}%):\n${p.position}\nArguments:\n${p.arguments.slice(0, 5).map(a => `- ${a.claim} (${a.source}, strength: ${a.strength.toFixed(2)})`).join('\n')}`,
+      ).join('\n\n');
+      const conflictSummary = conflicts.map(c =>
+        `${c.perspectiveA} vs ${c.perspectiveB}: "${c.claimA}" vs "${c.claimB}" → ${c.resolution}`,
+      ).join('\n');
+      const llmPrompt = `Question: "${debate.question}"\n\nPerspectives:\n${perspectiveSummary}\n\n${conflicts.length > 0 ? `Conflicts:\n${conflictSummary}\n\n` : ''}Synthesize these perspectives. Find consensus, resolve conflicts, and make recommendations.`;
+      void this.llm.call('synthesize_debate', llmPrompt).catch(() => {});
+    }
 
     const synthesis: DebateSynthesis = {
       consensus,
@@ -440,6 +456,56 @@ export class DebateEngine {
       conflicts.length > 0 ? 'notable' : 'routine',
     );
 
+    return synthesis;
+  }
+
+  /** Async version that waits for LLM synthesis. */
+  async synthesizeAsync(debateId: number): Promise<DebateSynthesis | null> {
+    const debate = this.getDebate(debateId);
+    if (!debate || debate.perspectives.length === 0) return null;
+
+    this.ts?.emit('debate', 'analyzing', `Synthesizing (LLM): "${debate.question.substring(0, 40)}..."`, 'notable');
+
+    const conflicts = this.findConflicts(debate.perspectives);
+    const totalWeight = debate.perspectives.reduce((s, p) => s + p.confidence * p.relevance, 0);
+    const totalRelevance = debate.perspectives.reduce((s, p) => s + p.relevance, 0);
+    const avgConfidence = totalRelevance > 0 ? totalWeight / totalRelevance : 0;
+
+    let consensus = this.buildConsensus(debate.perspectives, conflicts);
+    let recommendations = this.generateRecommendations(debate.perspectives, conflicts);
+
+    // Try LLM synthesis
+    if (this.llm?.isAvailable()) {
+      const perspectiveSummary = debate.perspectives.map(p =>
+        `[${p.brainName}] (confidence: ${(p.confidence * 100).toFixed(0)}%):\n${p.position}\nArguments:\n${p.arguments.slice(0, 5).map(a => `- ${a.claim} (${a.source}, strength: ${a.strength.toFixed(2)})`).join('\n')}`,
+      ).join('\n\n');
+      const conflictSummary = conflicts.map(c =>
+        `${c.perspectiveA} vs ${c.perspectiveB}: "${c.claimA}" vs "${c.claimB}"`,
+      ).join('\n');
+      const llmPrompt = `Question: "${debate.question}"\n\nPerspectives:\n${perspectiveSummary}\n\n${conflicts.length > 0 ? `Conflicts:\n${conflictSummary}\n\n` : ''}Synthesize these perspectives. Output format:\nCONSENSUS: <one paragraph>\nRECOMMENDATIONS:\n- <recommendation 1>\n- <recommendation 2>`;
+      const result = await this.llm.call('synthesize_debate', llmPrompt);
+      if (result?.text) {
+        // Parse LLM output
+        const consensusMatch = result.text.match(/CONSENSUS:\s*([\s\S]*?)(?=RECOMMENDATIONS:|$)/i);
+        if (consensusMatch?.[1]) consensus = consensusMatch[1].trim();
+        const recMatch = result.text.match(/RECOMMENDATIONS:\s*([\s\S]*)/i);
+        if (recMatch?.[1]) {
+          const llmRecs = recMatch[1].split('\n').filter(l => l.trim().startsWith('-')).map(l => l.trim().replace(/^-\s*/, ''));
+          if (llmRecs.length > 0) recommendations = llmRecs;
+        }
+      }
+    }
+
+    const synthesis: DebateSynthesis = {
+      consensus,
+      conflicts,
+      resolution: conflicts.length === 0 ? 'All perspectives align — strong consensus.' : `${conflicts.length} conflict(s) found. ${conflicts.filter(c => c.resolution !== 'unresolved').length} resolved.`,
+      confidence: avgConfidence,
+      recommendations,
+      participantCount: debate.perspectives.length,
+    };
+
+    this.stmtSetSynthesis.run(JSON.stringify(synthesis), debateId);
     return synthesis;
   }
 

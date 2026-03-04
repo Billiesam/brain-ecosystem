@@ -105,6 +105,7 @@ export interface Services {
   selfModificationEngine?: import('@timmeck/brain-core').SelfModificationEngine;
   conceptAbstraction?: import('@timmeck/brain-core').ConceptAbstraction;
   peerNetwork?: import('@timmeck/brain-core').PeerNetwork;
+  llmService?: import('@timmeck/brain-core').LLMService;
 }
 
 type MethodHandler = (params: unknown) => unknown;
@@ -684,6 +685,11 @@ export class IpcRouter {
       ['peer.status',              () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); return s.peerNetwork.getStatus(); }],
       ['peer.list',                () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); return s.peerNetwork.getAvailablePeers(); }],
       ['peer.announce',            () => { if (!s.peerNetwork) throw new Error('PeerNetwork not available'); s.peerNetwork.announce(); return { announced: true }; }],
+
+      // LLM Service
+      ['llm.status',               () => { if (!s.llmService) throw new Error('LLMService not available'); return s.llmService.getStats(); }],
+      ['llm.history',              (p: unknown) => { if (!s.llmService) throw new Error('LLMService not available'); const params = (p ?? {}) as Record<string, unknown>; return s.llmService.getUsageHistory((params.hours as number) ?? 24); }],
+      ['llm.byTemplate',           () => { if (!s.llmService) throw new Error('LLMService not available'); return s.llmService.getUsageByTemplate(); }],
 
       ['status',               () => ({
         name: 'marketing-brain',

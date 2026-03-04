@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
@@ -315,6 +315,19 @@ export class BrainCore {
     this.orchestrator.setTransferEngine(transferEngine);
     this.transferEngine = transferEngine;
     services.transferEngine = transferEngine;
+
+    // 11j.6b LLMService — central Claude API wrapper for intelligent features
+    const llmService = new LLMService(this.db!, {
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      maxCallsPerHour: 30,
+      tokenBudgetPerHour: 100_000,
+      tokenBudgetPerDay: 500_000,
+    });
+    this.orchestrator.setLLMService(llmService);
+    services.llmService = llmService;
+    if (llmService.isAvailable()) {
+      logger.info('LLMService activated (ANTHROPIC_API_KEY set) — engines will use Claude for reasoning');
+    }
 
     // 11j.7 Narrative Engine — brain explains itself in natural language
     const narrativeEngine = new NarrativeEngine(this.db!, { brainName: 'brain' });
@@ -875,6 +888,9 @@ export class BrainCore {
         );
         return { stored: true, items };
       },
+      getLLMStats: () => services.llmService?.getStats() ?? null,
+      getLLMHistory: (hours: number) => services.llmService?.getUsageHistory(hours) ?? [],
+      getLLMByTemplate: () => services.llmService?.getUsageByTemplate() ?? [],
     });
     this.unifiedServer.start();
     services.unifiedServer = this.unifiedServer;

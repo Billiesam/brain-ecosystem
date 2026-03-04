@@ -9,6 +9,7 @@ import type { ExperimentEngine } from '../research/experiment-engine.js';
 import type { AnomalyDetective } from '../research/anomaly-detective.js';
 import type { AttentionEngine } from '../attention/attention-engine.js';
 import type { TransferEngine } from '../transfer/transfer-engine.js';
+import type { LLMService } from '../llm/llm-service.js';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -98,6 +99,7 @@ export class NarrativeEngine {
   private brainName: string;
   private thoughtStream: ThoughtStream | null = null;
   private sources: NarrativeEngineDataSources = {};
+  private llm: LLMService | null = null;
   private log = getLogger();
 
   constructor(private db: Database.Database, config: NarrativeEngineConfig) {
@@ -130,11 +132,90 @@ export class NarrativeEngine {
     this.sources = sources;
   }
 
+  setLLMService(llm: LLMService): void {
+    this.llm = llm;
+  }
+
   // ── Explain ────────────────────────────────────────────
 
   explain(topic: string): Narrative {
     this.thoughtStream?.emit('narrative', 'analyzing', `Explaining: "${topic}"`);
 
+    // Gather context from all sources
+    const { details, sources, avgConfidence, matchingPrinciples, matchingHypotheses, matchingAntiPatterns, matchingExperiments, journalEntries } = this.gatherContext(topic);
+
+    // Try LLM synthesis if available, otherwise use heuristic summary
+    let summary: string;
+    if (details.length === 0) {
+      summary = `No knowledge found about "${topic}". Brain has not yet observed enough data about this topic.`;
+    } else if (this.llm?.isAvailable()) {
+      // Fire-and-forget async LLM call — use cached sync version if available
+      const contextBlock = details.join('\n');
+      const llmPrompt = `Topic: "${topic}"\n\nKnowledge Base:\n${contextBlock}\n\nExplain what Brain knows about this topic. Synthesize across all sources into a coherent narrative.`;
+      // We need sync behavior for backward compat — try cache first, then heuristic
+      summary = this.tryLLMSync('explain', llmPrompt) ?? this.heuristicExplainSummary(topic, matchingPrinciples.length, matchingHypotheses.length, matchingAntiPatterns.length, matchingExperiments.length, journalEntries.length, avgConfidence);
+    } else {
+      summary = this.heuristicExplainSummary(topic, matchingPrinciples.length, matchingHypotheses.length, matchingAntiPatterns.length, matchingExperiments.length, journalEntries.length, avgConfidence);
+    }
+
+    this.thoughtStream?.emit('narrative', 'explaining', summary, details.length > 3 ? 'notable' : 'routine');
+    this.logNarrative('explain', topic, summary);
+
+    // Schedule async LLM enrichment for next call
+    if (this.llm?.isAvailable() && details.length > 0) {
+      const contextBlock = details.join('\n');
+      const llmPrompt = `Topic: "${topic}"\n\nKnowledge Base:\n${contextBlock}\n\nExplain what Brain knows about this topic. Synthesize across all sources into a coherent narrative.`;
+      void this.llm.call('explain', llmPrompt).catch(() => {});
+    }
+
+    return {
+      topic,
+      summary,
+      details,
+      confidence: avgConfidence,
+      sources,
+      generatedAt: Date.now(),
+    };
+  }
+
+  /** Async version of explain() that waits for LLM response. */
+  async explainAsync(topic: string): Promise<Narrative> {
+    this.thoughtStream?.emit('narrative', 'analyzing', `Explaining (LLM): "${topic}"`);
+
+    const { details, sources, avgConfidence, matchingPrinciples, matchingHypotheses, matchingAntiPatterns, matchingExperiments, journalEntries } = this.gatherContext(topic);
+
+    let summary: string;
+    if (details.length === 0) {
+      summary = `No knowledge found about "${topic}". Brain has not yet observed enough data about this topic.`;
+    } else if (this.llm?.isAvailable()) {
+      const contextBlock = details.join('\n');
+      const llmPrompt = `Topic: "${topic}"\n\nKnowledge Base:\n${contextBlock}\n\nExplain what Brain knows about this topic. Synthesize across all sources into a coherent narrative.`;
+      const llmResult = await this.llm.call('explain', llmPrompt);
+      summary = llmResult?.text ?? this.heuristicExplainSummary(topic, matchingPrinciples.length, matchingHypotheses.length, matchingAntiPatterns.length, matchingExperiments.length, journalEntries.length, avgConfidence);
+    } else {
+      summary = this.heuristicExplainSummary(topic, matchingPrinciples.length, matchingHypotheses.length, matchingAntiPatterns.length, matchingExperiments.length, journalEntries.length, avgConfidence);
+    }
+
+    this.thoughtStream?.emit('narrative', 'explaining', summary.substring(0, 200), details.length > 3 ? 'notable' : 'routine');
+    this.logNarrative('explain', topic, summary);
+
+    return { topic, summary, details, confidence: avgConfidence, sources, generatedAt: Date.now() };
+  }
+
+  private heuristicExplainSummary(topic: string, principleCount: number, hypothesisCount: number, apCount: number, expCount: number, journalCount: number, avgConfidence: number): string {
+    return `About "${topic}": Found ${principleCount} principle(s), ${hypothesisCount} hypothesis/hypotheses, ${apCount} anti-pattern(s), ${expCount} experiment(s), and ${journalCount} journal entries. Overall confidence: ${(avgConfidence * 100).toFixed(0)}%.`;
+  }
+
+  private gatherContext(topic: string): {
+    details: string[];
+    sources: string[];
+    avgConfidence: number;
+    matchingPrinciples: unknown[];
+    matchingHypotheses: unknown[];
+    matchingAntiPatterns: unknown[];
+    matchingExperiments: unknown[];
+    journalEntries: unknown[];
+  } {
     const details: string[] = [];
     const sources: string[] = [];
     let totalConfidence = 0;
@@ -199,28 +280,32 @@ export class NarrativeEngine {
 
     const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
 
-    // Compose summary
-    let summary: string;
-    if (details.length === 0) {
-      summary = `No knowledge found about "${topic}". Brain has not yet observed enough data about this topic.`;
-    } else {
-      const principleCount = matchingPrinciples.length;
-      const hypothesisCount = matchingHypotheses.length;
-      summary = `About "${topic}": Found ${principleCount} principle(s), ${hypothesisCount} hypothesis/hypotheses, ${matchingAntiPatterns.length} anti-pattern(s), ${matchingExperiments.length} experiment(s), and ${journalEntries.length} journal entries. Overall confidence: ${(avgConfidence * 100).toFixed(0)}%.`;
-    }
+    return { details, sources, avgConfidence, matchingPrinciples, matchingHypotheses, matchingAntiPatterns, matchingExperiments, journalEntries };
+  }
 
-    this.thoughtStream?.emit('narrative', 'explaining', summary, details.length > 3 ? 'notable' : 'routine');
+  /** Try to get LLM response from cache synchronously (fire-and-forget for warming). */
+  private tryLLMSync(template: 'explain' | 'ask', prompt: string): string | null {
+    // LLM is async — we can only check cache synchronously.
+    // The actual call has been triggered in previous cycles, so cache may have it.
+    // If not cached, return null and let the async path warm the cache.
+    try {
+      // Check if there's a cached response in the DB for a recent identical query
+      const hash = this.hashPrompt(template, prompt);
+      const row = this.db.prepare(
+        "SELECT id FROM llm_usage WHERE prompt_hash = ? AND cached = 0 AND created_at > datetime('now', '-1 hour') LIMIT 1",
+      ).get(hash) as { id: number } | undefined;
+      if (row) {
+        // There's been a recent call — the in-memory cache in LLMService may have it
+        // We can't access it synchronously from here, so just return null
+        // The async path will be used for enriched responses
+      }
+    } catch { /* best effort */ }
+    return null;
+  }
 
-    this.logNarrative('explain', topic, summary);
-
-    return {
-      topic,
-      summary,
-      details,
-      confidence: avgConfidence,
-      sources,
-      generatedAt: Date.now(),
-    };
+  private hashPrompt(template: string, prompt: string): string {
+    const { createHash } = require('node:crypto') as typeof import('node:crypto');
+    return createHash('sha256').update(`${template}:${prompt}`).digest('hex');
   }
 
   // ── Ask ────────────────────────────────────────────────
@@ -228,6 +313,59 @@ export class NarrativeEngine {
   ask(question: string): NarrativeAnswer {
     this.thoughtStream?.emit('narrative', 'analyzing', `Answering: "${question}"`);
 
+    const { answerParts, sources, relatedTopics, avgConfidence } = this.gatherAskContext(question);
+
+    // Compose answer — try LLM for rich synthesis
+    let answer: string;
+    if (answerParts.length === 0) {
+      answer = `I don't have enough data to answer "${question}" yet. This topic hasn't appeared in my observations, hypotheses, or principles.`;
+    } else {
+      answer = answerParts.join('\n\n');
+    }
+
+    // Schedule async LLM enrichment
+    if (this.llm?.isAvailable() && answerParts.length > 0) {
+      const context = answerParts.join('\n');
+      const llmPrompt = `Question: "${question}"\n\nRelevant Knowledge:\n${context}\n\nAnswer the question based on the knowledge above. Be direct and cite sources.`;
+      void this.llm.call('ask', llmPrompt).catch(() => {});
+    }
+
+    this.thoughtStream?.emit('narrative', 'explaining', `Answered "${question}" with ${sources.length} sources`, sources.length > 2 ? 'notable' : 'routine');
+    this.logNarrative('ask', question, answer);
+
+    return { question, answer, sources, confidence: avgConfidence, relatedTopics: [...relatedTopics] };
+  }
+
+  /** Async version of ask() that waits for LLM response. */
+  async askAsync(question: string): Promise<NarrativeAnswer> {
+    this.thoughtStream?.emit('narrative', 'analyzing', `Answering (LLM): "${question}"`);
+
+    const { answerParts, sources, relatedTopics, avgConfidence } = this.gatherAskContext(question);
+
+    let answer: string;
+    if (answerParts.length === 0) {
+      answer = `I don't have enough data to answer "${question}" yet. This topic hasn't appeared in my observations, hypotheses, or principles.`;
+    } else if (this.llm?.isAvailable()) {
+      const context = answerParts.join('\n');
+      const llmPrompt = `Question: "${question}"\n\nRelevant Knowledge:\n${context}\n\nAnswer the question based on the knowledge above. Be direct and cite sources.`;
+      const llmResult = await this.llm.call('ask', llmPrompt);
+      answer = llmResult?.text ?? answerParts.join('\n\n');
+    } else {
+      answer = answerParts.join('\n\n');
+    }
+
+    this.thoughtStream?.emit('narrative', 'explaining', `Answered "${question}" with ${sources.length} sources`, sources.length > 2 ? 'notable' : 'routine');
+    this.logNarrative('ask', question, answer);
+
+    return { question, answer, sources, confidence: avgConfidence, relatedTopics: [...relatedTopics] };
+  }
+
+  private gatherAskContext(question: string): {
+    answerParts: string[];
+    sources: string[];
+    relatedTopics: Set<string>;
+    avgConfidence: number;
+  } {
     const keywords = this.extractKeywords(question);
     const answerParts: string[] = [];
     const sources: string[] = [];
@@ -235,7 +373,6 @@ export class NarrativeEngine {
     let totalConfidence = 0;
     let confidenceCount = 0;
 
-    // Search across all knowledge with keywords
     const principles = this.sources.knowledgeDistiller?.getPrinciples(undefined, 100) ?? [];
     const matching = principles.filter(p => keywords.some(k => this.matches(p.statement, k) || this.matches(p.domain, k)));
     for (const p of matching.slice(0, 5)) {
@@ -271,25 +408,8 @@ export class NarrativeEngine {
       }
     }
 
-    // Compose answer
     const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
-    let answer: string;
-    if (answerParts.length === 0) {
-      answer = `I don't have enough data to answer "${question}" yet. This topic hasn't appeared in my observations, hypotheses, or principles.`;
-    } else {
-      answer = answerParts.join('\n\n');
-    }
-
-    this.thoughtStream?.emit('narrative', 'explaining', `Answered "${question}" with ${sources.length} sources`, sources.length > 2 ? 'notable' : 'routine');
-    this.logNarrative('ask', question, answer);
-
-    return {
-      question,
-      answer,
-      sources,
-      confidence: avgConfidence,
-      relatedTopics: [...relatedTopics],
-    };
+    return { answerParts, sources, relatedTopics, avgConfidence };
   }
 
   // ── Contradiction Detection ─────────────────────────────

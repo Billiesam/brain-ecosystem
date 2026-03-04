@@ -7,6 +7,7 @@ import type { HypothesisEngine } from '../hypothesis/engine.js';
 import type { ExperimentEngine } from '../research/experiment-engine.js';
 import type { ResearchAgendaEngine } from '../research/agenda-engine.js';
 import type { NarrativeEngine } from '../narrative/narrative-engine.js';
+import type { LLMService } from '../llm/llm-service.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ export class CuriosityEngine {
   private readonly log = getLogger();
   private ts: ThoughtStream | null = null;
   private sources: CuriosityDataSources = {};
+  private llm: LLMService | null = null;
   private startTime = Date.now();
 
   // ── Prepared statements ──────────────────────────────
@@ -284,6 +286,8 @@ export class CuriosityEngine {
   setDataSources(sources: CuriosityDataSources): void {
     this.sources = sources;
   }
+
+  setLLMService(llm: LLMService): void { this.llm = llm; }
 
   // ── Core: Knowledge Gap Detection ─────────────────────
 
@@ -967,6 +971,7 @@ export class CuriosityEngine {
   // ── Private: Question Generation ─────────────────────
 
   private generateQuestionsFor(topic: string, gapType: GapType): string[] {
+    // Heuristic fallback questions
     const questions: string[] = [];
     const t = topic;
 
@@ -1006,7 +1011,34 @@ export class CuriosityEngine {
         break;
     }
 
+    // Schedule LLM enrichment for better questions (async, results cached for next call)
+    if (this.llm?.isAvailable()) {
+      const prompt = `Topic: "${t}"\nGap type: ${gapType}\nExisting questions:\n${questions.map(q => `- ${q}`).join('\n')}\n\nGenerate 3 additional research questions that are more specific, actionable, and could lead to testable hypotheses. Output one question per line.`;
+      void this.llm.call('research_question', prompt).catch(() => {});
+    }
+
     return questions.slice(0, this.config.maxQuestionsPerTopic);
+  }
+
+  /** Async question generation that waits for LLM. */
+  async generateQuestionsLLM(topic: string, gapType: GapType): Promise<string[]> {
+    if (!this.llm?.isAvailable()) return this.generateQuestionsFor(topic, gapType);
+
+    const heuristicQuestions = this.generateQuestionsFor(topic, gapType);
+    try {
+      const prompt = `Topic: "${topic}"\nGap type: ${gapType}\nDomain: ${this.config.brainName}\n\nGenerate 5 specific, actionable research questions that could lead to testable hypotheses. Each question should be on its own line starting with a dash.`;
+      const result = await this.llm.call('research_question', prompt);
+      if (result?.text) {
+        const llmQuestions = result.text.split('\n')
+          .filter(l => l.trim().startsWith('-'))
+          .map(l => l.trim().replace(/^-\s*/, ''))
+          .filter(q => q.length > 10);
+        if (llmQuestions.length > 0) {
+          return [...new Set([...llmQuestions, ...heuristicQuestions])].slice(0, this.config.maxQuestionsPerTopic);
+        }
+      }
+    } catch { /* fallback to heuristic */ }
+    return heuristicQuestions;
   }
 
   private inferQuestionType(question: string): QuestionType {

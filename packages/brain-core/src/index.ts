@@ -344,6 +344,10 @@ export type {
 export { PeerNetwork } from './peer-network/index.js';
 export type { PeerInfo, PeerNetworkConfig, PeerNetworkStatus } from './peer-network/index.js';
 
+// ── LLM Service ──────────────────────────────────────────
+export { LLMService, runLLMServiceMigration } from './llm/index.js';
+export type { LLMServiceConfig, LLMResponse, LLMUsageStats, PromptTemplate } from './llm/index.js';
+
 // ── Scanner ──────────────────────────────────────────────
 export { SignalScanner, runScannerMigration } from './scanner/index.js';
 export { GitHubCollector } from './scanner/index.js';

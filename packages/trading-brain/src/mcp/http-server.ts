@@ -20,6 +20,7 @@ import { registerGoalToolsDirect } from './goal-tools.js';
 import { registerEvolutionToolsDirect } from './evolution-tools.js';
 import { registerConceptToolsDirect } from './concept-tools.js';
 import { registerPeerToolsDirect } from './peer-tools.js';
+import { registerLLMToolsDirect } from './llm-tools.js';
 
 export class McpHttpServer {
   private inner: CoreMcpHttpServer;
@@ -50,6 +51,7 @@ export class McpHttpServer {
         registerEvolutionToolsDirect(server, router);
         registerConceptToolsDirect(server, router);
         registerPeerToolsDirect(server, router);
+        registerLLMToolsDirect(server, router);
       },
     );
   }
