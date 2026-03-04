@@ -931,6 +931,50 @@ export class ResearchOrchestrator {
               metadata: { type: c.type, statement_a: c.statement_a.substring(0, 100), statement_b: c.statement_b.substring(0, 100) },
             });
           }
+          // 17a. Actively resolve contradictions — lower confidence of weaker side
+          let resolved = 0;
+          for (const c of highSeverity.slice(0, 5)) {
+            try {
+              if (c.type === 'principle_vs_principle') {
+                // Find both principles by statement, demote the weaker one
+                const pA = this.db.prepare(`SELECT id, confidence FROM knowledge_principles WHERE statement = ?`).get(c.statement_a) as { id: string; confidence: number } | undefined;
+                const pB = this.db.prepare(`SELECT id, confidence FROM knowledge_principles WHERE statement = ?`).get(c.statement_b) as { id: string; confidence: number } | undefined;
+                if (pA && pB) {
+                  const weaker = pA.confidence <= pB.confidence ? pA : pB;
+                  const newConf = Math.max(0.05, weaker.confidence * 0.6);
+                  this.db.prepare(`UPDATE knowledge_principles SET confidence = ?, updated_at = datetime('now') WHERE id = ?`).run(newConf, weaker.id);
+                  if (newConf < 0.2) {
+                    // Demote to anti-pattern
+                    const weakerStatement = weaker === pA ? c.statement_a : c.statement_b;
+                    this.db.prepare(`DELETE FROM knowledge_principles WHERE id = ?`).run(weaker.id);
+                    this.db.prepare(`INSERT OR IGNORE INTO knowledge_anti_patterns (id, domain, statement, failure_rate, sample_size, confidence, alternative) VALUES (?, 'general', ?, 0.7, 1, 0.5, ?)`)
+                      .run(`demoted-${weaker.id}`, weakerStatement, `Contradicted by stronger principle`);
+                  }
+                  resolved++;
+                }
+              } else if (c.type === 'hypothesis_vs_antipattern') {
+                // Anti-pattern wins over hypothesis — reduce hypothesis confidence
+                const h = this.db.prepare(`SELECT id, confidence FROM hypotheses WHERE statement = ? AND status = 'confirmed'`).get(c.statement_a) as { id: string; confidence: number } | undefined;
+                if (h) {
+                  const newConf = Math.max(0.1, h.confidence * 0.7);
+                  this.db.prepare(`UPDATE hypotheses SET confidence = ?, updated_at = datetime('now') WHERE id = ?`).run(newConf, h.id);
+                  resolved++;
+                }
+              }
+            } catch { /* table may not exist or statement mismatch — skip */ }
+          }
+          if (resolved > 0) {
+            ts?.emit('narrative', 'discovering', `Resolved ${resolved} contradictions (weakened lower-confidence side)`, 'notable');
+            this.journal.write({
+              type: 'reflection',
+              title: `Resolved ${resolved} contradictions`,
+              content: `Auto-resolved ${resolved} high-severity contradictions by demoting weaker principles/hypotheses.`,
+              tags: [this.brainName, 'contradiction', 'resolved'],
+              references: [],
+              significance: 'notable',
+              data: { resolved },
+            });
+          }
         }
 
         // b) Confidence report — find weak areas that need more research
