@@ -10,6 +10,7 @@ import type { AnomalyDetective } from '../research/anomaly-detective.js';
 import type { AttentionEngine } from '../attention/attention-engine.js';
 import type { TransferEngine } from '../transfer/transfer-engine.js';
 import type { LLMService } from '../llm/llm-service.js';
+import { createHash } from 'node:crypto';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -304,7 +305,6 @@ export class NarrativeEngine {
   }
 
   private hashPrompt(template: string, prompt: string): string {
-    const { createHash } = require('node:crypto') as typeof import('node:crypto');
     return createHash('sha256').update(`${template}:${prompt}`).digest('hex');
   }
 

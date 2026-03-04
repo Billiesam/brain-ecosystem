@@ -415,7 +415,7 @@ export class DebateEngine {
     const conflicts = this.findConflicts(debate.perspectives);
 
     // 2. Build weighted consensus (heuristic)
-    let consensus = this.buildConsensus(debate.perspectives, conflicts);
+    const consensus = this.buildConsensus(debate.perspectives, conflicts);
 
     // 3. Generate recommendations (heuristic)
     const recommendations = this.generateRecommendations(debate.perspectives, conflicts);
