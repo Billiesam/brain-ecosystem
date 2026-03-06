@@ -6,9 +6,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
+[Deutsche Version](README.de.md)
+
 **An autonomous AI research system that observes itself, learns, evolves, and modifies its own code — built as MCP servers for Claude Code.**
 
-Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 60+ autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. Multi-provider LLM support (Anthropic + Ollama). Live market data via CCXT WebSocket. Social feeds via Bluesky + Reddit. Web research via Brave Search + Playwright + Firecrawl. Borg collective sync. Plugin SDK for community brains. Advocatus Diaboli principle challenges. 398+ MCP tools. 2859 tests. The brain literally thinks about itself, gets curious, runs experiments, and writes code to improve itself.
+![Command Center](docs/assets/command-center.png)
+
+Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 60+ autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. Multi-provider LLM support (Anthropic + Ollama). Live market data via CCXT WebSocket. Social feeds via Bluesky + Reddit. Web research via Brave Search + Playwright + Firecrawl. Borg collective sync. Plugin SDK for community brains. Advocatus Diaboli principle challenges. 398+ MCP tools. 2888 tests. The brain literally thinks about itself, gets curious, runs experiments, and writes code to improve itself.
 
 ## Packages
 
@@ -49,6 +53,17 @@ All brains support MCP over HTTP with SSE transport:
   "marketing-brain": { "url": "http://localhost:7782/sse" }
 }
 ```
+
+## Why Brain?
+
+Most AI tools forget everything between sessions. Brain doesn't. It builds a persistent knowledge graph from every error, every trade, every content experiment — and uses that knowledge to get better over time. It runs autonomous research missions, challenges its own assumptions (Advocatus Diaboli), and even modifies its own source code when it finds improvements. If you want an AI that actually learns from your work instead of starting from zero every time, Brain is for you.
+
+### What's New
+
+- **Autonomous Loops** — DataScout periodic scanning, CCXT WebSocket auto-connect, CuriosityEngine auto-missions, Social Feed polling
+- **SelfMod CLI** — `brain selfmod list/pending/show/approve/reject/status` for managing self-modifications with git backup
+- **DataScout** — Automated data gathering with scheduled scans every 6 hours
+- **Dashboard i18n** — Command Center supports English (default) and German with a one-click language toggle
 
 ## What It Does
 
@@ -227,7 +242,7 @@ git clone https://github.com/timmeck/brain-ecosystem.git
 cd brain-ecosystem
 npm install          # installs all workspace dependencies
 npm run build        # builds all packages (brain-core first)
-npm test             # runs all 2859 tests
+npm test             # runs all 2888 tests
 ```
 
 ### Package Dependencies
@@ -253,7 +268,7 @@ brain-core          (no internal deps)
 - **Playwright** — Headless browser for web research
 - **Commander** — CLI framework
 - **Winston** — Structured logging with file rotation
-- **Vitest** — 2859 tests across 217 test files
+- **Vitest** — 2888 tests across 220 test files
 
 ## Docker (Optional)
 
