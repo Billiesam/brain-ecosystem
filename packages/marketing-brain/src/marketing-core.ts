@@ -364,11 +364,12 @@ export class MarketingCore {
 
     bus.on('rule:learned', ({ ruleId, pattern }) => {
       getLogger().info(`New rule #${ruleId} learned: ${pattern}`);
+      notifier?.notify('rule:learned', { ruleId, pattern, summary: `New marketing rule: "${pattern}"` });
     });
 
     bus.on('insight:created', ({ insightId, type }) => {
       getLogger().info(`New insight #${insightId} (${type})`);
-      notifier?.notifyPeer('brain', 'insight:created', { insightId, type });
+      notifier?.notifyPeer('brain', 'insight:created', { insightId, type, summary: `New marketing insight (${type})` });
     });
   }
 }

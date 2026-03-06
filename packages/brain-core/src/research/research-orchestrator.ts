@@ -107,6 +107,7 @@ export class ResearchOrchestrator {
   private bootstrapService: BootstrapService | null = null;
   private conceptAbstraction: ConceptAbstraction | null = null;
   private llmService: LLMService | null = null;
+  private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
 
   private db: Database.Database;
   private brainName: string;
@@ -147,6 +148,11 @@ export class ResearchOrchestrator {
     this.autoResponder.setAdaptiveStrategy(this.adaptiveStrategy);
     this.autoResponder.setJournal(this.journal);
     this.hypothesisEngine = new HypothesisEngine(db, { minEvidence: 3, confirmThreshold: 0.10, rejectThreshold: 0.5 });
+  }
+
+  /** Set callback for self-improvement suggestions (e.g. to create notifications). */
+  setOnSuggestion(callback: (suggestions: string[]) => void): void {
+    this.onSuggestionCallback = callback;
   }
 
   /** Set the DataMiner instance for DB-driven engine feeding. */
@@ -2511,6 +2517,11 @@ export class ResearchOrchestrator {
         fs.writeFileSync(filePath, `# Brain Improvement Requests\n\nBrain analyzes itself and generates improvement suggestions.\nSend these to Claude to make Brain smarter.\n\n---\n${header}${body}`, 'utf-8');
       } else {
         fs.appendFileSync(filePath, `---\n${header}${body}`, 'utf-8');
+      }
+
+      // Notify via callback (e.g. to create NotificationService entries)
+      if (this.onSuggestionCallback) {
+        try { this.onSuggestionCallback(suggestions); } catch { /* best effort */ }
       }
     } catch {
       // Don't let file writing break the feedback cycle

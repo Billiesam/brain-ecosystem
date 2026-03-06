@@ -2,6 +2,7 @@ import type { PaperConfig, PaperPosition } from './types.js';
 import type { TradeService } from '../services/trade.service.js';
 import type { SignalService } from '../services/signal.service.js';
 import type { PaperRepository } from '../db/repositories/paper.repository.js';
+import type { CrossBrainNotifier } from '@timmeck/brain-core';
 import { PriceFetcher } from './price-fetcher.js';
 import { PortfolioManager } from './portfolio-manager.js';
 import { DecisionEngine } from './decision-engine.js';
@@ -19,6 +20,7 @@ export class PaperEngine {
   private running = false;
   private cycleInProgress = false;
   private logger = getLogger();
+  private notifier: CrossBrainNotifier | null = null;
 
   constructor(
     private config: PaperConfig,
@@ -88,6 +90,10 @@ export class PaperEngine {
     return this.lastCycleAt;
   }
 
+  setNotifier(notifier: CrossBrainNotifier): void {
+    this.notifier = notifier;
+  }
+
   async runCycle(): Promise<{ entries: number; exits: number }> {
     if (this.cycleInProgress) {
       this.logger.warn('Paper cycle skipped: previous cycle still in progress');
@@ -146,6 +152,15 @@ export class PaperEngine {
         } catch (err) {
           this.logger.error(`Failed to record paper trade outcome: ${err}`);
         }
+
+        // Notify Brain about closed position
+        this.notifier?.notify('position:closed', {
+          symbol: closedTrade.symbol,
+          pnl: closedTrade.pnlUsdt,
+          pnlPct: closedTrade.pnlPct,
+          reason: exit.reason,
+          summary: `${closedTrade.symbol} closed: ${closedTrade.pnlUsdt >= 0 ? '+' : ''}$${closedTrade.pnlUsdt.toFixed(2)} (${closedTrade.pnlPct >= 0 ? '+' : ''}${closedTrade.pnlPct.toFixed(1)}%)`,
+        });
 
         exits++;
       }

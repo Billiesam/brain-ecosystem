@@ -256,6 +256,15 @@ export class BrainCore {
     this.orchestrator = new ResearchOrchestrator(this.db!, {
       brainName: 'brain',
     }, researchScheduler.causalGraph);
+    this.orchestrator.setOnSuggestion((suggestions) => {
+      for (const s of suggestions) {
+        services.notification.create({
+          type: 'selfmod',
+          title: 'Self-improvement suggestion',
+          message: JSON.stringify({ summary: s }),
+        });
+      }
+    });
     this.orchestrator.start();
     services.selfObserver = this.orchestrator.selfObserver;
     services.adaptiveStrategy = this.orchestrator.adaptiveStrategy;

@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 
-// UserPromptSubmit hook — injects Brain's self-improvement suggestions into Claude's context
-// Brain writes improvement requests to ~/.brain/improvement-requests.md during feedback cycles.
-// This hook checks for new entries and shows them to Claude automatically.
+// UserPromptSubmit hook — injects Brain's pending notifications into Claude's context.
+// Connects to Brain daemon via IPC, fetches unread notifications, prints them to stdout,
+// then acknowledges them so they don't appear again.
 
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { IpcClient } from '@timmeck/brain-core';
+import { getPipeName } from '../utils/paths.js';
 
-const IMPROVEMENTS_FILE = path.join(os.homedir(), '.brain', 'improvement-requests.md');
-const STATE_FILE = path.join(os.homedir(), '.brain', '.improvement-hook-state');
+interface NotificationRecord {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  priority: number;
+  created_at: string;
+}
 
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -20,76 +25,71 @@ function readStdin(): Promise<string> {
   });
 }
 
-function getLastSeenSize(): number {
-  try {
-    const state = fs.readFileSync(STATE_FILE, 'utf-8').trim();
-    return parseInt(state, 10) || 0;
-  } catch {
-    return 0;
-  }
+function formatTag(type: string, title?: string): string {
+  // For cross-brain types, derive category from the event title first
+  const event = title ?? '';
+  if (event.includes('position') || event.includes('paper')) return 'trade';
+  if (event.includes('selfmod') || event.includes('improvement')) return 'self';
+  if (event.includes('post:') || event.includes('campaign')) return 'mktg';
+  if (event.includes('insight')) return 'insight';
+  if (event.includes('rule') || event.includes('learn') || event.includes('calibrat')) return 'learn';
+  if (event.includes('tech') || event.includes('radar')) return 'tech';
+  // Fallback: check type itself
+  if (type.includes('trading') || type.includes('position') || type.includes('paper')) return 'trade';
+  if (type.includes('selfmod') || type.includes('self-mod') || type.includes('improvement')) return 'self';
+  if (type.includes('marketing') || type.includes('post:') || type.includes('campaign')) return 'mktg';
+  if (type.includes('insight')) return 'insight';
+  if (type.includes('rule') || type.includes('learn') || type.includes('calibrat')) return 'learn';
+  if (type.includes('tech') || type.includes('radar')) return 'tech';
+  return 'info';
 }
 
-function saveSeenSize(size: number): void {
+function formatNotification(n: NotificationRecord): string {
+  const tag = formatTag(n.type, n.title);
+  // Try to extract a meaningful one-liner from message JSON
+  let detail = n.title;
   try {
-    fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-    fs.writeFileSync(STATE_FILE, String(size));
+    const data = JSON.parse(n.message);
+    if (data.summary) {
+      detail = data.summary;
+    } else if (data.pnl !== undefined) {
+      const pnlStr = data.pnl >= 0 ? `+$${data.pnl.toFixed(2)}` : `-$${Math.abs(data.pnl).toFixed(2)}`;
+      const pctStr = data.pnlPct !== undefined ? ` (${data.pnlPct >= 0 ? '+' : ''}${data.pnlPct.toFixed(1)}%)` : '';
+      detail = `${n.title}: ${pnlStr}${pctStr}`;
+    } else if (data.pattern) {
+      detail = `${n.title}: "${data.pattern}"`;
+    } else {
+      detail = n.title;
+    }
   } catch {
-    // best effort
+    detail = n.title;
   }
+  return `  [${tag}] ${detail}`;
 }
 
 async function main(): Promise<void> {
   await readStdin(); // consume stdin (required by hook protocol)
 
-  if (!fs.existsSync(IMPROVEMENTS_FILE)) return;
-
-  let content: string;
+  const client = new IpcClient(getPipeName(), 3000);
   try {
-    content = fs.readFileSync(IMPROVEMENTS_FILE, 'utf-8');
+    await client.connect();
+
+    const pending = await client.request('notification.pending') as NotificationRecord[];
+    if (!pending || pending.length === 0) return;
+
+    // Print notifications to stdout — injected into Claude's context
+    console.log(`\u{1F9E0} Brain (${pending.length} new):`);
+    for (const n of pending) {
+      console.log(formatNotification(n));
+    }
+
+    // Acknowledge all so they don't repeat
+    await client.request('notification.ackAll');
   } catch {
-    return;
+    // Brain daemon not running or unreachable — silent, never block workflow
+  } finally {
+    client.disconnect();
   }
-
-  const currentSize = content.length;
-  const lastSeenSize = getLastSeenSize();
-
-  // File was rewritten/shrunk — reset state and scan from beginning
-  if (currentSize < lastSeenSize) {
-    saveSeenSize(0);
-  }
-
-  // No new content since last check
-  if (currentSize <= lastSeenSize) return;
-
-  // Extract only the new part (or full content if file was reset)
-  const effectiveLastSeen = currentSize < lastSeenSize ? 0 : lastSeenSize;
-  const newContent = content.slice(effectiveLastSeen).trim();
-  if (!newContent) return;
-
-  // Extract "Tell Claude:" lines from new content
-  const suggestions = newContent
-    .split('\n')
-    .filter(line => line.includes('Tell Claude:'))
-    .map(line => line.replace(/^\d+\.\s*/, '').replace('Tell Claude: ', '').trim())
-    .filter(Boolean);
-
-  if (suggestions.length === 0) {
-    // Still update state even if no actionable suggestions
-    saveSeenSize(currentSize);
-    return;
-  }
-
-  // Deduplicate
-  const unique = [...new Set(suggestions)];
-
-  // Output to stdout — this gets injected into Claude's context
-  console.log(`🧠 Brain Self-Improvement Request (${unique.length} new suggestion${unique.length > 1 ? 's' : ''}):`);
-  for (const s of unique) {
-    console.log(`  → ${s}`);
-  }
-
-  // Update state
-  saveSeenSize(currentSize);
 }
 
 main();

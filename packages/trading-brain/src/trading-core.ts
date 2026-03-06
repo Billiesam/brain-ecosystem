@@ -214,6 +214,7 @@ export class TradingCore {
     // 12. Cross-Brain Client + Notifier
     this.crossBrain = new CrossBrainClient('trading-brain');
     this.notifier = new CrossBrainNotifier(this.crossBrain, 'trading-brain');
+    this.paperEngine.setNotifier(this.notifier);
     services.crossBrain = this.crossBrain;
 
     // 12b. Cross-Brain Correlator
@@ -889,12 +890,13 @@ export class TradingCore {
       getLogger().debug(`Synapse updated: ${synapseId}`);
     });
 
-    // Rule learned → log + causal
+    // Rule learned → log + causal + notify Brain
     bus.on('rule:learned', ({ ruleId, pattern }) => {
       getLogger().info(`New rule #${ruleId} learned: ${pattern}`);
       causal?.recordEvent('trading-brain', 'rule:learned', { ruleId, pattern });
       hypothesis?.observe({ source: 'trading-brain', type: 'rule:learned', value: 1, timestamp: Date.now() });
       orch?.onEvent('rule:learned', { ruleId });
+      notifier?.notify('rule:learned', { ruleId, pattern, summary: `New trading rule: "${pattern}"` });
     });
 
     // Chain detected → log + causal
@@ -904,12 +906,13 @@ export class TradingCore {
       hypothesis?.observe({ source: 'trading-brain', type: 'chain:detected', value: length, timestamp: Date.now() });
     });
 
-    // Insight created → log + causal
+    // Insight created → log + causal + notify Brain
     bus.on('insight:created', ({ insightId, type }) => {
       getLogger().info(`New insight #${insightId} (${type})`);
       causal?.recordEvent('trading-brain', 'insight:created', { insightId, type });
       hypothesis?.observe({ source: 'trading-brain', type: 'insight:created', value: 1, timestamp: Date.now() });
       orch?.onEvent('insight:created', { insightId, type });
+      notifier?.notify('insight:created', { insightId, type, summary: `New trading insight (${type})` });
     });
 
     // Calibration updated → log + notify peers (market regime change) + causal

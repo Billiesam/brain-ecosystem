@@ -284,6 +284,14 @@ export class IpcRouter {
       // Notifications
       ['notification.list',       (params) => s.notification.list(p(params)?.projectId)],
       ['notification.ack',        (params) => s.notification.acknowledge(p(params).id)],
+      ['notification.pending',    () => s.notification.list()],
+      ['notification.ackAll',     () => {
+        const pending = s.notification.list();
+        for (const n of pending) {
+          s.notification.acknowledge(n.id);
+        }
+        return { acknowledged: pending.length };
+      }],
 
       // Analytics
       ['analytics.summary',       (params) => s.analytics.getSummary(p(params)?.projectId)],
@@ -307,8 +315,14 @@ export class IpcRouter {
 
       // Cross-Brain Notifications
       ['cross-brain.notify',      (params) => {
-        const { source, event, timestamp } = p(params);
+        const { source, event, data, timestamp } = p(params);
         logger.info(`Cross-brain notification from ${source}: ${event}`);
+        s.notification.create({
+          type: `cross-brain:${source}`,
+          title: event,
+          message: JSON.stringify(data ?? {}),
+          priority: (data as Record<string, unknown>)?.priority as number ?? 0,
+        });
         return { received: true, source, event, timestamp };
       }],
 
