@@ -126,7 +126,7 @@ export class PortfolioManager {
     };
   }
 
-  private calcEquity(balance: number): number {
+  calcEquity(balance: number): number {
     const positions = this.repo.getOpenPositions();
     let unrealizedPnl = 0;
     for (const pos of positions) {

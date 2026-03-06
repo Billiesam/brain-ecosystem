@@ -46,9 +46,9 @@ export function computeAdaptiveThresholds(
   totalSolutions: number,
   baseConfig: { minOccurrences: number; minSuccessRate: number; minConfidence: number; pruneThreshold: number },
 ): AdaptiveThresholds {
-  // Scale factor: 1.0 at 50 errors, increases with more data
-  const errorScale = Math.min(2.0, Math.max(0.5, totalErrors / 50));
-  const solutionScale = Math.min(2.0, Math.max(0.5, totalSolutions / 20));
+  // Scale factor: 1.0 at 100 errors, capped at 1.5 to prevent overly strict thresholds
+  const errorScale = Math.min(1.5, Math.max(0.5, totalErrors / 100));
+  const solutionScale = Math.min(1.5, Math.max(0.5, totalSolutions / 20));
   const dataScale = (errorScale + solutionScale) / 2;
 
   return {

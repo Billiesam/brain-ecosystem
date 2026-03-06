@@ -17,6 +17,7 @@ export class PaperEngine {
   private lastCycleAt: string | null = null;
   private paused = false;
   private running = false;
+  private cycleInProgress = false;
   private logger = getLogger();
 
   constructor(
@@ -88,6 +89,12 @@ export class PaperEngine {
   }
 
   async runCycle(): Promise<{ entries: number; exits: number }> {
+    if (this.cycleInProgress) {
+      this.logger.warn('Paper cycle skipped: previous cycle still in progress');
+      return { entries: 0, exits: 0 };
+    }
+
+    this.cycleInProgress = true;
     const start = Date.now();
     let entries = 0;
     let exits = 0;
@@ -110,9 +117,7 @@ export class PaperEngine {
         }
       }
 
-      // 3. Update trade count for cold-start logic + Mark-to-market
-      const perf = this.portfolio.getPerformanceSummary();
-      this.decision.setTradeCount(perf.totalTrades);
+      // 3. Mark-to-market
       this.portfolio.updatePositionPrices(prices);
 
       // 4. Check exits
@@ -184,9 +189,10 @@ export class PaperEngine {
 
           this.portfolio.openPosition(position);
 
-          // Deduct from balance
+          // Deduct from balance, compute equity correctly (includes unrealized PnL)
           const { balance } = this.portfolio.getBalance();
-          this.repo.updateBalance(balance - positionSize, balance - positionSize, 'open_position');
+          const newBalance = balance - positionSize;
+          this.repo.updateBalance(newBalance, this.portfolio.calcEquity(newBalance), 'open_position');
 
           entries++;
         }
@@ -204,6 +210,8 @@ export class PaperEngine {
 
     } catch (err) {
       this.logger.error(`Paper cycle error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      this.cycleInProgress = false;
     }
 
     return { entries, exits };

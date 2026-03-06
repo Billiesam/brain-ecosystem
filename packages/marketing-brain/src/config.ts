@@ -24,7 +24,7 @@ const defaults: MarketingBrainConfig = {
   },
   learning: {
     intervalMs: 900_000, // 15 min
-    minOccurrences: 3,
+    minOccurrences: 2,
     minConfidence: 0.60,
     pruneThreshold: 0.20,
     decayHalfLifeDays: 30,

@@ -7,8 +7,11 @@ import type { InsightRepository } from '../db/repositories/insight.repository.js
 import type { SynapseManager } from '../synapses/synapse-manager.js';
 import { engagementScore } from '../learning/confidence-scorer.js';
 import { BaseResearchEngine } from '@timmeck/brain-core';
+import type { HypothesisEngine } from '@timmeck/brain-core';
 
 export class ResearchEngine extends BaseResearchEngine {
+  private hypothesisEngine: HypothesisEngine | null = null;
+
   constructor(
     private config: ResearchConfig,
     private postRepo: PostRepository,
@@ -19,6 +22,10 @@ export class ResearchEngine extends BaseResearchEngine {
     private synapseManager: SynapseManager,
   ) {
     super(config);
+  }
+
+  setHypothesisEngine(engine: HypothesisEngine): void {
+    this.hypothesisEngine = engine;
   }
 
   runCycle(): void {
@@ -34,6 +41,33 @@ export class ResearchEngine extends BaseResearchEngine {
     this.detectSynergies();
     this.suggestTemplates();
     this.suggestOptimizations();
+
+    // Feed observations into HypothesisEngine for marketing-specific hypotheses
+    if (this.hypothesisEngine) {
+      const now = Date.now();
+      const recentPosts = this.postRepo.recentPublished(new Date(now - 7 * 86400_000).toISOString());
+      this.hypothesisEngine.observe({ source: 'marketing-brain', type: 'post_count', value: recentPosts.length, timestamp: now });
+
+      // Per-post engagement observations for pattern detection
+      for (const post of recentPosts.slice(0, 10)) {
+        const eng = this.engagementRepo.getLatestByPost(post.id);
+        if (!eng) continue;
+        const score = engagementScore(eng);
+        const hour = post.published_at ? new Date(post.published_at).getHours() : -1;
+        this.hypothesisEngine.observe({ source: 'marketing-brain', type: `engagement:${post.platform}`, value: score, timestamp: now, metadata: { format: post.format, hour } });
+      }
+
+      // Generate and test hypotheses every cycle
+      const generated = this.hypothesisEngine.generate();
+      if (generated.length > 0) {
+        this.logger.info(`Hypotheses generated: ${generated.length}`);
+      }
+      const testResults = this.hypothesisEngine.testAll();
+      const confirmed = testResults.filter(r => r.newStatus === 'confirmed');
+      if (confirmed.length > 0) {
+        this.logger.info(`Hypotheses confirmed: ${confirmed.length}`);
+      }
+    }
 
     this.logger.info('Research cycle complete');
   }

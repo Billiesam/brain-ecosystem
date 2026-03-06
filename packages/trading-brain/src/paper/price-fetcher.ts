@@ -30,6 +30,11 @@ export class PriceFetcher {
   private readonly OHLCV_INTERVAL = 900_000; // 15 minutes
   private logger = getLogger();
 
+  // Rate limiting
+  private consecutiveErrors = 0;
+  private readonly MAX_CONSECUTIVE_ERRORS = 5;
+  private backoffMs = 0;
+
   constructor(
     private config: PaperConfig,
     private repo: PaperRepository,
@@ -72,6 +77,7 @@ export class PriceFetcher {
 
   private async fetchCryptoPrices(): Promise<void> {
     if (this.config.cryptoIds.length === 0) return;
+    if (this.backoffMs > 0) await this.delay(this.backoffMs);
 
     try {
       const ids = this.config.cryptoIds.join(',');
@@ -79,6 +85,7 @@ export class PriceFetcher {
       const response = await fetch(url);
 
       if (!response.ok) {
+        this.recordError();
         this.logger.warn(`CoinGecko price fetch failed: ${response.status}`);
         return;
       }
@@ -90,24 +97,31 @@ export class PriceFetcher {
         }
       }
 
+      this.recordSuccess();
       this.logger.debug(`Fetched ${Object.keys(data).length} crypto prices`);
     } catch (err) {
+      this.recordError();
       this.logger.warn(`CoinGecko price error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   private async fetchStockPrices(): Promise<void> {
     if (this.config.stockSymbols.length === 0) return;
+    if (this.backoffMs > 0) await this.delay(this.backoffMs);
 
     for (const symbol of this.config.stockSymbols) {
       try {
+        // Rate limit: 500ms between Yahoo calls
+        await this.delay(500);
+
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=5m`;
         const response = await fetch(url, {
           headers: { 'User-Agent': 'TradingBrain/1.0' },
         });
 
         if (!response.ok) {
-          this.logger.debug(`Yahoo Finance ${symbol}: ${response.status}`);
+          this.recordError();
+          this.logger.warn(`Yahoo Finance ${symbol}: ${response.status}`);
           continue;
         }
 
@@ -125,8 +139,11 @@ export class PriceFetcher {
             }
           }
         }
+
+        this.recordSuccess();
       } catch (err) {
-        this.logger.debug(`Yahoo ${symbol} error: ${err instanceof Error ? err.message : String(err)}`);
+        this.recordError();
+        this.logger.warn(`Yahoo ${symbol} error: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -134,13 +151,22 @@ export class PriceFetcher {
   }
 
   private async fetchOHLCVData(): Promise<void> {
+    if (this.backoffMs > 0) await this.delay(this.backoffMs);
+
     // Crypto OHLCV from CoinGecko
     for (const id of this.config.cryptoIds) {
       try {
+        // Rate limit: 1.5s between CoinGecko OHLCV calls
+        await this.delay(1500);
+
         const url = `https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=1`;
         const response = await fetch(url);
 
-        if (!response.ok) continue;
+        if (!response.ok) {
+          this.recordError();
+          this.logger.warn(`CoinGecko OHLCV ${id}: ${response.status}`);
+          continue;
+        }
 
         const data = await response.json() as number[][];
         if (!Array.isArray(data)) continue;
@@ -158,20 +184,30 @@ export class PriceFetcher {
           this.candleCache.set(id, this.mergeCandles(id, candles));
           this.repo.savePrices(id, candles);
         }
-      } catch {
-        // Skip silently
+
+        this.recordSuccess();
+      } catch (err) {
+        this.recordError();
+        this.logger.warn(`CoinGecko OHLCV ${id} error: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
     // Stock OHLCV from Yahoo
     for (const symbol of this.config.stockSymbols) {
       try {
+        // Rate limit: 500ms between Yahoo calls
+        await this.delay(500);
+
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=5d&interval=5m`;
         const response = await fetch(url, {
           headers: { 'User-Agent': 'TradingBrain/1.0' },
         });
 
-        if (!response.ok) continue;
+        if (!response.ok) {
+          this.recordError();
+          this.logger.warn(`Yahoo OHLCV ${symbol}: ${response.status}`);
+          continue;
+        }
 
         const data = await response.json() as YahooChartResult;
         const result = data?.chart?.result?.[0];
@@ -199,8 +235,11 @@ export class PriceFetcher {
           this.candleCache.set(symbol, this.mergeCandles(symbol, candles));
           this.repo.savePrices(symbol, candles);
         }
-      } catch {
-        // Skip silently
+
+        this.recordSuccess();
+      } catch (err) {
+        this.recordError();
+        this.logger.warn(`Yahoo OHLCV ${symbol} error: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -218,6 +257,23 @@ export class PriceFetcher {
     const merged = [...existing, ...fresh];
     // Keep last 500 candles
     return merged.slice(-500);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private recordError(): void {
+    this.consecutiveErrors++;
+    if (this.consecutiveErrors >= this.MAX_CONSECUTIVE_ERRORS) {
+      this.backoffMs = Math.min(30_000, 2_000 * Math.pow(2, this.consecutiveErrors - this.MAX_CONSECUTIVE_ERRORS));
+      this.logger.warn(`API rate limit backoff: ${this.backoffMs}ms after ${this.consecutiveErrors} consecutive errors`);
+    }
+  }
+
+  private recordSuccess(): void {
+    this.consecutiveErrors = 0;
+    this.backoffMs = 0;
   }
 
   private loadCacheFromDb(): void {

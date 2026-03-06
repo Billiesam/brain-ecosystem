@@ -146,7 +146,7 @@ export class ResearchOrchestrator {
     this.autoResponder = new AutoResponder(db, { brainName: config.brainName });
     this.autoResponder.setAdaptiveStrategy(this.adaptiveStrategy);
     this.autoResponder.setJournal(this.journal);
-    this.hypothesisEngine = new HypothesisEngine(db, { minEvidence: 3, confirmThreshold: 0.05, rejectThreshold: 0.5 });
+    this.hypothesisEngine = new HypothesisEngine(db, { minEvidence: 3, confirmThreshold: 0.10, rejectThreshold: 0.5 });
   }
 
   /** Set the DataMiner instance for DB-driven engine feeding. */
@@ -464,6 +464,10 @@ export class ResearchOrchestrator {
     const now = Date.now();
     this.hypothesisEngine.observe({ source: this.brainName, type: 'anomaly_count', value: anomalies.length, timestamp: now });
     this.hypothesisEngine.observe({ source: this.brainName, type: 'insight_count', value: insights.length, timestamp: now });
+    // Feed journal significance for richer hypothesis generation
+    for (const insight of insights) {
+      this.hypothesisEngine.observe({ source: this.brainName, type: 'journal', value: insight.confidence, timestamp: now, metadata: { title: insight.title } });
+    }
     if (anomalies.length > 0) {
       for (const a of anomalies) {
         this.hypothesisEngine.observe({ source: this.brainName, type: `anomaly:${a.metric}`, value: a.deviation, timestamp: now, metadata: { severity: a.severity } });
@@ -606,6 +610,8 @@ export class ResearchOrchestrator {
             { conclusion: result.conclusion, hypothesis: exp.hypothesis },
             sig,
           );
+          // Feed experiment effect size into HypothesisEngine
+          this.hypothesisEngine.observe({ source: this.brainName, type: 'experiment', value: result.conclusion.effect_size, timestamp: now, metadata: { name: exp.name, direction: result.conclusion.direction, significant: sig } });
           this.log.info(`[orchestrator] Experiment "${exp.name}": ${sig ? result.conclusion.direction : 'inconclusive'} (p=${result.conclusion.p_value.toFixed(4)}, d=${result.conclusion.effect_size.toFixed(2)})`);
         }
       }
