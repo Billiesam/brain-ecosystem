@@ -118,6 +118,7 @@ export interface Services {
   conceptAbstraction?: import('@timmeck/brain-core').ConceptAbstraction;
   peerNetwork?: import('@timmeck/brain-core').PeerNetwork;
   llmService?: import('@timmeck/brain-core').LLMService;
+  missionEngine?: import('@timmeck/brain-core').ResearchMissionEngine;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -785,6 +786,13 @@ export class IpcRouter {
       ['llm.status',               () => { if (!s.llmService) throw new Error('LLMService not available'); return s.llmService.getStats(); }],
       ['llm.history',              (p) => { if (!s.llmService) throw new Error('LLMService not available'); const { hours } = (p ?? {}) as { hours?: number }; return s.llmService.getUsageHistory(hours); }],
       ['llm.byTemplate',           () => { if (!s.llmService) throw new Error('LLMService not available'); return s.llmService.getUsageByTemplate(); }],
+
+      // Research Missions
+      ['mission.create',           (params) => { if (!s.missionEngine) throw new Error('MissionEngine not available'); const { topic, depth } = (params ?? {}) as { topic: string; depth?: string }; return s.missionEngine.createMission(topic, (depth ?? 'standard') as 'quick' | 'standard' | 'deep'); }],
+      ['mission.list',             (params) => { if (!s.missionEngine) throw new Error('MissionEngine not available'); const { status, limit } = (params ?? {}) as { status?: string; limit?: number }; return s.missionEngine.listMissions(status as import('@timmeck/brain-core').MissionStatus | undefined, limit); }],
+      ['mission.report',           (params) => { if (!s.missionEngine) throw new Error('MissionEngine not available'); const { id } = (params ?? {}) as { id: number }; return s.missionEngine.getReport(id); }],
+      ['mission.cancel',           (params) => { if (!s.missionEngine) throw new Error('MissionEngine not available'); const { id } = (params ?? {}) as { id: number }; return s.missionEngine.cancelMission(id); }],
+      ['mission.status',           () => { if (!s.missionEngine) throw new Error('MissionEngine not available'); return s.missionEngine.getStatus(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({

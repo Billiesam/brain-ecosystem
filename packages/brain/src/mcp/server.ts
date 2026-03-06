@@ -30,6 +30,7 @@ import { registerSelfmodTools } from './selfmod-tools.js';
 import { registerConceptTools } from './concept-tools.js';
 import { registerPeerTools } from './peer-tools.js';
 import { registerLLMTools } from './llm-tools.js';
+import { registerMissionTools } from './mission-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
@@ -67,6 +68,7 @@ export async function startMcpServer(): Promise<void> {
       registerConceptTools(server, ipc);
       registerPeerTools(server, ipc);
       registerLLMTools(server, ipc);
+      registerMissionTools(server, ipc);
     },
     registerPrompts,
   });
