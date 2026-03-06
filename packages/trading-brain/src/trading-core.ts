@@ -44,6 +44,9 @@ import { ImportService } from './services/import.service.js';
 // Engines
 import { LearningEngine } from './learning/learning-engine.js';
 import { ResearchEngine } from './research/research-engine.js';
+import { PaperEngine } from './paper/paper-engine.js';
+import { PaperService } from './paper/paper.service.js';
+import { PaperRepository } from './db/repositories/paper.repository.js';
 
 // IPC
 import { IpcRouter, type Services } from './ipc/router.js';
@@ -64,6 +67,7 @@ export class TradingCore {
   private mcpHttpServer: McpHttpServer | null = null;
   private learningEngine: LearningEngine | null = null;
   private researchEngine: ResearchEngine | null = null;
+  private paperEngine: PaperEngine | null = null;
   private crossBrain: CrossBrainClient | null = null;
   private notifier: CrossBrainNotifier | null = null;
   private subscriptionManager: CrossBrainSubscriptionManager | null = null;
@@ -181,6 +185,16 @@ export class TradingCore {
     );
     this.researchEngine.start();
     logger.info(`Research engine started (interval: ${config.research.intervalMs}ms)`);
+
+    // Paper Trading Engine
+    const paperRepo = new PaperRepository(this.db);
+    this.paperEngine = new PaperEngine(config.paper, tradeService, signalService, paperRepo);
+    this.paperEngine.start();
+    const paperService = new PaperService(this.paperEngine, paperRepo, config.paper);
+    services.paper = paperService;
+    if (config.paper.enabled) {
+      logger.info(`Paper trading engine started (interval: ${config.paper.intervalMs}ms)`);
+    }
 
     // Expose engines + cross-brain to IPC
     services.learning = this.learningEngine;
@@ -724,6 +738,7 @@ export class TradingCore {
   }
 
   private cleanup(): void {
+    this.paperEngine?.stop();
     this.peerNetwork?.stopDiscovery();
     this.subscriptionManager?.disconnectAll();
     this.attentionEngine?.stop();
@@ -742,6 +757,7 @@ export class TradingCore {
     this.mcpHttpServer = null;
     this.learningEngine = null;
     this.researchEngine = null;
+    this.paperEngine = null;
     this.orchestrator = null;
     this.attentionEngine = null;
     this.narrativeEngine = null;

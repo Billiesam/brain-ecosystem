@@ -21,6 +21,7 @@ export interface TradingBrainConfig {
   calibration: CalibrationConfig;
   learning: LearningConfig;
   research: ResearchConfig;
+  paper: PaperConfig;
 
   log: {
     level: string;
@@ -57,4 +58,21 @@ export interface ResearchConfig {
   trendWindowDays: number;
   minTrades: number;
   maxInsights: number;
+}
+
+export interface PaperConfig {
+  enabled: boolean;
+  intervalMs: number;
+  startingBalance: number;
+  maxPositionPct: number;
+  maxPositions: number;
+  stopLossPct: number;
+  takeProfitPct: number;
+  trailingStopActivation: number;
+  trailingStopDistance: number;
+  confidenceThreshold: number;
+  scoreThreshold: number;
+  timeExitHours: number;
+  cryptoIds: string[];
+  stockSymbols: string[];
 }

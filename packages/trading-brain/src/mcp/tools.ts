@@ -761,6 +761,43 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
     },
   );
 
+  // === Paper Trading Tools ===
+
+  server.tool(
+    'trading_paper_status',
+    'Get paper trading status: balance, equity, P&L, win rate, open positions count, cycle info.',
+    {},
+    async () => {
+      const result: AnyResult = await call('paper.status', {});
+      if (!result) return textResult('Paper trading not available.');
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'trading_paper_portfolio',
+    'Get paper trading portfolio: current balance, equity, and all open positions with P&L.',
+    {},
+    async () => {
+      const result: AnyResult = await call('paper.portfolio', {});
+      if (!result) return textResult('Paper trading not available.');
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'trading_paper_history',
+    'Get paper trading history: recent closed trades with entry/exit prices, P&L, and exit reasons.',
+    {
+      limit: z.number().optional().describe('Max results (default 20)'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('paper.history', { limit: params.limit ?? 20 });
+      if (!result) return textResult('Paper trading not available.');
+      return textResult(result);
+    },
+  );
+
   // === Cross-Brain Ecosystem Tools ===
 
   server.tool(

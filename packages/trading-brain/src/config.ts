@@ -44,6 +44,22 @@ const defaults: TradingBrainConfig = {
     minTrades: 20,
     maxInsights: 50,
   },
+  paper: {
+    enabled: true,
+    intervalMs: 300_000, // 5 minutes
+    startingBalance: 10_000,
+    maxPositionPct: 5,
+    maxPositions: 10,
+    stopLossPct: -3,
+    takeProfitPct: 6,
+    trailingStopActivation: 4,
+    trailingStopDistance: 2,
+    confidenceThreshold: 0.60,
+    scoreThreshold: 80,
+    timeExitHours: 48,
+    cryptoIds: ['bitcoin', 'ethereum', 'solana', 'render-token', 'fetch-ai', 'bittensor', 'chainlink', 'avalanche-2', 'near', 'polkadot'],
+    stockSymbols: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'TSLA', 'META', 'AMD', 'SPY', 'QQQ'],
+  },
   log: {
     level: 'info',
     file: path.join(getDataDir(), 'trading-brain.log'),
@@ -66,6 +82,9 @@ function applyEnvOverrides(config: TradingBrainConfig): void {
   if (process.env['TRADING_BRAIN_API_KEY']) config.api.apiKey = process.env['TRADING_BRAIN_API_KEY'];
   if (process.env['TRADING_BRAIN_MCP_HTTP_PORT']) config.mcpHttp.port = Number(process.env['TRADING_BRAIN_MCP_HTTP_PORT']);
   if (process.env['TRADING_BRAIN_MCP_HTTP_ENABLED']) config.mcpHttp.enabled = process.env['TRADING_BRAIN_MCP_HTTP_ENABLED'] !== 'false';
+  if (process.env['TRADING_BRAIN_PAPER_ENABLED']) config.paper.enabled = process.env['TRADING_BRAIN_PAPER_ENABLED'] !== 'false';
+  if (process.env['TRADING_BRAIN_PAPER_BALANCE']) config.paper.startingBalance = Number(process.env['TRADING_BRAIN_PAPER_BALANCE']);
+  if (process.env['TRADING_BRAIN_PAPER_INTERVAL']) config.paper.intervalMs = Number(process.env['TRADING_BRAIN_PAPER_INTERVAL']);
 }
 
 export function loadConfig(configPath?: string): TradingBrainConfig {

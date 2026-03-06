@@ -5,6 +5,7 @@ import type { ChainRepository } from '../db/repositories/chain.repository.js';
 import type { CalibrationRepository } from '../db/repositories/calibration.repository.js';
 import type { SynapseManager } from '../synapses/synapse-manager.js';
 import type { TradeRepository } from '../db/repositories/trade.repository.js';
+import type { PaperService } from '../paper/paper.service.js';
 import { getCurrentVersion } from '../cli/update-check.js';
 
 function escapeHtml(str: string): string {
@@ -19,6 +20,7 @@ export interface DashboardServices {
   calRepo: CalibrationRepository;
   synapseManager: SynapseManager;
   tradeRepo: TradeRepository;
+  paper?: PaperService;
 }
 
 export function renderDashboard(template: string, services: DashboardServices): string {
@@ -142,6 +144,29 @@ export function renderDashboard(template: string, services: DashboardServices): 
     }
     if (!insHtml) insHtml = '<p class="empty">No insights in this category yet.</p>';
     html = html.replace(`{{${plural}}}`, insHtml);
+  }
+
+  // Paper Trading
+  if (services.paper) {
+    const ps = services.paper.getStatus();
+    html = html.replace('{{PAPER_STATUS}}', ps.running ? (ps.paused ? 'PAUSED' : 'RUNNING') : 'STOPPED');
+    html = html.replace('{{PAPER_BALANCE}}', `$${ps.balance.toFixed(2)}`);
+    html = html.replace('{{PAPER_EQUITY}}', `$${ps.equity.toFixed(2)}`);
+    const pnlSign = ps.totalPnl >= 0 ? '+' : '';
+    html = html.replace('{{PAPER_PNL}}', `${pnlSign}$${ps.totalPnl.toFixed(2)}`);
+    html = html.replace('{{PAPER_WIN_RATE}}', `${ps.winRate}%`);
+    html = html.replace('{{PAPER_TRADES}}', String(ps.totalTrades));
+    html = html.replace('{{PAPER_POSITIONS}}', String(ps.openPositions));
+    html = html.replace('{{PAPER_CYCLES}}', String(ps.cycleCount));
+  } else {
+    html = html.replace('{{PAPER_STATUS}}', 'N/A');
+    html = html.replace('{{PAPER_BALANCE}}', '$0');
+    html = html.replace('{{PAPER_EQUITY}}', '$0');
+    html = html.replace('{{PAPER_PNL}}', '$0');
+    html = html.replace('{{PAPER_WIN_RATE}}', '0%');
+    html = html.replace('{{PAPER_TRADES}}', '0');
+    html = html.replace('{{PAPER_POSITIONS}}', '0');
+    html = html.replace('{{PAPER_CYCLES}}', '0');
   }
 
   // Graph edges

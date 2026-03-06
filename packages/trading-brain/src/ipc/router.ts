@@ -103,6 +103,7 @@ export interface Services {
   conceptAbstraction?: import('@timmeck/brain-core').ConceptAbstraction;
   peerNetwork?: import('@timmeck/brain-core').PeerNetwork;
   llmService?: import('@timmeck/brain-core').LLMService;
+  paper?: import('../paper/paper.service.js').PaperService;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -261,6 +262,15 @@ export class IpcRouter {
 
       // ─── Research ───────────────────────────────────────
       ['research.run', () => s.research?.runManual()],
+
+      // ─── Paper Trading ────────────────────────────────────
+      ['paper.status', () => s.paper?.getStatus()],
+      ['paper.portfolio', () => s.paper?.getPortfolio()],
+      ['paper.history', (params) => s.paper?.getHistory(p(params).limit)],
+      ['paper.cycle', () => s.paper?.runManualCycle()],
+      ['paper.pause', () => s.paper?.pause()],
+      ['paper.resume', () => s.paper?.resume()],
+      ['paper.reset', () => s.paper?.reset()],
 
       // ─── Reset ──────────────────────────────────────────
       ['reset', () => {

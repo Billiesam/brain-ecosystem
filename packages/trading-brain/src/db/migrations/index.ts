@@ -8,6 +8,7 @@ import { up as memorySchema } from './005_memory_schema.js';
 import { up as memoryFts } from './006_memory_fts.js';
 import { up as calibrationHistory } from './007_calibration_history.js';
 import { up as backtestAlerts } from './008_backtest_alerts.js';
+import { up as paperTrading } from './010_paper_trading.js';
 
 interface Migration {
   version: number;
@@ -24,6 +25,7 @@ const migrations: Migration[] = [
   { version: 6, name: '006_memory_fts', up: memoryFts },
   { version: 7, name: '007_calibration_history', up: calibrationHistory },
   { version: 8, name: '008_backtest_alerts', up: backtestAlerts },
+  { version: 10, name: '010_paper_trading', up: paperTrading },
 ];
 
 function ensureMigrationsTable(db: Database.Database): void {
