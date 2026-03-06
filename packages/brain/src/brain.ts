@@ -1041,6 +1041,7 @@ export class BrainCore {
       correlator: this.correlator!,
       watchdog,
       pluginRegistry: this.pluginRegistry,
+      borgSync: this.borgSync,
       thoughtStream,
       getLLMStats: () => services.llmService?.getStats() ?? null,
       getLLMHistory: (hours: number) => services.llmService?.getUsageHistory(hours) ?? [],
