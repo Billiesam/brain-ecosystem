@@ -28,55 +28,68 @@ function createMockRepo() {
 }
 
 describe('PriceFetcher', () => {
-  describe('Rate limiting', () => {
+  describe('Per-provider rate limiting', () => {
     it('should have rate limiting properties initialized', () => {
       const repo = createMockRepo();
       const fetcher = new PriceFetcher(mockConfig, repo as any);
 
-      // Verify internal state
-      expect((fetcher as any).consecutiveErrors).toBe(0);
-      expect((fetcher as any).backoffMs).toBe(0);
-      expect((fetcher as any).MAX_CONSECUTIVE_ERRORS).toBe(5);
+      expect((fetcher as any).providerErrors).toBeInstanceOf(Map);
+      expect((fetcher as any).providerBackoff).toBeInstanceOf(Map);
+      expect((fetcher as any).MAX_CONSECUTIVE_ERRORS).toBe(3);
     });
 
-    it('should track consecutive errors and compute backoff', () => {
+    it('should track consecutive errors per provider and compute backoff', () => {
       const repo = createMockRepo();
       const fetcher = new PriceFetcher(mockConfig, repo as any);
 
-      // Simulate errors
-      for (let i = 0; i < 5; i++) {
-        (fetcher as any).recordError();
+      for (let i = 0; i < 3; i++) {
+        (fetcher as any).recordProviderError('coingecko');
       }
 
-      expect((fetcher as any).consecutiveErrors).toBe(5);
-      expect((fetcher as any).backoffMs).toBeGreaterThan(0);
+      expect((fetcher as any).providerErrors.get('coingecko')).toBe(3);
+      expect((fetcher as any).getBackoff('coingecko')).toBeGreaterThan(0);
+      // Yahoo should be unaffected
+      expect((fetcher as any).getBackoff('yahoo')).toBe(0);
     });
 
-    it('should reset error tracking on success', () => {
+    it('should reset error tracking on provider success', () => {
       const repo = createMockRepo();
       const fetcher = new PriceFetcher(mockConfig, repo as any);
 
-      // Simulate errors then success
       for (let i = 0; i < 5; i++) {
-        (fetcher as any).recordError();
+        (fetcher as any).recordProviderError('yahoo');
       }
-      expect((fetcher as any).consecutiveErrors).toBe(5);
+      expect((fetcher as any).providerErrors.get('yahoo')).toBe(5);
 
-      (fetcher as any).recordSuccess();
-      expect((fetcher as any).consecutiveErrors).toBe(0);
-      expect((fetcher as any).backoffMs).toBe(0);
+      (fetcher as any).recordProviderSuccess('yahoo');
+      expect((fetcher as any).providerErrors.get('yahoo')).toBe(0);
+      expect((fetcher as any).getBackoff('yahoo')).toBe(0);
     });
 
-    it('should cap backoff at 30 seconds', () => {
+    it('should cap backoff at MAX_BACKOFF_MS', () => {
       const repo = createMockRepo();
       const fetcher = new PriceFetcher(mockConfig, repo as any);
 
-      // Simulate many errors
       for (let i = 0; i < 20; i++) {
-        (fetcher as any).recordError();
+        (fetcher as any).recordProviderError('coingecko');
       }
 
-      expect((fetcher as any).backoffMs).toBeLessThanOrEqual(30_000);
+      expect((fetcher as any).getBackoff('coingecko')).toBeLessThanOrEqual(30_000);
+    });
+
+    it('should isolate providers from each other', () => {
+      const repo = createMockRepo();
+      const fetcher = new PriceFetcher(mockConfig, repo as any);
+
+      for (let i = 0; i < 5; i++) {
+        (fetcher as any).recordProviderError('coingecko');
+      }
+      (fetcher as any).recordProviderError('yahoo');
+
+      expect((fetcher as any).providerErrors.get('coingecko')).toBe(5);
+      expect((fetcher as any).providerErrors.get('yahoo')).toBe(1);
+      expect((fetcher as any).getBackoff('coingecko')).toBeGreaterThan(0);
+      expect((fetcher as any).getBackoff('yahoo')).toBe(0);
     });
   });
 
