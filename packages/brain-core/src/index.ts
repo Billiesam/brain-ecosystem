@@ -80,6 +80,8 @@ export { createHubDashboard } from './dashboard/hub-server.js';
 export type { HubDashboardOptions } from './dashboard/hub-server.js';
 export { createResearchDashboard } from './dashboard/research-server.js';
 export type { ResearchDashboardOptions } from './dashboard/research-server.js';
+export { CommandCenterServer } from './dashboard/command-center-server.js';
+export type { CommandCenterOptions } from './dashboard/command-center-server.js';
 
 // ── Cross-Brain ────────────────────────────────────────────
 export { CrossBrainClient } from './cross-brain/client.js';
