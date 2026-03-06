@@ -73,7 +73,6 @@ a{color:var(--cyan);text-decoration:none}
 /* ── Gauge ─────────────────────────────────────────────── */
 .gauge-wrap{text-align:center;padding:12px 0}
 .gauge-svg{width:140px;height:80px}
-.gauge-label{font-size:11px;color:var(--text-dim);margin-top:6px}
 
 /* ── Pipeline ──────────────────────────────────────────── */
 .pipeline{display:flex;align-items:center;gap:0;padding:20px 0;overflow-x:auto}
@@ -86,6 +85,35 @@ a{color:var(--cyan);text-decoration:none}
 .pipe-arrow{color:var(--cyan);font-size:20px;opacity:.5;flex-shrink:0;animation:pulse-arrow 2s ease-in-out infinite}
 @keyframes pulse-arrow{0%,100%{opacity:.3;transform:translateX(0)}50%{opacity:1;transform:translateX(4px)}}
 
+/* ── Thought Stream ────────────────────────────────────── */
+.thought-stream{max-height:400px;overflow-y:auto;font-size:12px}
+.thought-item{padding:8px 10px;border-bottom:1px solid rgba(100,140,255,0.06);display:flex;gap:10px;align-items:flex-start;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.thought-time{color:var(--text-dim);white-space:nowrap;font-size:10px;min-width:55px;padding-top:1px}
+.thought-engine{font-weight:600;font-size:11px;min-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thought-content{color:var(--text);flex:1;line-height:1.4}
+.thought-sig{font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;white-space:nowrap}
+.sig-breakthrough{color:var(--yellow);background:rgba(255,204,0,0.12)}
+.sig-notable{color:var(--cyan);background:rgba(0,229,255,0.1)}
+.sig-routine{color:var(--text-dim);background:rgba(100,140,255,0.06)}
+
+/* ── Activity Pulse ────────────────────────────────────── */
+.activity-pulse{display:flex;align-items:center;gap:6px;margin-right:12px}
+.pulse-dot{width:10px;height:10px;border-radius:50%;background:var(--green);animation:pulse-glow 2s ease-in-out infinite}
+.pulse-dot.idle{background:var(--yellow);animation:pulse-glow-yellow 3s ease-in-out infinite}
+.pulse-dot.off{background:var(--text-dim);animation:none}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 4px var(--green)}50%{box-shadow:0 0 14px var(--green)}}
+@keyframes pulse-glow-yellow{0%,100%{box-shadow:0 0 4px var(--yellow)}50%{box-shadow:0 0 10px var(--yellow)}}
+.pulse-label{font-size:11px;color:var(--text-dim)}
+
+/* ── LLM Stats ─────────────────────────────────────────── */
+.llm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.llm-stat{text-align:center;padding:10px}
+.llm-stat-value{font-size:22px;font-weight:700;color:var(--cyan)}
+.llm-stat-label{font-size:10px;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.llm-bar{height:6px;border-radius:3px;background:rgba(100,140,255,0.1);margin-top:8px;overflow:hidden}
+.llm-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+
 /* ── Event Feed ────────────────────────────────────────── */
 .feed{max-height:300px;overflow-y:auto;font-size:12px}
 .feed-item{padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start}
@@ -94,7 +122,6 @@ a{color:var(--cyan);text-decoration:none}
 .feed-source.src-brain{color:var(--brain-color)}
 .feed-source.src-trading{color:var(--trading-color)}
 .feed-source.src-marketing{color:var(--marketing-color)}
-.feed-msg{color:var(--text)}
 
 /* ── Engine Grid ───────────────────────────────────────── */
 .engine-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
@@ -168,6 +195,10 @@ canvas{display:block;width:100%;height:100%}
     <div class="header">
       <div class="header-title" id="pageTitle">Ecosystem Overview</div>
       <div class="header-badges">
+        <div class="activity-pulse" id="activityPulse">
+          <div class="pulse-dot off" id="pulseDot"></div>
+          <span class="pulse-label" id="pulseLabel">Waiting...</span>
+        </div>
         <span class="badge badge-off" id="healthBadge">--</span>
         <span class="badge badge-off" id="connectionBadge">Connecting...</span>
       </div>
@@ -178,39 +209,41 @@ canvas{display:block;width:100%;height:100%}
       <div class="page active" id="page-overview">
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F916;</span> Brain Status</div>
-          <div class="grid grid-3" id="brainCards">
-            <div class="card brain-card brain-brain"><div class="brain-status"><span class="dot dot-off"></span><span class="brain-name">Brain</span></div><div class="brain-meta"><span>Offline</span></div></div>
-            <div class="card brain-card brain-trading"><div class="brain-status"><span class="dot dot-off"></span><span class="brain-name">Trading-Brain</span></div><div class="brain-meta"><span>Offline</span></div></div>
-            <div class="card brain-card brain-marketing"><div class="brain-status"><span class="dot dot-off"></span><span class="brain-name">Marketing-Brain</span></div><div class="brain-meta"><span>Offline</span></div></div>
-          </div>
+          <div class="grid grid-3" id="brainCards"></div>
         </div>
 
         <div class="grid grid-2">
-          <div class="section">
-            <div class="section-title"><span class="icon">&#x1F4A1;</span> Health</div>
-            <div class="card">
-              <div class="gauge-wrap" id="healthGauge">
-                <svg class="gauge-svg" viewBox="0 0 140 80">
-                  <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="rgba(100,140,255,0.15)" stroke-width="8" stroke-linecap="round"/>
-                  <path id="gaugeArc" d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="var(--cyan)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 200"/>
-                  <text x="70" y="65" text-anchor="middle" fill="var(--text-bright)" font-size="22" font-weight="700" id="gaugeValue">--</text>
-                  <text x="70" y="78" text-anchor="middle" fill="var(--text-dim)" font-size="9" id="gaugeLabel">Health Score</text>
-                </svg>
+          <div>
+            <div class="section">
+              <div class="section-title"><span class="icon">&#x1F4A1;</span> Health</div>
+              <div class="card">
+                <div class="gauge-wrap">
+                  <svg class="gauge-svg" viewBox="0 0 140 80">
+                    <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="rgba(100,140,255,0.15)" stroke-width="8" stroke-linecap="round"/>
+                    <path id="gaugeArc" d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="var(--cyan)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 200"/>
+                    <text x="70" y="65" text-anchor="middle" fill="var(--text-bright)" font-size="22" font-weight="700" id="gaugeValue">--</text>
+                    <text x="70" y="78" text-anchor="middle" fill="var(--text-dim)" font-size="9" id="gaugeLabel">Health Score</text>
+                  </svg>
+                </div>
               </div>
+            </div>
+            <div class="section">
+              <div class="section-title"><span class="icon">&#x1F4CA;</span> LLM Nutzung</div>
+              <div class="card" id="llmCard"><div class="empty">Waiting for LLM data...</div></div>
             </div>
           </div>
 
           <div class="section">
-            <div class="section-title"><span class="icon">&#x1F4CB;</span> Live Events</div>
-            <div class="card">
-              <div class="feed" id="eventFeed"><div class="empty">Waiting for events...</div></div>
+            <div class="section-title"><span class="icon">&#x1F4AD;</span> Brain denkt gerade... <span id="thoughtCount" style="color:var(--text-dim);font-weight:400;font-size:12px"></span></div>
+            <div class="card" style="padding:0">
+              <div class="thought-stream" id="thoughtStream"><div class="empty">Waiting for thoughts...</div></div>
             </div>
           </div>
         </div>
 
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F310;</span> Peer Connection Graph</div>
-          <div class="card canvas-wrap" style="height:200px">
+          <div class="section-title"><span class="icon">&#x1F310;</span> Peer Verbindungen</div>
+          <div class="card canvas-wrap" style="height:180px">
             <canvas id="peerCanvas"></canvas>
           </div>
         </div>
@@ -234,10 +267,9 @@ canvas{display:block;width:100%;height:100%}
             <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x26A1;</div><div class="pipe-label">Aktionen</div><div class="pipe-value" id="lp-actions">0</div></div></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Engine Stationen</div>
-          <div class="engine-grid" id="brainEngineGrid"><div class="empty">Loading engines...</div></div>
+          <div class="engine-grid" id="brainEngineGrid"><div class="empty">Loading...</div></div>
         </div>
       </div>
 
@@ -245,7 +277,7 @@ canvas{display:block;width:100%;height:100%}
       <div class="page" id="page-trading">
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F4C8;</span> Trading Pipeline</div>
-          <div class="pipeline" id="tradingPipeline">
+          <div class="pipeline">
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(0,255,136,0.2)"><div class="pipe-icon">&#x1F4E1;</div><div class="pipe-label">Signale</div><div class="pipe-value" id="tp-signals" style="color:var(--green)">0</div></div></div>
             <div class="pipe-arrow" style="color:var(--green)">&#x27A1;</div>
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(0,255,136,0.2)"><div class="pipe-icon">&#x1F50E;</div><div class="pipe-label">Analyse</div><div class="pipe-value" id="tp-analysis" style="color:var(--green)">0</div></div></div>
@@ -257,16 +289,14 @@ canvas{display:block;width:100%;height:100%}
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(0,255,136,0.2)"><div class="pipe-icon">&#x1F393;</div><div class="pipe-label">Lernen</div><div class="pipe-value" id="tp-learned" style="color:var(--green)">0</div></div></div>
           </div>
         </div>
-
         <div class="grid grid-3">
           <div class="card"><div class="card-title">Equity</div><div class="card-value" id="tradingEquity" style="color:var(--green)">--</div><div class="card-sub">Paper Trading Balance</div></div>
           <div class="card"><div class="card-title">Win Rate</div><div class="card-value" id="tradingWinRate" style="color:var(--green)">--</div><div class="card-sub">Gewinnrate</div></div>
           <div class="card"><div class="card-title">Offene Positionen</div><div class="card-value" id="tradingPositions" style="color:var(--green)">--</div><div class="card-sub">Aktive Trades</div></div>
         </div>
-
         <div class="section" style="margin-top:16px">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Trading Engines</div>
-          <div class="engine-grid" id="tradingEngineGrid"><div class="empty">Loading engines...</div></div>
+          <div class="engine-grid" id="tradingEngineGrid"><div class="empty">Loading...</div></div>
         </div>
       </div>
 
@@ -274,7 +304,7 @@ canvas{display:block;width:100%;height:100%}
       <div class="page" id="page-marketing">
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F4E3;</span> Marketing Pipeline</div>
-          <div class="pipeline" id="marketingPipeline">
+          <div class="pipeline">
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(255,68,204,0.2)"><div class="pipe-icon">&#x270D;</div><div class="pipe-label">Posts</div><div class="pipe-value" id="mp-posts" style="color:var(--magenta)">0</div></div></div>
             <div class="pipe-arrow" style="color:var(--magenta)">&#x27A1;</div>
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(255,68,204,0.2)"><div class="pipe-icon">&#x1F4CA;</div><div class="pipe-label">Engagement</div><div class="pipe-value" id="mp-engagement" style="color:var(--magenta)">0</div></div></div>
@@ -284,16 +314,14 @@ canvas{display:block;width:100%;height:100%}
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(255,68,204,0.2)"><div class="pipe-icon">&#x1F3AF;</div><div class="pipe-label">Strategie</div><div class="pipe-value" id="mp-campaigns" style="color:var(--magenta)">0</div></div></div>
           </div>
         </div>
-
         <div class="grid grid-3">
           <div class="card"><div class="card-title">Top Content</div><div class="card-value" id="marketingTopContent" style="color:var(--magenta)">--</div><div class="card-sub">Bester Post</div></div>
           <div class="card"><div class="card-title">Kampagnen</div><div class="card-value" id="marketingCampaigns" style="color:var(--magenta)">--</div><div class="card-sub">Aktive Kampagnen</div></div>
           <div class="card"><div class="card-title">Audience</div><div class="card-value" id="marketingAudience" style="color:var(--magenta)">--</div><div class="card-sub">Zielgruppe</div></div>
         </div>
-
         <div class="section" style="margin-top:16px">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Marketing Engines</div>
-          <div class="engine-grid" id="marketingEngineGrid"><div class="empty">Loading engines...</div></div>
+          <div class="engine-grid" id="marketingEngineGrid"><div class="empty">Loading...</div></div>
         </div>
       </div>
 
@@ -305,7 +333,6 @@ canvas{display:block;width:100%;height:100%}
             <canvas id="crossBrainCanvas"></canvas>
           </div>
         </div>
-
         <div class="grid grid-2">
           <div class="section">
             <div class="section-title"><span class="icon">&#x1F47E;</span> Borg Sync</div>
@@ -320,20 +347,14 @@ canvas{display:block;width:100%;height:100%}
               <div id="borgDetails"></div>
             </div>
           </div>
-
           <div class="section">
             <div class="section-title"><span class="icon">&#x1F4DC;</span> Korrelationen</div>
-            <div class="card">
-              <div id="correlationList"><div class="empty">No correlations yet</div></div>
-            </div>
+            <div class="card"><div id="correlationList"><div class="empty">No correlations yet</div></div></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F4C3;</span> Sync Historie</div>
-          <div class="card">
-            <div id="borgHistory"><div class="empty">No sync history</div></div>
-          </div>
+          <div class="card"><div id="borgHistory"><div class="empty">No sync history</div></div></div>
         </div>
       </div>
 
@@ -344,18 +365,15 @@ canvas{display:block;width:100%;height:100%}
             <div class="section-title"><span class="icon">&#x1F6E1;</span> Watchdog</div>
             <div class="card" id="watchdogCard"><div class="empty">Loading...</div></div>
           </div>
-
           <div class="section">
             <div class="section-title"><span class="icon">&#x1F9E9;</span> Plugins</div>
             <div class="card" id="pluginCard"><div class="empty">Loading...</div></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Alle Engines</div>
-          <div class="engine-grid" id="allEngineGrid"><div class="empty">Loading engines...</div></div>
+          <div class="engine-grid" id="allEngineGrid"><div class="empty">Loading...</div></div>
         </div>
-
         <div class="section">
           <div class="section-title"><span class="icon">&#x2705;</span> System Health Check</div>
           <div class="card" id="healthCheckCard"><div class="empty">Loading...</div></div>
@@ -367,589 +385,308 @@ canvas{display:block;width:100%;height:100%}
 
 <script>
 // ── State ─────────────────────────────────────────────────
-const state = {
-  ecosystem: null,
-  engines: [],
-  watchdog: [],
-  plugins: [],
-  borg: null,
-  analytics: null,
-  events: [],
-  connected: false,
-};
+const state = { ecosystem:null, engines:[], watchdog:[], plugins:[], borg:null, analytics:null, llm:null, thoughts:[], connected:false, lastThoughtTime:0 };
 
 // ── Navigation ────────────────────────────────────────────
-const titles = {
-  overview: 'Ecosystem Overview',
-  learning: 'Der Lern-Kreislauf',
-  trading: 'Trading Flow',
-  marketing: 'Marketing Flow',
-  crossbrain: 'Cross-Brain & Borg',
-  infra: 'Infrastruktur',
-};
-
+const titles = { overview:'Ecosystem Overview', learning:'Der Lern-Kreislauf', trading:'Trading Flow', marketing:'Marketing Flow', crossbrain:'Cross-Brain & Borg', infra:'Infrastruktur' };
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
-    const page = item.dataset.page;
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     item.classList.add('active');
-    document.getElementById('page-' + page).classList.add('active');
-    document.getElementById('pageTitle').textContent = titles[page] || page;
+    document.getElementById('page-' + item.dataset.page).classList.add('active');
+    document.getElementById('pageTitle').textContent = titles[item.dataset.page] || '';
   });
 });
 
 // ── SSE Connection ────────────────────────────────────────
-let es;
 function connectSSE() {
-  es = new EventSource('/events');
-
-  es.addEventListener('connected', () => {
-    state.connected = true;
-    updateConnectionBadge();
-  });
-
-  es.addEventListener('ecosystem', (e) => {
-    state.ecosystem = JSON.parse(e.data);
-    renderEcosystem();
-  });
-
-  es.addEventListener('engines', (e) => {
-    state.engines = JSON.parse(e.data);
-    renderEngines();
-  });
-
-  es.addEventListener('watchdog', (e) => {
-    state.watchdog = JSON.parse(e.data);
-    renderWatchdog();
-  });
-
-  es.addEventListener('borg', (e) => {
-    state.borg = JSON.parse(e.data);
-    renderBorg();
-  });
-
-  es.addEventListener('analytics', (e) => {
-    state.analytics = JSON.parse(e.data);
-    renderAnalytics();
-  });
-
-  es.onerror = () => {
-    state.connected = false;
-    updateConnectionBadge();
-  };
+  const es = new EventSource('/events');
+  es.addEventListener('connected', () => { state.connected = true; updateConnection(); });
+  es.addEventListener('ecosystem', e => { state.ecosystem = JSON.parse(e.data); renderEcosystem(); });
+  es.addEventListener('engines', e => { state.engines = JSON.parse(e.data); renderEngines(); });
+  es.addEventListener('watchdog', e => { state.watchdog = JSON.parse(e.data); renderWatchdog(); });
+  es.addEventListener('borg', e => { state.borg = JSON.parse(e.data); renderBorg(); });
+  es.addEventListener('analytics', e => { state.analytics = JSON.parse(e.data); renderAnalytics(); });
+  es.addEventListener('llm', e => { state.llm = JSON.parse(e.data); renderLLM(); });
+  es.addEventListener('thought', e => { addThought(JSON.parse(e.data)); });
+  es.onerror = () => { state.connected = false; updateConnection(); };
 }
 
-function updateConnectionBadge() {
+function updateConnection() {
   const b = document.getElementById('connectionBadge');
-  if (state.connected) {
-    b.textContent = 'Connected';
-    b.className = 'badge badge-ok';
-  } else {
-    b.textContent = 'Disconnected';
-    b.className = 'badge badge-err';
-  }
+  b.textContent = state.connected ? 'Connected' : 'Disconnected';
+  b.className = 'badge ' + (state.connected ? 'badge-ok' : 'badge-err');
 }
 
 // ── Initial Load ──────────────────────────────────────────
 async function loadInitial() {
   try {
-    const res = await fetch('/api/state');
-    const data = await res.json();
-    state.ecosystem = data.ecosystem;
-    state.engines = data.engines || [];
-    state.watchdog = data.watchdog || [];
-    state.plugins = data.plugins || [];
-    state.borg = data.borg;
-    state.analytics = data.analytics;
+    const data = await (await fetch('/api/state')).json();
+    state.ecosystem = data.ecosystem; state.engines = data.engines || [];
+    state.watchdog = data.watchdog || []; state.plugins = data.plugins || [];
+    state.borg = data.borg; state.analytics = data.analytics; state.llm = data.llm;
+    if (data.thoughts) { state.thoughts = data.thoughts; renderThoughts(); }
+    renderEcosystem(); renderEngines(); renderWatchdog(); renderPlugins(); renderBorg(); renderAnalytics(); renderLLM();
+  } catch {}
+}
 
-    renderEcosystem();
-    renderEngines();
-    renderWatchdog();
-    renderPlugins();
-    renderBorg();
-    renderAnalytics();
-  } catch { /* ignore — SSE will update */ }
+// ── Thought Stream ────────────────────────────────────────
+function addThought(t) {
+  state.thoughts.unshift(t);
+  if (state.thoughts.length > 100) state.thoughts.length = 100;
+  state.lastThoughtTime = Date.now();
+  updatePulse();
+  renderThoughts();
+}
+
+function renderThoughts() {
+  const el = document.getElementById('thoughtStream');
+  const cnt = document.getElementById('thoughtCount');
+  if (!state.thoughts.length) { el.innerHTML = '<div class="empty">Waiting for thoughts...</div>'; cnt.textContent = ''; return; }
+  cnt.textContent = `(${state.thoughts.length})`;
+  el.innerHTML = state.thoughts.slice(0, 50).map(t => {
+    const time = new Date(t.timestamp).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const sigClass = t.significance === 'breakthrough' ? 'sig-breakthrough' : t.significance === 'notable' ? 'sig-notable' : 'sig-routine';
+    const sigLabel = t.significance === 'breakthrough' ? 'Durchbruch' : t.significance === 'notable' ? 'Bemerkenswert' : '';
+    return `<div class="thought-item">
+      <span class="thought-time">${time}</span>
+      <span class="thought-engine" style="color:var(--cyan)">${t.engine}</span>
+      <span class="thought-content">${escHtml(t.content)}</span>
+      ${sigLabel ? `<span class="thought-sig ${sigClass}">${sigLabel}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Activity Pulse ────────────────────────────────────────
+function updatePulse() {
+  const dot = document.getElementById('pulseDot');
+  const label = document.getElementById('pulseLabel');
+  const age = Date.now() - state.lastThoughtTime;
+  if (state.lastThoughtTime === 0) { dot.className = 'pulse-dot off'; label.textContent = 'Waiting...'; return; }
+  if (age < 30000) { dot.className = 'pulse-dot'; label.textContent = 'Brain arbeitet'; }
+  else if (age < 120000) { dot.className = 'pulse-dot idle'; label.textContent = 'Idle'; }
+  else { dot.className = 'pulse-dot off'; label.textContent = 'Ruhig'; }
+}
+setInterval(updatePulse, 5000);
+
+// ── LLM Stats ─────────────────────────────────────────────
+function renderLLM() {
+  const el = document.getElementById('llmCard');
+  const s = state.llm;
+  if (!s) { el.innerHTML = '<div class="empty">Kein LLM Service</div>'; return; }
+
+  const hourPct = s.tokensThisHour && s.budgetRemainingHour != null ? Math.min(100, (s.tokensThisHour / (s.tokensThisHour + s.budgetRemainingHour)) * 100) : 0;
+  const dayPct = s.tokensToday && s.budgetRemainingDay != null ? Math.min(100, (s.tokensToday / (s.tokensToday + s.budgetRemainingDay)) * 100) : 0;
+
+  el.innerHTML = `
+    <div class="llm-grid">
+      <div class="llm-stat"><div class="llm-stat-value">${s.totalCalls ?? 0}</div><div class="llm-stat-label">API Calls</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${formatK(s.totalTokens ?? 0)}</div><div class="llm-stat-label">Tokens Total</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.cacheHitRate != null ? (s.cacheHitRate * 100).toFixed(0) + '%' : '--'}</div><div class="llm-stat-label">Cache Hit Rate</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.callsThisHour ?? 0}</div><div class="llm-stat-label">Calls/Stunde</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.averageLatencyMs ? Math.round(s.averageLatencyMs) + 'ms' : '--'}</div><div class="llm-stat-label">Latenz</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.errors ?? 0}</div><div class="llm-stat-label">Fehler</div></div>
+    </div>
+    <div style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:2px"><span>Budget Stunde</span><span>${formatK(s.tokensThisHour ?? 0)} / ${formatK((s.tokensThisHour ?? 0) + (s.budgetRemainingHour ?? 0))}</span></div>
+      <div class="llm-bar"><div class="llm-bar-fill" style="width:${hourPct}%;background:${hourPct > 80 ? 'var(--red)' : hourPct > 50 ? 'var(--orange)' : 'var(--cyan)'}"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin:8px 0 2px"><span>Budget Tag</span><span>${formatK(s.tokensToday ?? 0)} / ${formatK((s.tokensToday ?? 0) + (s.budgetRemainingDay ?? 0))}</span></div>
+      <div class="llm-bar"><div class="llm-bar-fill" style="width:${dayPct}%;background:${dayPct > 80 ? 'var(--red)' : dayPct > 50 ? 'var(--orange)' : 'var(--green)'}"></div></div>
+    </div>
+    ${s.model ? `<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Model: ${s.model}</div>` : ''}
+    ${s.providers ? `<div style="margin-top:4px;font-size:10px;color:var(--text-dim)">Provider: ${s.providers.map(p => `<span style="color:${p.available ? 'var(--green)' : 'var(--red)'}">${p.name}</span>`).join(', ')}</div>` : ''}
+  `;
 }
 
 // ── Render: Ecosystem ─────────────────────────────────────
 function renderEcosystem() {
-  const eco = state.ecosystem;
-  if (!eco) return;
-
-  // Health badge
+  const eco = state.ecosystem; if (!eco) return;
   const hb = document.getElementById('healthBadge');
   const h = eco.health;
   if (h) {
     hb.textContent = h.status === 'healthy' ? 'Healthy' : h.status === 'degraded' ? 'Degraded' : 'Critical';
     hb.className = 'badge ' + (h.status === 'healthy' ? 'badge-ok' : h.status === 'degraded' ? 'badge-warn' : 'badge-err');
-
-    // Gauge
     const score = h.score || 0;
-    const arc = document.getElementById('gaugeArc');
-    const maxLen = 172; // approximate arc length
-    arc.setAttribute('stroke-dasharray', `${(score / 100) * maxLen} ${maxLen}`);
-    arc.setAttribute('stroke', score > 70 ? 'var(--green)' : score > 40 ? 'var(--orange)' : 'var(--red)');
+    document.getElementById('gaugeArc').setAttribute('stroke-dasharray', `${(score / 100) * 172} 172`);
+    document.getElementById('gaugeArc').setAttribute('stroke', score > 70 ? 'var(--green)' : score > 40 ? 'var(--orange)' : 'var(--red)');
     document.getElementById('gaugeValue').textContent = Math.round(score);
   }
-
   // Brain cards
-  const brains = eco.brains || [];
   const container = document.getElementById('brainCards');
-  container.innerHTML = '';
   const brainNames = ['brain', 'trading-brain', 'marketing-brain'];
-  const brainLabels = { brain: 'Brain', 'trading-brain': 'Trading-Brain', 'marketing-brain': 'Marketing-Brain' };
-  const brainClasses = { brain: 'brain-brain', 'trading-brain': 'brain-trading', 'marketing-brain': 'brain-marketing' };
-
-  for (const name of brainNames) {
-    const b = brains.find(x => x.name === name) || { name, available: false };
-    const card = document.createElement('div');
-    card.className = `card brain-card ${brainClasses[name] || ''}`;
-    card.innerHTML = `
-      <div class="brain-status">
-        <span class="dot ${b.available ? 'dot-on' : 'dot-off'}"></span>
-        <span class="brain-name">${brainLabels[name] || name}</span>
-      </div>
+  const labels = { brain:'Brain', 'trading-brain':'Trading-Brain', 'marketing-brain':'Marketing-Brain' };
+  const classes = { brain:'brain-brain', 'trading-brain':'brain-trading', 'marketing-brain':'brain-marketing' };
+  container.innerHTML = brainNames.map(name => {
+    const b = (eco.brains || []).find(x => x.name === name) || { name, available:false };
+    return `<div class="card brain-card ${classes[name]}">
+      <div class="brain-status"><span class="dot ${b.available ? 'dot-on' : 'dot-off'}"></span><span class="brain-name">${labels[name]}</span></div>
       <div class="brain-meta">
         <span>${b.available ? 'Online' : 'Offline'}</span>
-        ${b.version ? `<span>v${b.version}</span>` : ''}
-        ${b.pid ? `<span>PID ${b.pid}</span>` : ''}
-        ${b.uptime ? `<span>${formatUptime(b.uptime)}</span>` : ''}
-        ${b.methods ? `<span>${b.methods} methods</span>` : ''}
-      </div>`;
-    container.appendChild(card);
-  }
-
-  // Events
-  const events = eco.recentEvents || [];
-  if (events.length > 0) {
-    state.events = events;
-    renderEventFeed();
-  }
-
-  // Peer canvas
-  drawPeerGraph(brains);
-
-  // Correlations
+        ${b.version ? `<span>v${b.version}</span>` : ''}${b.pid ? `<span>PID ${b.pid}</span>` : ''}
+        ${b.uptime ? `<span>${fmtUp(b.uptime)}</span>` : ''}${b.methods ? `<span>${b.methods} methods</span>` : ''}
+      </div></div>`;
+  }).join('');
+  drawPeerGraph(eco.brains || []);
   renderCorrelations(eco.correlations || []);
 }
 
-function renderEventFeed() {
-  const feed = document.getElementById('eventFeed');
-  if (state.events.length === 0) { feed.innerHTML = '<div class="empty">No events yet</div>'; return; }
-  feed.innerHTML = state.events.slice(-20).reverse().map(ev => {
-    const time = new Date(ev.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const srcClass = ev.source === 'brain' ? 'src-brain' : ev.source === 'trading-brain' ? 'src-trading' : 'src-marketing';
-    return `<div class="feed-item"><span class="feed-time">${time}</span><span class="feed-source ${srcClass}">${ev.source}</span><span class="feed-msg">${ev.event}</span></div>`;
-  }).join('');
-}
-
-function renderCorrelations(correlations) {
+function renderCorrelations(c) {
   const el = document.getElementById('correlationList');
-  if (!correlations || correlations.length === 0) { el.innerHTML = '<div class="empty">No correlations yet</div>'; return; }
-  el.innerHTML = correlations.slice(0, 10).map(c => `
-    <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <span style="color:var(--cyan)">${c.sourceA}/${c.eventA}</span>
-      <span style="color:var(--text-dim)"> &#x2194; </span>
-      <span style="color:var(--magenta)">${c.sourceB}/${c.eventB}</span>
-      <span style="color:var(--text-dim);float:right">${(c.strength * 100).toFixed(0)}%</span>
-    </div>`).join('');
+  if (!c.length) { el.innerHTML = '<div class="empty">No correlations yet</div>'; return; }
+  el.innerHTML = c.slice(0, 10).map(x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+    <span style="color:var(--cyan)">${x.sourceA}/${x.eventA}</span> <span style="color:var(--text-dim)">&#x2194;</span>
+    <span style="color:var(--magenta)">${x.sourceB}/${x.eventB}</span>
+    <span style="color:var(--text-dim);float:right">${(x.strength * 100).toFixed(0)}%</span></div>`).join('');
 }
 
 // ── Render: Engines ───────────────────────────────────────
 function renderEngines() {
-  const results = state.engines || [];
-
-  // Flatten: each result has { name, result } where result is an array of EngineActivity
   const byBrain = {};
-  for (const r of results) {
-    const engines = Array.isArray(r.result) ? r.result : [];
-    byBrain[r.name] = engines;
-  }
-
-  renderEngineGrid('brainEngineGrid', byBrain['brain'] || byBrain['trading-brain'] || byBrain['marketing-brain'] || []);
-  renderEngineGrid('tradingEngineGrid', byBrain['trading-brain'] || []);
-  renderEngineGrid('marketingEngineGrid', byBrain['marketing-brain'] || []);
-
-  // All engines on infra page
+  for (const r of (state.engines || [])) byBrain[r.name] = Array.isArray(r.result) ? r.result : [];
+  renderGrid('brainEngineGrid', byBrain['brain'] || []);
+  renderGrid('tradingEngineGrid', byBrain['trading-brain'] || []);
+  renderGrid('marketingEngineGrid', byBrain['marketing-brain'] || []);
   const all = [];
-  for (const [brain, engines] of Object.entries(byBrain)) {
-    for (const eng of engines) all.push({ ...eng, brain });
-  }
-  renderEngineGrid('allEngineGrid', all, true);
-
-  // Learning pipeline numbers from brain engines
+  for (const [brain, engines] of Object.entries(byBrain)) for (const e of engines) all.push({ ...e, brain });
+  renderGrid('allEngineGrid', all, true);
   updateLearningPipeline(byBrain['brain'] || []);
 }
 
-function renderEngineGrid(containerId, engines, showBrain = false) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  if (!engines || engines.length === 0) { el.innerHTML = '<div class="empty">No engines available</div>'; return; }
-
-  el.innerHTML = engines.map(eng => {
-    const status = eng.lastActivity && (Date.now() - eng.lastActivity < 60000) ? 'active' : eng.thoughtCount > 0 ? 'idle' : 'off';
-    const label = showBrain && eng.brain ? `${eng.brain}/${eng.engine}` : (eng.engine || eng.name || 'unknown');
-    return `<div class="engine-chip"><span class="engine-dot ${status}"></span><span class="engine-name" title="${label}">${label}</span><span class="engine-count">${eng.thoughtCount || 0}</span></div>`;
+function renderGrid(id, engines, showBrain = false) {
+  const el = document.getElementById(id); if (!el) return;
+  if (!engines.length) { el.innerHTML = '<div class="empty">No engines</div>'; return; }
+  el.innerHTML = engines.map(e => {
+    const st = e.lastActivity && (Date.now() - e.lastActivity < 60000) ? 'active' : e.thoughtCount > 0 ? 'idle' : 'off';
+    const lbl = showBrain && e.brain ? `${e.brain}/${e.engine}` : (e.engine || e.name || '?');
+    return `<div class="engine-chip"><span class="engine-dot ${st}"></span><span class="engine-name" title="${lbl}">${lbl}</span><span class="engine-count">${e.thoughtCount || 0}</span></div>`;
   }).join('');
 }
 
 function updateLearningPipeline(engines) {
-  // Map engine names to pipeline stages (best effort)
-  let data = 0, analysis = 0, hyp = 0, exp = 0, prin = 0, act = 0;
-  for (const e of engines) {
-    const n = (e.engine || '').toLowerCase();
-    const c = e.thoughtCount || 0;
-    if (n.includes('data') || n.includes('scout') || n.includes('miner') || n.includes('scanner')) data += c;
-    else if (n.includes('anomaly') || n.includes('observer') || n.includes('causal')) analysis += c;
-    else if (n.includes('hypothesis')) hyp += c;
-    else if (n.includes('experiment')) exp += c;
-    else if (n.includes('knowledge') || n.includes('principle') || n.includes('distiller')) prin += c;
-    else if (n.includes('strategy') || n.includes('responder') || n.includes('selfmod')) act += c;
+  let d=0,a=0,h=0,e=0,p=0,ac=0;
+  for (const x of engines) {
+    const n = (x.engine||'').toLowerCase(), c = x.thoughtCount||0;
+    if (n.includes('data')||n.includes('scout')||n.includes('miner')||n.includes('scanner')) d+=c;
+    else if (n.includes('anomaly')||n.includes('observer')||n.includes('causal')) a+=c;
+    else if (n.includes('hypothesis')) h+=c;
+    else if (n.includes('experiment')) e+=c;
+    else if (n.includes('knowledge')||n.includes('principle')||n.includes('distiller')) p+=c;
+    else if (n.includes('strategy')||n.includes('responder')||n.includes('selfmod')) ac+=c;
   }
-  setText('lp-data', data);
-  setText('lp-analysis', analysis);
-  setText('lp-hypotheses', hyp);
-  setText('lp-experiments', exp);
-  setText('lp-principles', prin);
-  setText('lp-actions', act);
+  setText('lp-data',d); setText('lp-analysis',a); setText('lp-hypotheses',h);
+  setText('lp-experiments',e); setText('lp-principles',p); setText('lp-actions',ac);
 }
 
 // ── Render: Analytics ─────────────────────────────────────
 function renderAnalytics() {
-  const a = state.analytics;
-  if (!a) return;
-
-  // Trading stats
-  if (a.trading) {
-    setText('tp-signals', a.trading.signals || 0);
-    setText('tp-trades', a.trading.trades || 0);
-    setText('tradingWinRate', a.trading.winRate ? (a.trading.winRate * 100).toFixed(1) + '%' : '--');
-  }
-
-  // Marketing stats
-  if (a.marketing) {
-    setText('mp-posts', a.marketing.posts || 0);
-    setText('mp-engagement', a.marketing.engagement || 0);
-    setText('marketingCampaigns', a.marketing.campaigns || 0);
-  }
+  const a = state.analytics; if (!a) return;
+  if (a.trading) { setText('tp-signals', a.trading.signals||0); setText('tp-trades', a.trading.trades||0); setText('tradingWinRate', a.trading.winRate ? (a.trading.winRate*100).toFixed(1)+'%' : '--'); }
+  if (a.marketing) { setText('mp-posts', a.marketing.posts||0); setText('mp-engagement', a.marketing.engagement||0); setText('marketingCampaigns', a.marketing.campaigns||0); }
 }
 
 // ── Render: Watchdog ──────────────────────────────────────
 function renderWatchdog() {
   const el = document.getElementById('watchdogCard');
-  const daemons = state.watchdog || [];
-  if (daemons.length === 0) { el.innerHTML = '<div class="empty">No watchdog configured</div>'; return; }
-
+  const d = state.watchdog || [];
+  if (!d.length) { el.innerHTML = '<div class="empty">No watchdog configured</div>'; return; }
   el.innerHTML = `<table class="tbl"><thead><tr><th>Daemon</th><th>Status</th><th>PID</th><th>Uptime</th><th>Restarts</th></tr></thead><tbody>` +
-    daemons.map(d => `<tr>
-      <td>${d.name}</td>
-      <td><span class="dot ${d.running ? 'dot-on' : 'dot-off'}" style="margin-right:6px"></span>${d.running ? (d.healthy ? 'Healthy' : 'Unhealthy') : 'Stopped'}</td>
-      <td>${d.pid || '-'}</td>
-      <td>${d.uptime ? formatUptime(d.uptime / 1000) : '-'}</td>
-      <td>${d.restarts || 0}</td>
-    </tr>`).join('') + '</tbody></table>';
-
-  // Health check summary
+    d.map(x => `<tr><td>${x.name}</td><td><span class="dot ${x.running?'dot-on':'dot-off'}" style="margin-right:6px"></span>${x.running?(x.healthy?'Healthy':'Unhealthy'):'Stopped'}</td><td>${x.pid||'-'}</td><td>${x.uptime?fmtUp(x.uptime/1000):'-'}</td><td>${x.restarts||0}</td></tr>`).join('') + '</tbody></table>';
   const hc = document.getElementById('healthCheckCard');
-  const allOk = daemons.every(d => d.running && d.healthy);
-  const offCount = daemons.filter(d => !d.running).length;
-  const unhealthy = daemons.filter(d => d.running && !d.healthy).length;
-  hc.innerHTML = `
-    <div style="display:flex;gap:20px;align-items:center">
-      <span style="font-size:32px">${allOk ? '&#x2705;' : offCount > 0 ? '&#x274C;' : '&#x26A0;'}</span>
-      <div>
-        <div style="font-size:15px;font-weight:600;color:${allOk ? 'var(--green)' : 'var(--orange)'}">${allOk ? 'All Systems Operational' : `${offCount} offline, ${unhealthy} unhealthy`}</div>
-        <div style="font-size:12px;color:var(--text-dim);margin-top:4px">${daemons.length} daemons monitored</div>
-      </div>
-    </div>`;
+  const ok = d.every(x => x.running && x.healthy), off = d.filter(x => !x.running).length;
+  hc.innerHTML = `<div style="display:flex;gap:20px;align-items:center"><span style="font-size:32px">${ok?'&#x2705;':'&#x26A0;'}</span><div><div style="font-size:15px;font-weight:600;color:${ok?'var(--green)':'var(--orange)'}">${ok?'All Systems Operational':`${off} offline`}</div><div style="font-size:12px;color:var(--text-dim);margin-top:4px">${d.length} daemons</div></div></div>`;
 }
 
-// ── Render: Plugins ───────────────────────────────────────
 function renderPlugins() {
   const el = document.getElementById('pluginCard');
-  const plugins = state.plugins || [];
-  if (plugins.length === 0) { el.innerHTML = '<div class="empty">No plugins installed</div>'; return; }
-  el.innerHTML = plugins.map(p => `
-    <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-weight:600;font-size:13px">${p.name}</div>
-        <div style="font-size:11px;color:var(--text-dim)">${p.description || ''} v${p.version}</div>
-      </div>
-      <span class="tag tag-green">${p.status || 'loaded'}</span>
-    </div>`).join('');
+  const p = state.plugins || [];
+  if (!p.length) { el.innerHTML = '<div class="empty">No plugins</div>'; return; }
+  el.innerHTML = p.map(x => `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><div><div style="font-weight:600;font-size:13px">${x.name}</div><div style="font-size:11px;color:var(--text-dim)">${x.description||''} v${x.version}</div></div><span class="tag tag-green">${x.status||'loaded'}</span></div>`).join('');
 }
 
 // ── Render: Borg ──────────────────────────────────────────
 function renderBorg() {
-  const borg = state.borg;
-  const statusEl = document.getElementById('borgStatus');
-  const toggleBtn = document.getElementById('borgToggle');
-  const detailsEl = document.getElementById('borgDetails');
-  const historyEl = document.getElementById('borgHistory');
-
-  if (!borg || !borg.status) {
-    statusEl.textContent = 'Not available';
-    toggleBtn.disabled = true;
-    return;
-  }
-
-  const s = borg.status;
-  statusEl.innerHTML = `<span class="dot ${s.enabled ? 'dot-on' : 'dot-off'}" style="margin-right:6px"></span>${s.enabled ? 'Active' : 'Disabled'} &mdash; Mode: ${s.mode}`;
-  toggleBtn.disabled = false;
-  toggleBtn.className = s.enabled ? 'btn btn-active' : 'btn';
-  toggleBtn.textContent = s.enabled ? 'Disable' : 'Enable';
-
-  detailsEl.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-top:8px">
-      <div><span style="color:var(--text-dim)">Total Syncs</span><br><strong>${s.totalSyncs || 0}</strong></div>
-      <div><span style="color:var(--text-dim)">Sent</span><br><strong>${s.totalSent || 0}</strong></div>
-      <div><span style="color:var(--text-dim)">Received</span><br><strong>${s.totalReceived || 0}</strong></div>
-    </div>`;
-
-  // History
-  const history = borg.history || [];
-  if (history.length === 0) { historyEl.innerHTML = '<div class="empty">No sync history</div>'; return; }
-  historyEl.innerHTML = `<table class="tbl"><thead><tr><th>Time</th><th>Direction</th><th>Peer</th><th>Items</th><th>Accepted</th></tr></thead><tbody>` +
-    history.slice(-15).reverse().map(h => `<tr>
-      <td>${new Date(h.timestamp).toLocaleTimeString('de-DE')}</td>
-      <td>${h.direction === 'sent' ? '&#x2B06;' : '&#x2B07;'} ${h.direction}</td>
-      <td>${h.peer}</td>
-      <td>${h.itemCount}</td>
-      <td>${h.accepted}</td>
-    </tr>`).join('') + '</tbody></table>';
+  const b = state.borg;
+  const sEl = document.getElementById('borgStatus'), btn = document.getElementById('borgToggle'), det = document.getElementById('borgDetails'), hist = document.getElementById('borgHistory');
+  if (!b || !b.status) { sEl.textContent = 'Not available'; btn.disabled = true; return; }
+  const s = b.status;
+  sEl.innerHTML = `<span class="dot ${s.enabled?'dot-on':'dot-off'}" style="margin-right:6px"></span>${s.enabled?'Active':'Disabled'} &mdash; ${s.mode}`;
+  btn.disabled = false; btn.className = s.enabled ? 'btn btn-active' : 'btn'; btn.textContent = s.enabled ? 'Disable' : 'Enable';
+  det.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-top:8px"><div><span style="color:var(--text-dim)">Syncs</span><br><strong>${s.totalSyncs||0}</strong></div><div><span style="color:var(--text-dim)">Sent</span><br><strong>${s.totalSent||0}</strong></div><div><span style="color:var(--text-dim)">Received</span><br><strong>${s.totalReceived||0}</strong></div></div>`;
+  const h = b.history || [];
+  if (!h.length) { hist.innerHTML = '<div class="empty">No sync history</div>'; return; }
+  hist.innerHTML = `<table class="tbl"><thead><tr><th>Zeit</th><th>Richtung</th><th>Peer</th><th>Items</th><th>Akzeptiert</th></tr></thead><tbody>` +
+    h.slice(-15).reverse().map(x => `<tr><td>${new Date(x.timestamp).toLocaleTimeString('de-DE')}</td><td>${x.direction==='sent'?'&#x2B06;':'&#x2B07;'} ${x.direction}</td><td>${x.peer}</td><td>${x.itemCount}</td><td>${x.accepted}</td></tr>`).join('') + '</tbody></table>';
 }
-
-// Borg toggle
 document.getElementById('borgToggle').addEventListener('click', async () => {
-  const borg = state.borg;
-  if (!borg || !borg.status) return;
-  const newState = !borg.status.enabled;
-  try {
-    await fetch('/api/borg/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: newState }),
-    });
-  } catch { /* ignore */ }
+  if (!state.borg?.status) return;
+  try { await fetch('/api/borg/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled:!state.borg.status.enabled}) }); } catch {}
 });
 
 // ── Canvas: Peer Graph ────────────────────────────────────
 function drawPeerGraph(brains) {
-  const canvas = document.getElementById('peerCanvas');
-  if (!canvas) return;
+  const canvas = document.getElementById('peerCanvas'); if (!canvas) return;
   const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width * 2;
-  canvas.height = rect.height * 2;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(2, 2);
-  const w = rect.width, h = rect.height;
-
-  ctx.clearRect(0, 0, w, h);
-
-  const positions = {
-    brain: { x: w / 2, y: 35 },
-    'trading-brain': { x: w / 4, y: h - 35 },
-    'marketing-brain': { x: (3 * w) / 4, y: h - 35 },
-  };
-  const colors = { brain: '#00e5ff', 'trading-brain': '#00ff88', 'marketing-brain': '#ff44cc' };
-  const labels = { brain: 'Brain', 'trading-brain': 'Trading', 'marketing-brain': 'Marketing' };
-  const brainMap = {};
-  for (const b of (brains || [])) brainMap[b.name] = b;
-
-  // Draw connections
-  const names = Object.keys(positions);
-  for (let i = 0; i < names.length; i++) {
-    for (let j = i + 1; j < names.length; j++) {
-      const a = positions[names[i]], b = positions[names[j]];
-      const aOnline = brainMap[names[i]]?.available;
-      const bOnline = brainMap[names[j]]?.available;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = (aOnline && bOnline) ? 'rgba(0,229,255,0.3)' : 'rgba(100,140,255,0.08)';
-      ctx.lineWidth = (aOnline && bOnline) ? 2 : 1;
-      ctx.stroke();
-    }
+  canvas.width = rect.width * 2; canvas.height = rect.height * 2;
+  const ctx = canvas.getContext('2d'); ctx.scale(2,2);
+  const w = rect.width, h = rect.height; ctx.clearRect(0,0,w,h);
+  const pos = { brain:{x:w/2,y:30}, 'trading-brain':{x:w/4,y:h-30}, 'marketing-brain':{x:3*w/4,y:h-30} };
+  const col = { brain:'#00e5ff', 'trading-brain':'#00ff88', 'marketing-brain':'#ff44cc' };
+  const lbl = { brain:'Brain', 'trading-brain':'Trading', 'marketing-brain':'Marketing' };
+  const map = {}; for (const b of brains) map[b.name] = b;
+  const names = Object.keys(pos);
+  for (let i=0;i<names.length;i++) for (let j=i+1;j<names.length;j++) {
+    const a=pos[names[i]],b=pos[names[j]]; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle = (map[names[i]]?.available && map[names[j]]?.available) ? 'rgba(0,229,255,0.3)' : 'rgba(100,140,255,0.08)'; ctx.lineWidth = 2; ctx.stroke();
   }
-
-  // Draw nodes
-  for (const [name, pos] of Object.entries(positions)) {
-    const online = brainMap[name]?.available;
-    const color = colors[name];
-
-    // Glow
-    if (online) {
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 22, 0, Math.PI * 2);
-      const grd = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 22);
-      grd.addColorStop(0, color + '30');
-      grd.addColorStop(1, color + '00');
-      ctx.fillStyle = grd;
-      ctx.fill();
-    }
-
-    // Circle
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 14, 0, Math.PI * 2);
-    ctx.fillStyle = online ? color + '20' : 'rgba(100,140,255,0.05)';
-    ctx.strokeStyle = online ? color : 'rgba(100,140,255,0.2)';
-    ctx.lineWidth = 2;
-    ctx.fill();
-    ctx.stroke();
-
-    // Inner dot
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = online ? color : 'rgba(100,140,255,0.3)';
-    ctx.fill();
-
-    // Label
-    ctx.fillStyle = online ? '#fff' : 'rgba(120,136,168,0.6)';
-    ctx.font = '11px Segoe UI, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(labels[name], pos.x, pos.y + 28);
+  for (const [name,p] of Object.entries(pos)) {
+    const on = map[name]?.available, c = col[name];
+    if (on) { ctx.beginPath(); ctx.arc(p.x,p.y,22,0,Math.PI*2); const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,22); g.addColorStop(0,c+'30'); g.addColorStop(1,c+'00'); ctx.fillStyle=g; ctx.fill(); }
+    ctx.beginPath(); ctx.arc(p.x,p.y,14,0,Math.PI*2); ctx.fillStyle=on?c+'20':'rgba(100,140,255,0.05)'; ctx.strokeStyle=on?c:'rgba(100,140,255,0.2)'; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fillStyle=on?c:'rgba(100,140,255,0.3)'; ctx.fill();
+    ctx.fillStyle=on?'#fff':'rgba(120,136,168,0.6)'; ctx.font='11px Segoe UI,sans-serif'; ctx.textAlign='center'; ctx.fillText(lbl[name],p.x,p.y+28);
   }
 }
 
 // ── Canvas: Cross-Brain Animation ─────────────────────────
 let particles = [];
 function initCrossBrainCanvas() {
-  const canvas = document.getElementById('crossBrainCanvas');
-  if (!canvas) return;
-
-  function resize() {
-    const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
+  const canvas = document.getElementById('crossBrainCanvas'); if (!canvas) return;
+  function resize() { const r=canvas.parentElement.getBoundingClientRect(); canvas.width=r.width*2; canvas.height=r.height*2; }
+  resize(); window.addEventListener('resize', resize);
   const positions = {};
-  function getPositions() {
-    const w = canvas.width / 2, h = canvas.height / 2;
-    positions.brain = { x: w / 2, y: 50, color: '#00e5ff', label: 'Brain' };
-    positions['trading-brain'] = { x: w * 0.2, y: h - 50, color: '#00ff88', label: 'Trading' };
-    positions['marketing-brain'] = { x: w * 0.8, y: h - 50, color: '#ff44cc', label: 'Marketing' };
-  }
-
-  function spawnParticle() {
-    const names = Object.keys(positions);
-    if (names.length < 2) return;
-    const src = names[Math.floor(Math.random() * names.length)];
-    let dst = names[Math.floor(Math.random() * names.length)];
-    while (dst === src) dst = names[Math.floor(Math.random() * names.length)];
-    const s = positions[src], d = positions[dst];
-    particles.push({ x: s.x, y: s.y, tx: d.x, ty: d.y, color: s.color, progress: 0, speed: 0.008 + Math.random() * 0.012 });
-  }
-
+  function getPos() { const w=canvas.width/2,h=canvas.height/2; positions.brain={x:w/2,y:50,color:'#00e5ff',label:'Brain'}; positions['trading-brain']={x:w*.2,y:h-50,color:'#00ff88',label:'Trading'}; positions['marketing-brain']={x:w*.8,y:h-50,color:'#ff44cc',label:'Marketing'}; }
+  function spawn() { const n=Object.keys(positions); if(n.length<2)return; let s=n[Math.random()*n.length|0],d=n[Math.random()*n.length|0]; while(d===s)d=n[Math.random()*n.length|0]; const a=positions[s],b=positions[d]; particles.push({x:a.x,y:a.y,tx:b.x,ty:b.y,color:a.color,progress:0,speed:.008+Math.random()*.012}); }
   function draw() {
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width / 2, h = canvas.height / 2;
-    ctx.save();
-    ctx.scale(2, 2);
-    ctx.clearRect(0, 0, w, h);
-    getPositions();
-
-    // Connections
-    const names = Object.keys(positions);
-    for (let i = 0; i < names.length; i++) {
-      for (let j = i + 1; j < names.length; j++) {
-        const a = positions[names[i]], b = positions[names[j]];
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = 'rgba(100,140,255,0.1)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
+    const ctx=canvas.getContext('2d'),w=canvas.width/2,h=canvas.height/2; ctx.save(); ctx.scale(2,2); ctx.clearRect(0,0,w,h); getPos();
+    const n=Object.keys(positions);
+    for(let i=0;i<n.length;i++) for(let j=i+1;j<n.length;j++) { const a=positions[n[i]],b=positions[n[j]]; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle='rgba(100,140,255,0.1)'; ctx.lineWidth=1; ctx.stroke(); }
+    if(Math.random()<.05&&state.connected) spawn();
+    particles=particles.filter(p=>p.progress<1);
+    for(const p of particles) { p.progress+=p.speed; const t=p.progress,cx=p.x+(p.tx-p.x)*t,cy=p.y+(p.ty-p.y)*t-Math.sin(t*Math.PI)*20;
+      ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); const g=ctx.createRadialGradient(cx,cy,0,cx,cy,6); g.addColorStop(0,p.color+'40'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
     }
-
-    // Particles
-    if (Math.random() < 0.05 && state.connected) spawnParticle();
-
-    particles = particles.filter(p => p.progress < 1);
-    for (const p of particles) {
-      p.progress += p.speed;
-      const t = p.progress;
-      const cx = p.x + (p.tx - p.x) * t;
-      const cy = p.y + (p.ty - p.y) * t - Math.sin(t * Math.PI) * 20;
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-
-      // Trail
-      ctx.beginPath();
-      ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-      const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 6);
-      grd.addColorStop(0, p.color + '40');
-      grd.addColorStop(1, p.color + '00');
-      ctx.fillStyle = grd;
-      ctx.fill();
+    for(const[,p]of Object.entries(positions)) {
+      ctx.beginPath(); ctx.arc(p.x,p.y,28,0,Math.PI*2); const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28); g.addColorStop(0,p.color+'25'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x,p.y,18,0,Math.PI*2); ctx.fillStyle=p.color+'15'; ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='12px Segoe UI,sans-serif'; ctx.textAlign='center'; ctx.fillText(p.label,p.x,p.y+34);
     }
-
-    // Nodes
-    for (const [, pos] of Object.entries(positions)) {
-      // Glow
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 28, 0, Math.PI * 2);
-      const grd = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 28);
-      grd.addColorStop(0, pos.color + '25');
-      grd.addColorStop(1, pos.color + '00');
-      ctx.fillStyle = grd;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 18, 0, Math.PI * 2);
-      ctx.fillStyle = pos.color + '15';
-      ctx.strokeStyle = pos.color;
-      ctx.lineWidth = 2;
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = pos.color;
-      ctx.fill();
-
-      ctx.fillStyle = '#fff';
-      ctx.font = '12px Segoe UI, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(pos.label, pos.x, pos.y + 34);
-    }
-
-    ctx.restore();
-    requestAnimationFrame(draw);
+    ctx.restore(); requestAnimationFrame(draw);
   }
-
   draw();
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = String(val);
-}
-
-function formatUptime(seconds) {
-  if (seconds < 60) return Math.round(seconds) + 's';
-  if (seconds < 3600) return Math.round(seconds / 60) + 'm';
-  if (seconds < 86400) return (seconds / 3600).toFixed(1) + 'h';
-  return (seconds / 86400).toFixed(1) + 'd';
-}
+function setText(id, v) { const el=document.getElementById(id); if(el)el.textContent=String(v); }
+function fmtUp(s) { if(s<60) return Math.round(s)+'s'; if(s<3600) return Math.round(s/60)+'m'; if(s<86400) return (s/3600).toFixed(1)+'h'; return (s/86400).toFixed(1)+'d'; }
+function formatK(n) { if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
+function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 // ── Init ──────────────────────────────────────────────────
-connectSSE();
-loadInitial();
-initCrossBrainCanvas();
-
-// Handle resize for peer canvas
-window.addEventListener('resize', () => {
-  if (state.ecosystem && state.ecosystem.brains) drawPeerGraph(state.ecosystem.brains);
-});
+connectSSE(); loadInitial(); initCrossBrainCanvas();
+window.addEventListener('resize', () => { if(state.ecosystem?.brains) drawPeerGraph(state.ecosystem.brains); });
 </script>
 </body>
 </html>

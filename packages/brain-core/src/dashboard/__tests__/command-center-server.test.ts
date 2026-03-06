@@ -67,6 +67,14 @@ function createMockOptions(overrides: Partial<CommandCenterOptions> = {}): Comma
     watchdog: null,
     pluginRegistry: null,
     borgSync: null,
+    thoughtStream: {
+      onThought: vi.fn().mockReturnValue(() => {}),
+      getRecent: vi.fn().mockReturnValue([]),
+      getByEngine: vi.fn().mockReturnValue([]),
+      getStats: vi.fn().mockReturnValue({ totalThoughts: 0, activeEngines: [] }),
+    } as unknown as CommandCenterOptions['thoughtStream'],
+    getLLMStats: vi.fn().mockReturnValue({ totalCalls: 42, totalTokens: 5000, cacheHitRate: 0.5, callsThisHour: 3 }),
+    getLLMHistory: vi.fn().mockReturnValue([]),
     ...overrides,
   };
 }
@@ -338,6 +346,63 @@ describe('CommandCenterServer', () => {
 
     const res = await request(result.port, '/api/ecosystem');
     expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+
+  it('GET /api/llm returns LLM stats', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/llm');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.stats).toHaveProperty('totalCalls', 42);
+    expect(data.history).toEqual([]);
+  });
+
+  it('GET /api/thoughts returns thought list', async () => {
+    const mockThoughts = [{ id: '1', engine: 'learning', content: 'test', timestamp: Date.now(), significance: 'routine' }];
+    const result = await startServer({
+      thoughtStream: {
+        onThought: vi.fn().mockReturnValue(() => {}),
+        getRecent: vi.fn().mockReturnValue(mockThoughts),
+        getByEngine: vi.fn().mockReturnValue(mockThoughts),
+        getStats: vi.fn().mockReturnValue({ totalThoughts: 1 }),
+      } as unknown as CommandCenterOptions['thoughtStream'],
+    });
+    server = result.server;
+
+    const res = await request(result.port, '/api/thoughts');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data).toHaveLength(1);
+    expect(data[0].engine).toBe('learning');
+  });
+
+  it('GET /api/thoughts?engine=x filters by engine', async () => {
+    const mockThoughts = [{ id: '1', engine: 'hypothesis', content: 'test', timestamp: Date.now() }];
+    const mockTS = {
+      onThought: vi.fn().mockReturnValue(() => {}),
+      getRecent: vi.fn().mockReturnValue([]),
+      getByEngine: vi.fn().mockReturnValue(mockThoughts),
+      getStats: vi.fn().mockReturnValue({ totalThoughts: 1 }),
+    };
+    const result = await startServer({ thoughtStream: mockTS as unknown as CommandCenterOptions['thoughtStream'] });
+    server = result.server;
+
+    const res = await request(result.port, '/api/thoughts?engine=hypothesis');
+    expect(res.statusCode).toBe(200);
+    expect(mockTS.getByEngine).toHaveBeenCalledWith('hypothesis', 50);
+  });
+
+  it('GET /api/state includes llm and thoughts', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/state');
+    const data = JSON.parse(res.body);
+    expect(data).toHaveProperty('llm');
+    expect(data).toHaveProperty('thoughts');
+    expect(data.llm.totalCalls).toBe(42);
   });
 
   it('stop() closes the server', async () => {

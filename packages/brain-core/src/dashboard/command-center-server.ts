@@ -8,6 +8,7 @@ import type { CrossBrainCorrelator } from '../cross-brain/correlator.js';
 import type { WatchdogService } from '../watchdog/watchdog-service.js';
 import type { PluginRegistry } from '../plugin/plugin-registry.js';
 import type { BorgSyncEngine } from '../cross-brain/borg-sync-engine.js';
+import type { ThoughtStream } from '../consciousness/thought-stream.js';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -20,6 +21,9 @@ export interface CommandCenterOptions {
   watchdog?: WatchdogService | null;
   pluginRegistry?: PluginRegistry | null;
   borgSync?: BorgSyncEngine | null;
+  thoughtStream?: ThoughtStream | null;
+  getLLMStats?: () => unknown;
+  getLLMHistory?: (hours: number) => unknown;
 }
 
 // ── Server ───────────────────────────────────────────────
@@ -28,6 +32,7 @@ export class CommandCenterServer {
   private server: http.Server | null = null;
   private clients: Set<http.ServerResponse> = new Set();
   private timers: ReturnType<typeof setInterval>[] = [];
+  private unsubscribe: (() => void) | null = null;
   private dashboardHtml: string | null = null;
   private logger = getLogger();
 
@@ -70,50 +75,17 @@ export class CommandCenterServer {
           return;
         }
 
-        if (url.pathname === '/api/state') {
-          this.handleState(res);
-          return;
-        }
-
-        if (url.pathname === '/api/ecosystem') {
-          this.handleEcosystem(res);
-          return;
-        }
-
-        if (url.pathname === '/api/engines') {
-          this.handleEngines(res);
-          return;
-        }
-
-        if (url.pathname === '/api/watchdog') {
-          this.handleWatchdog(res);
-          return;
-        }
-
-        if (url.pathname === '/api/plugins') {
-          this.handlePlugins(res);
-          return;
-        }
-
-        if (url.pathname === '/api/borg') {
-          this.handleBorg(res);
-          return;
-        }
-
-        if (url.pathname === '/api/analytics') {
-          this.handleAnalytics(res);
-          return;
-        }
-
-        if (url.pathname === '/api/borg/toggle' && req.method === 'POST') {
-          this.handleBorgToggle(req, res);
-          return;
-        }
-
-        if (url.pathname === '/events') {
-          this.handleSSE(req, res);
-          return;
-        }
+        if (url.pathname === '/api/state') { this.handleState(res); return; }
+        if (url.pathname === '/api/ecosystem') { this.handleEcosystem(res); return; }
+        if (url.pathname === '/api/engines') { this.handleEngines(res); return; }
+        if (url.pathname === '/api/watchdog') { this.handleWatchdog(res); return; }
+        if (url.pathname === '/api/plugins') { this.handlePlugins(res); return; }
+        if (url.pathname === '/api/borg') { this.handleBorg(res); return; }
+        if (url.pathname === '/api/analytics') { this.handleAnalytics(res); return; }
+        if (url.pathname === '/api/llm') { this.handleLLM(res); return; }
+        if (url.pathname === '/api/thoughts') { this.handleThoughts(res, url); return; }
+        if (url.pathname === '/api/borg/toggle' && req.method === 'POST') { this.handleBorgToggle(req, res); return; }
+        if (url.pathname === '/events') { this.handleSSE(req, res); return; }
 
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not Found');
@@ -125,6 +97,15 @@ export class CommandCenterServer {
         }
       }
     });
+
+    // ── SSE: Subscribe to ThoughtStream for live thoughts ──
+    if (this.options.thoughtStream) {
+      this.unsubscribe = this.options.thoughtStream.onThought((thought) => {
+        if (this.clients.size > 0) {
+          this.broadcast('thought', thought);
+        }
+      });
+    }
 
     // ── SSE Timers ──────────────────────────────────────
 
@@ -143,6 +124,15 @@ export class CommandCenterServer {
         .then(results => this.broadcast('engines', results))
         .catch(() => {});
     }, 15_000));
+
+    // LLM Stats (10s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getLLMStats) return;
+      try {
+        this.broadcast('llm', this.options.getLLMStats());
+      } catch { /* ignore */ }
+    }, 10_000));
 
     // Watchdog (30s)
     this.timers.push(setInterval(() => {
@@ -194,6 +184,7 @@ export class CommandCenterServer {
   }
 
   stop(): void {
+    if (this.unsubscribe) { this.unsubscribe(); this.unsubscribe = null; }
     for (const timer of this.timers) clearInterval(timer);
     this.timers = [];
 
@@ -214,7 +205,6 @@ export class CommandCenterServer {
     const selfName = this.options.selfName;
     const existing = ecosystem.brains.find(b => b.name === selfName);
     if (!existing) {
-      // Self is always available (we're serving this request)
       ecosystem.brains.unshift({
         name: selfName,
         available: true,
@@ -222,7 +212,6 @@ export class CommandCenterServer {
         pid: process.pid,
       });
     } else if (!existing.available) {
-      // Self was marked unavailable because broadcast doesn't include self
       existing.available = true;
       existing.uptime = existing.uptime ?? process.uptime();
       existing.pid = existing.pid ?? process.pid;
@@ -244,8 +233,10 @@ export class CommandCenterServer {
         config: this.options.borgSync.getConfig(),
         history: this.options.borgSync.getHistory(20),
       } : null;
+      const llm = this.options.getLLMStats?.() ?? null;
+      const thoughts = this.options.thoughtStream?.getRecent(30) ?? [];
 
-      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics });
+      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts });
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
     }
@@ -264,7 +255,6 @@ export class CommandCenterServer {
   private async handleEngines(res: http.ServerResponse): Promise<void> {
     try {
       const results = await this.options.crossBrain.broadcast('consciousness.engines');
-      // Also include self (the brain running this server)
       this.json(res, results);
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
@@ -272,13 +262,11 @@ export class CommandCenterServer {
   }
 
   private handleWatchdog(res: http.ServerResponse): void {
-    const status = this.options.watchdog?.getStatus() ?? [];
-    this.json(res, status);
+    this.json(res, this.options.watchdog?.getStatus() ?? []);
   }
 
   private handlePlugins(res: http.ServerResponse): void {
-    const plugins = this.options.pluginRegistry?.list() ?? [];
-    this.json(res, plugins);
+    this.json(res, this.options.pluginRegistry?.list() ?? []);
   }
 
   private handleBorg(res: http.ServerResponse): void {
@@ -295,11 +283,24 @@ export class CommandCenterServer {
 
   private async handleAnalytics(res: http.ServerResponse): Promise<void> {
     try {
-      const analytics = await this.options.ecosystemService.getAggregatedAnalytics();
-      this.json(res, analytics);
+      this.json(res, await this.options.ecosystemService.getAggregatedAnalytics());
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
     }
+  }
+
+  private handleLLM(res: http.ServerResponse): void {
+    const stats = this.options.getLLMStats?.() ?? null;
+    const history = this.options.getLLMHistory?.(24) ?? [];
+    this.json(res, { stats, history });
+  }
+
+  private handleThoughts(res: http.ServerResponse, url: URL): void {
+    const limit = parseInt(url.searchParams.get('limit') ?? '50', 10);
+    const engine = url.searchParams.get('engine');
+    const ts = this.options.thoughtStream;
+    if (!ts) { this.json(res, []); return; }
+    this.json(res, engine ? ts.getByEngine(engine, limit) : ts.getRecent(limit));
   }
 
   private handleBorgToggle(req: http.IncomingMessage, res: http.ServerResponse): void {

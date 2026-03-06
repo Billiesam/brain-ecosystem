@@ -998,6 +998,9 @@ export class BrainCore {
       crossBrain: this.crossBrain,
       ecosystemService: this.ecosystemService!,
       correlator: this.correlator!,
+      thoughtStream,
+      getLLMStats: () => services.llmService?.getStats() ?? null,
+      getLLMHistory: (hours: number) => services.llmService?.getUsageHistory(hours) ?? [],
     });
     this.commandCenter.start();
     logger.info('Command Center dashboard on :7790');
