@@ -648,31 +648,131 @@ function drawPeerGraph(brains) {
   }
 }
 
-// ── Canvas: Cross-Brain Animation ─────────────────────────
+// ── Canvas: Cross-Brain + Borg Animation ──────────────────
 let particles = [];
+let borgPackets = []; // big borg sync packets
+function spawnBorgPacket(src, dst, items) {
+  borgPackets.push({ src, dst, items, progress: 0, speed: 0.004 + Math.random() * 0.003 });
+}
+// When borg data updates, spawn visual packets from history
+let lastBorgHistLen = 0;
+function checkBorgPackets() {
+  const h = state.borg?.history || [];
+  if (h.length > lastBorgHistLen && lastBorgHistLen > 0) {
+    const newEntries = h.slice(0, h.length - lastBorgHistLen);
+    for (const e of newEntries) {
+      const src = e.direction === 'sent' ? 'brain' : e.peer;
+      const dst = e.direction === 'sent' ? e.peer : 'brain';
+      spawnBorgPacket(src, dst, e.itemCount || 1);
+    }
+  }
+  lastBorgHistLen = h.length;
+}
+
 function initCrossBrainCanvas() {
   const canvas = document.getElementById('crossBrainCanvas'); if (!canvas) return;
   function resize() { const r=canvas.parentElement.getBoundingClientRect(); canvas.width=r.width*2; canvas.height=r.height*2; }
   resize(); window.addEventListener('resize', resize);
   const positions = {};
-  function getPos() { const w=canvas.width/2,h=canvas.height/2; positions.brain={x:w/2,y:50,color:'#00e5ff',label:'Brain'}; positions['trading-brain']={x:w*.2,y:h-50,color:'#00ff88',label:'Trading'}; positions['marketing-brain']={x:w*.8,y:h-50,color:'#ff44cc',label:'Marketing'}; }
-  function spawn() { const n=Object.keys(positions); if(n.length<2)return; let s=n[Math.random()*n.length|0],d=n[Math.random()*n.length|0]; while(d===s)d=n[Math.random()*n.length|0]; const a=positions[s],b=positions[d]; particles.push({x:a.x,y:a.y,tx:b.x,ty:b.y,color:a.color,progress:0,speed:.008+Math.random()*.012}); }
+  function getPos() {
+    const w=canvas.width/2, h=canvas.height/2;
+    positions.brain={x:w/2,y:55,color:'#00e5ff',label:'Brain'};
+    positions['trading-brain']={x:w*.2,y:h-55,color:'#00ff88',label:'Trading'};
+    positions['marketing-brain']={x:w*.8,y:h-55,color:'#ff44cc',label:'Marketing'};
+  }
+  function spawnMsg() {
+    const n=Object.keys(positions); if(n.length<2)return;
+    let s=n[Math.random()*n.length|0],d=n[Math.random()*n.length|0];
+    while(d===s)d=n[Math.random()*n.length|0];
+    const a=positions[s],b=positions[d];
+    particles.push({x:a.x,y:a.y,tx:b.x,ty:b.y,color:a.color,progress:0,speed:.008+Math.random()*.012,isBorg:false});
+  }
+
   function draw() {
-    const ctx=canvas.getContext('2d'),w=canvas.width/2,h=canvas.height/2; ctx.save(); ctx.scale(2,2); ctx.clearRect(0,0,w,h); getPos();
+    const ctx=canvas.getContext('2d'),w=canvas.width/2,h=canvas.height/2;
+    ctx.save(); ctx.scale(2,2); ctx.clearRect(0,0,w,h); getPos();
+    checkBorgPackets();
+
+    const borgEnabled = state.borg?.status?.enabled;
+    const borgSent = state.borg?.status?.totalSent || 0;
+    const borgRecv = state.borg?.status?.totalReceived || 0;
     const n=Object.keys(positions);
-    for(let i=0;i<n.length;i++) for(let j=i+1;j<n.length;j++) { const a=positions[n[i]],b=positions[n[j]]; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle='rgba(100,140,255,0.1)'; ctx.lineWidth=1; ctx.stroke(); }
-    if(Math.random()<.05&&state.connected) spawn();
+
+    // Draw connections
+    for(let i=0;i<n.length;i++) for(let j=i+1;j<n.length;j++) {
+      const a=positions[n[i]],b=positions[n[j]];
+      // Borg connections glow brighter when enabled
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle = borgEnabled ? 'rgba(170,136,255,0.15)' : 'rgba(100,140,255,0.1)';
+      ctx.lineWidth = borgEnabled ? 2 : 1;
+      ctx.stroke();
+      // Dashed borg overlay
+      if (borgEnabled) {
+        ctx.beginPath(); ctx.setLineDash([4,8]); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle='rgba(170,136,255,0.12)'; ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+
+    // Regular message particles
+    if(Math.random()<.05&&state.connected) spawnMsg();
     particles=particles.filter(p=>p.progress<1);
-    for(const p of particles) { p.progress+=p.speed; const t=p.progress,cx=p.x+(p.tx-p.x)*t,cy=p.y+(p.ty-p.y)*t-Math.sin(t*Math.PI)*20;
+    for(const p of particles) {
+      p.progress+=p.speed;
+      const t=p.progress,cx=p.x+(p.tx-p.x)*t,cy=p.y+(p.ty-p.y)*t-Math.sin(t*Math.PI)*20;
       ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill();
-      ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); const g=ctx.createRadialGradient(cx,cy,0,cx,cy,6); g.addColorStop(0,p.color+'40'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,6); g.addColorStop(0,p.color+'40'); g.addColorStop(1,p.color+'00');
+      ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
     }
-    for(const[,p]of Object.entries(positions)) {
-      ctx.beginPath(); ctx.arc(p.x,p.y,28,0,Math.PI*2); const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28); g.addColorStop(0,p.color+'25'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
-      ctx.beginPath(); ctx.arc(p.x,p.y,18,0,Math.PI*2); ctx.fillStyle=p.color+'15'; ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+
+    // Borg sync packets — bigger, purple, with item count label
+    borgPackets=borgPackets.filter(p=>p.progress<1);
+    for(const bp of borgPackets) {
+      bp.progress+=bp.speed;
+      const t=bp.progress;
+      const sp=positions[bp.src]||positions.brain, dp=positions[bp.dst]||positions.brain;
+      const cx=sp.x+(dp.x-sp.x)*t, cy=sp.y+(dp.y-sp.y)*t-Math.sin(t*Math.PI)*35;
+      // Outer glow
+      ctx.beginPath(); ctx.arc(cx,cy,14,0,Math.PI*2);
+      const gg=ctx.createRadialGradient(cx,cy,0,cx,cy,14);
+      gg.addColorStop(0,'rgba(170,136,255,0.35)'); gg.addColorStop(1,'rgba(170,136,255,0)');
+      ctx.fillStyle=gg; ctx.fill();
+      // Inner packet
+      ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fillStyle='#aa88ff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fillStyle='#ddccff'; ctx.fill();
+      // Item count label
+      if(bp.items>0) {
+        ctx.fillStyle='#fff'; ctx.font='bold 9px Segoe UI,sans-serif'; ctx.textAlign='center';
+        ctx.fillText(bp.items+'x',cx,cy-12);
+      }
+    }
+
+    // Draw nodes
+    for(const[name,p]of Object.entries(positions)) {
+      // Borg ring (purple outer ring when borg enabled)
+      if(borgEnabled) {
+        ctx.beginPath(); ctx.arc(p.x,p.y,24,0,Math.PI*2);
+        ctx.strokeStyle='rgba(170,136,255,0.25)'; ctx.lineWidth=1; ctx.stroke();
+      }
+      // Glow
+      ctx.beginPath(); ctx.arc(p.x,p.y,28,0,Math.PI*2);
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28);
+      g.addColorStop(0,p.color+'25'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
+      // Circle
+      ctx.beginPath(); ctx.arc(p.x,p.y,18,0,Math.PI*2);
+      ctx.fillStyle=p.color+'15'; ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+      // Inner dot
       ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='12px Segoe UI,sans-serif'; ctx.textAlign='center'; ctx.fillText(p.label,p.x,p.y+34);
+      // Label
+      ctx.fillStyle='#fff'; ctx.font='12px Segoe UI,sans-serif'; ctx.textAlign='center';
+      ctx.fillText(p.label,p.x,p.y+34);
     }
+
+    // Borg legend (bottom center)
+    if(borgEnabled) {
+      ctx.fillStyle='rgba(170,136,255,0.7)'; ctx.font='10px Segoe UI,sans-serif'; ctx.textAlign='center';
+      ctx.fillText(`BORG ACTIVE  \u2022  ${borgSent} sent  \u2022  ${borgRecv} received`, w/2, h-8);
+    }
+
     ctx.restore(); requestAnimationFrame(draw);
   }
   draw();
