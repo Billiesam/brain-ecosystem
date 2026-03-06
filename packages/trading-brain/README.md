@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**Adaptive Trading Intelligence & Signal Learning System for Claude Code — 128 MCP Tools, 30+ Engines**
+**Adaptive Trading Intelligence & Signal Learning System for Claude Code — 128 MCP Tools, 60+ Engines**
 
-Trading Brain is an MCP server that gives Claude Code a persistent trading memory. It learns from every trade outcome — strengthening connections between signals, strategies, and results through a Hebbian synapse network. Over time, it develops statistical confidence in signal combinations, adapts calibration parameters, and runs 30+ autonomous engines in a 40-step feedback cycle to discover patterns, reason about causality, evolve strategies genetically, and improve itself.
+Trading Brain is an MCP server that gives Claude Code a persistent trading memory. It learns from every trade outcome — strengthening connections between signals, strategies, and results through a Hebbian synapse network ("signals that win together wire together"). Paper trading with live market data (CoinGecko, Yahoo Finance, CCXT WebSocket). Over time, it develops statistical confidence in signal combinations, adapts calibration parameters, and runs 60+ autonomous engines in a 40-step feedback cycle to discover patterns, reason about causality, evolve strategies genetically, and improve itself. Multi-provider LLM (Anthropic + Ollama). 121 tests.
 
 ## Quick Start
 
@@ -15,6 +15,8 @@ Trading Brain is an MCP server that gives Claude Code a persistent trading memor
 npm install -g @timmeck/trading-brain
 trading setup
 ```
+
+That's it. One command configures MCP, hooks, and starts the daemon.
 
 ## Features
 
@@ -27,9 +29,14 @@ trading setup
 - **DCA Multiplier** — Brain-recommended position sizes based on regime and performance
 - **Grid Parameters** — Volatility-aware grid spacing with automatic tuning
 
-### Backtesting & Risk
-- **Backtesting Engine** — Run backtests, compare signals, find best signals with Sharpe/PF/MaxDD/Equity Curve
+### Paper Trading & Live Market Data
+- **Paper Trading** — 10 active positions, live equity tracking, balance management
+- **Live Market Data** — CoinGecko + Yahoo Finance + CCXT WebSocket real-time feeds
+- **Equity Tracking** — Real-time portfolio valuation including position principal + unrealized PnL
 - **Risk Management** — Kelly Criterion (half-Kelly + brain-adjusted), max 25% position size
+
+### Backtesting
+- **Backtesting Engine** — Run backtests, compare signals, find best signals with Sharpe/PF/MaxDD/Equity Curve
 - **Multi-Timeframe** — Timeframe-aware trade analysis
 - **Chain Detection** — Winning and losing streak identification per pair
 
@@ -39,29 +46,54 @@ trading setup
 - **Webhooks** — Push alerts to external systems
 - **History** — Full alert delivery log
 
-### 30+ Autonomous Engines
-Same full engine suite as Brain, fed with trade history via DataMiner:
-- **Core Research** — SelfObserver, AnomalyDetective, CrossDomain, AdaptiveStrategy, ExperimentEngine, KnowledgeDistiller, ResearchAgenda, CounterfactualEngine, Journal
-- **Intelligence** — AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ReasoningEngine, EmotionalModel
-- **Meta-Cognition** — ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, EvolutionEngine, GoalEngine, MemoryPalace
-- **Autonomy** — SelfTestEngine, TeachEngine, DataScout, SimulationEngine, SelfScanner, SelfModificationEngine, BootstrapService
-- **40-step feedback cycle** running every 5 minutes
-- **DataMiner** bootstraps all historical trades into engines at startup
+### LLM Service
+- **Multi-Provider** — Anthropic Claude + Ollama local models with auto-routing
+- **Smart Caching** — Content-hash cache, avoid duplicate API calls
+- **Rate Limiting** — Per-hour and per-day token budgets with automatic throttling
+- **Usage Tracking** — Calls, tokens, latency, cache hit rate, cost tracking
+
+### 60+ Autonomous Engines
+
+The ResearchOrchestrator runs a 40-step feedback cycle every 5 minutes:
+
+- **Observation** — SelfObserver, AnomalyDetective, DataScout, SignalScanner, TechRadar
+- **Understanding** — AttentionEngine, CausalGraph, CrossDomain, PatternEngine
+- **Ideas** — HypothesisEngine, CuriosityEngine, DreamEngine, DebateEngine
+- **Testing** — ExperimentEngine, AutoExperiment, SimulationEngine, PredictionEngine
+- **Knowledge** — KnowledgeDistiller, MemoryPalace, ResearchJournal, ConceptAbstraction
+- **Action** — SelfModification, GoalEngine, AdaptiveStrategy, MetaCognition, Evolution, Reasoning, EmotionalModel
+
+DataMiner bootstraps all historical trades into engines at startup.
 
 ### Dream Mode & Consciousness
 - **Dream Engine** — Offline consolidation: memory replay, synapse pruning, compression, importance decay
-- **Mission Control Dashboard** — Unified dashboard at http://localhost:7788 (Consciousness Entity, Thoughts, Engines, Intelligence)
 - **Prediction Engine** — Holt-Winters forecasting for win rates and PnL with auto-calibration
 - **AutoResponder** — Automatically adjusts trading parameters when anomalies detected
-- **Self-Improvement Loop** — Generates improvement suggestions
 - **ReasoningEngine** — Forward chaining, abductive reasoning, temporal inference
 - **EmotionalModel** — 8 emotion dimensions, 6 moods, mood-based recommendations
 - **EvolutionEngine** — Genetic algorithm for parameter optimization
 
+### Notifications
+- **Discord, Telegram, Email** — Multi-channel alert routing
+- **Notification Bridge** — IPC-based cross-brain notification relay
+- **Configurable** — All providers optional, graceful fallback
+
+### Research Missions
+- **5-Phase Pipeline** — Decompose → Gather → Hypothesize → Analyze → Synthesize
+- **Web Research** — Brave Search + Jina Reader + Playwright + Firecrawl fallback chain
+- **Autonomous** — Brain decides what to research and executes independently
+
+### Dashboards
+
+| Dashboard | Port | What It Shows |
+|-----------|------|--------------|
+| **Mission Control** | 7788 | 7-tab: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
+| **Command Center** | 7790 | 7-page: Ecosystem, Learning Pipeline, Trading Flow, Marketing Flow, Cross-Brain & Borg, Activity & Missions, Infrastructure |
+
 ### Memory & Sessions
 - **Persistent Memory** — Preferences, decisions, context, facts, goals, lessons
 - **Session Tracking** — Conversation goals, summaries, outcomes
-- **Key-Based Upsert** — Update memories by key, auto-supersede old values
+- **Semantic Search** — Local all-MiniLM-L6-v2 embeddings (23MB, no cloud required)
 
 ### Universal Access
 - **MCP Server** — Stdio transport for Claude Code
@@ -80,47 +112,13 @@ Same full engine suite as Brain, fed with trade history via DataMiner:
 
 **Research Engines** (5 tools each): self_observer, anomaly_detective, cross_domain, adaptive_strategy, experiment, knowledge_distiller, research_agenda, counterfactual, journal
 
-**Dream**: trading_dream_status, trading_dream_consolidate, trading_dream_history
-
-**Consciousness**: trading_consciousness_status, trading_consciousness_thoughts
-
-**Prediction**: trading_predict, trading_prediction_accuracy, trading_predictions_list
-
-**AutoResponder**: trading_responder_status, trading_responder_history, trading_responder_rules
-
-**Attention**: trading_focus_status, trading_focus_set, trading_focus_history
-
-**Transfer**: trading_transfer_status, trading_transfer_analogies, trading_transfer_rules
-
-**Narrative**: trading_explain, trading_ask, trading_weekly_digest, trading_contradictions
-
-**Curiosity**: trading_curiosity_status, trading_curiosity_gaps, trading_curiosity_questions, trading_curiosity_explore
-
-**Emergence**: trading_emergence_status, trading_emergence_detect, trading_emergence_complexity_metrics, trading_emergence_journal
-
-**Debate**: trading_debate_start, trading_debate_synthesize, trading_debate_perspective, trading_debate_history
-
-**MetaCognition**: trading_metacognition_status, trading_engine_report, trading_auto_experiment_status, trading_parameter_registry
-
-**SelfAware**: trading_selftest_run, trading_selftest_results, trading_teach_status, trading_teach_create, trading_datascout_status, trading_datascout_scan, trading_simulation_run, trading_simulation_results, trading_simulation_scenarios, trading_palace_status, trading_palace_map, trading_palace_path, trading_palace_build, trading_goal_status, trading_goal_create, trading_goal_progress
-
-**Evolution**: trading_evolution_status, trading_evolution_history, trading_evolution_best, trading_evolution_run
-
-**Reasoning**: trading_reasoning_status, trading_reason, trading_explain_why, trading_what_if
-
-**Emotions**: trading_emotional_status, trading_mood_history, trading_mood_influences, trading_mood_advice
-
-**Self-Modification**: trading_selfmod_status, trading_selfmod_pending, trading_selfmod_approve, trading_selfmod_history
-
-**Memory**: trading_remember, trading_recall, trading_session_start, trading_session_end, trading_session_history
-
-**Ecosystem**: trading_status, trading_explore, trading_connections, trading_insights, trading_ecosystem_status, trading_query_peer, trading_error_context
+**Dream, Consciousness, Prediction, AutoResponder, Attention, Transfer, Narrative, Curiosity, Emergence, Debate, MetaCognition, Evolution, Reasoning, Emotions, Self-Modification, Memory, Ecosystem** — full tool suites for each
 
 ## CLI Commands
 
 ```
 trading setup              One-command setup: MCP + daemon
-trading start / stop       Daemon management
+trading start / stop       Daemon management (with watchdog)
 trading status             Stats: trades, rules, chains, insights, synapses
 trading doctor             Health check
 trading query <text>       Search trades
@@ -141,8 +139,9 @@ trading import <file>      Import trades from JSON
 | `TRADING_BRAIN_DATA_DIR` | `~/.trading-brain` | Data directory |
 | `TRADING_BRAIN_LOG_LEVEL` | `info` | Log level |
 | `TRADING_BRAIN_API_PORT` | `7779` | REST API port |
-| `TRADING_BRAIN_API_KEY` | — | API authentication key |
 | `TRADING_BRAIN_MCP_HTTP_PORT` | `7780` | MCP HTTP/SSE port |
+| `ANTHROPIC_API_KEY` | — | Enables LLM features, CodeGen, Self-Mod |
+| `BRAVE_SEARCH_API_KEY` | — | Enables web research missions |
 
 ## How It Learns
 
@@ -159,12 +158,12 @@ trading import <file>      Import trades from JSON
 
 ## Brain Ecosystem
 
-| Brain | Version | Purpose | Ports |
-|-------|---------|---------|-------|
-| [Brain](../brain) | v3.34.0 | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7788 |
-| **Trading Brain** | v2.29.0 | Adaptive trading intelligence with signal learning & backtesting | **7779** / 7780 |
-| [Marketing Brain](../marketing-brain) | v1.30.0 | Content strategy, engagement & cross-platform optimization | 7781 / 7782 / 7783 |
-| [Brain Core](../brain-core) | v2.34.0 | Shared infrastructure — 30+ engines | — |
+| Brain | Purpose | Ports |
+|-------|---------|-------|
+| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7788 / 7790 |
+| **Trading Brain** (this) | Adaptive trading intelligence with signal learning & paper trading | **7779** / 7780 |
+| [Marketing Brain](../marketing-brain) | Content strategy, social engagement & cross-platform optimization | 7781 / 7782 / 7783 |
+| [Brain Core](../brain-core) | Shared infrastructure — 60+ engines | — |
 
 ## Support
 

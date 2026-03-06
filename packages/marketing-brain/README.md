@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**Self-Learning Marketing Intelligence System for Claude Code — 128 MCP Tools, 30+ Engines**
+**Self-Learning Marketing Intelligence System for Claude Code — 128 MCP Tools, 60+ Engines**
 
-Marketing Brain is an MCP server that gives Claude Code a persistent marketing memory. It tracks every post you publish, learns what works across 6 platforms, and builds a Hebbian synapse network connecting posts, campaigns, strategies, templates, and insights. Over time, it learns your best-performing patterns, generates content drafts, schedules posts, analyzes competitors, and runs 30+ autonomous engines in a 40-step feedback cycle to discover engagement patterns, reason about causality, evolve strategies genetically, and improve itself.
+Marketing Brain is an MCP server that gives Claude Code a persistent marketing memory. It tracks every post you publish, learns what works across 6 platforms, and builds a Hebbian synapse network connecting posts, campaigns, strategies, templates, and insights. Live social feeds from Bluesky + Reddit. Over time, it learns your best-performing patterns, generates content drafts, schedules posts, analyzes competitors, and runs 60+ autonomous engines in a 40-step feedback cycle to discover engagement patterns, reason about causality, evolve strategies genetically, and improve itself. Multi-provider LLM (Anthropic + Ollama). 85 tests.
 
 ## Quick Start
 
@@ -15,6 +15,8 @@ Marketing Brain is an MCP server that gives Claude Code a persistent marketing m
 npm install -g @timmeck/marketing-brain
 marketing setup
 ```
+
+That's it. One command configures MCP, hooks, and starts the daemon.
 
 ## Features
 
@@ -40,36 +42,60 @@ marketing setup
 - **Thread Splitting** — Long content auto-split for thread-based platforms
 - **Format Adaptation** — Optimize content for each platform's format
 
-### 30+ Autonomous Engines
-Same full engine suite as Brain, fed with post/engagement history via DataMiner:
-- **Core Research** — SelfObserver, AnomalyDetective, CrossDomain, AdaptiveStrategy, ExperimentEngine, KnowledgeDistiller, ResearchAgenda, CounterfactualEngine, Journal
-- **Intelligence** — AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ReasoningEngine, EmotionalModel
-- **Meta-Cognition** — ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, EvolutionEngine, GoalEngine, MemoryPalace
-- **Autonomy** — SelfTestEngine, TeachEngine, DataScout, SimulationEngine, SelfScanner, SelfModificationEngine, BootstrapService
-- **40-step feedback cycle** running every 5 minutes
-- **DataMiner** bootstraps all historical posts and engagement data at startup
+### Live Social Feeds
+- **Bluesky** — Real-time feed from Bluesky AT Protocol
+- **Reddit** — Subreddit monitoring and engagement tracking
+- **Extensible** — Provider architecture for adding more platforms
+
+### LLM Service
+- **Multi-Provider** — Anthropic Claude + Ollama local models with auto-routing
+- **Smart Caching** — Content-hash cache, avoid duplicate API calls
+- **Rate Limiting** — Per-hour and per-day token budgets with automatic throttling
+- **Usage Tracking** — Calls, tokens, latency, cache hit rate, cost tracking
+
+### 60+ Autonomous Engines
+
+The ResearchOrchestrator runs a 40-step feedback cycle every 5 minutes:
+
+- **Observation** — SelfObserver, AnomalyDetective, DataScout, SignalScanner, TechRadar
+- **Understanding** — AttentionEngine, CausalGraph, CrossDomain, PatternEngine
+- **Ideas** — HypothesisEngine, CuriosityEngine, DreamEngine, DebateEngine
+- **Testing** — ExperimentEngine, AutoExperiment, SimulationEngine, PredictionEngine
+- **Knowledge** — KnowledgeDistiller, MemoryPalace, ResearchJournal, ConceptAbstraction
+- **Action** — SelfModification, GoalEngine, AdaptiveStrategy, MetaCognition, Evolution, Reasoning, EmotionalModel
+
+DataMiner bootstraps all historical posts and engagement data at startup.
 
 ### Dream Mode & Consciousness
 - **Dream Engine** — Offline consolidation: memory replay, synapse pruning, compression, importance decay
-- **Mission Control Dashboard** — Unified dashboard at http://localhost:7788 (Consciousness Entity, Thoughts, Engines, Intelligence)
 - **Prediction Engine** — Holt-Winters forecasting for engagement rates and post performance
 - **AutoResponder** — Automatically adjusts marketing parameters when anomalies detected
-- **Self-Improvement Loop** — Generates improvement suggestions
 - **ReasoningEngine** — Forward chaining, abductive reasoning, temporal inference
 - **EmotionalModel** — 8 emotion dimensions, 6 moods, mood-based recommendations
 - **EvolutionEngine** — Genetic algorithm for parameter optimization
 
-### Memory & Sessions
-- **Persistent Memory** — Preferences, decisions, context, facts, goals, lessons
-- **Session Tracking** — Conversation goals, summaries, outcomes
-- **Synapse-Wired** — Memories and sessions connect to the Hebbian network
+### Notifications
+- **Discord, Telegram, Email** — Multi-channel alert routing
+- **Notification Bridge** — IPC-based cross-brain notification relay
+- **Configurable** — All providers optional, graceful fallback
+
+### Research Missions
+- **5-Phase Pipeline** — Decompose → Gather → Hypothesize → Analyze → Synthesize
+- **Web Research** — Brave Search + Jina Reader + Playwright + Firecrawl fallback chain
+- **Autonomous** — Brain decides what to research and executes independently
 
 ### Dashboards
 
 | Dashboard | Port | What It Shows |
 |-----------|------|--------------|
 | **Marketing Dashboard** | 7783 | Interactive synapse graph, platform charts, top posts, insights |
-| **Mission Control** | 7788 | Unified 7-tab dashboard: Overview, Consciousness (Entity visualization), Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
+| **Mission Control** | 7788 | 7-tab: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
+| **Command Center** | 7790 | 7-page: Ecosystem, Learning Pipeline, Trading Flow, Marketing Flow, Cross-Brain & Borg, Activity & Missions, Infrastructure |
+
+### Memory & Sessions
+- **Persistent Memory** — Preferences, decisions, context, facts, goals, lessons
+- **Session Tracking** — Conversation goals, summaries, outcomes
+- **Semantic Search** — Local all-MiniLM-L6-v2 embeddings (23MB, no cloud required)
 
 ### Universal Access
 - **MCP Server** — Stdio transport for Claude Code
@@ -96,47 +122,13 @@ Same full engine suite as Brain, fed with post/engagement history via DataMiner:
 
 **Research Engines** (5 tools each): self_observer, anomaly_detective, cross_domain, adaptive_strategy, experiment, knowledge_distiller, research_agenda, counterfactual, journal
 
-**Dream**: marketing_dream_status, marketing_dream_consolidate, marketing_dream_history
-
-**Consciousness**: marketing_consciousness_status, marketing_consciousness_thoughts
-
-**Prediction**: marketing_predict, marketing_prediction_accuracy, marketing_predictions_list
-
-**AutoResponder**: marketing_responder_status, marketing_responder_history, marketing_responder_rules
-
-**Attention**: marketing_focus_status, marketing_focus_set, marketing_focus_history
-
-**Transfer**: marketing_transfer_status, marketing_transfer_analogies, marketing_transfer_rules
-
-**Narrative**: marketing_explain, marketing_ask, marketing_weekly_digest, marketing_contradictions
-
-**Curiosity**: marketing_curiosity_status, marketing_curiosity_gaps, marketing_curiosity_questions, marketing_curiosity_explore
-
-**Emergence**: marketing_emergence_status, marketing_emergence_detect, marketing_emergence_complexity_metrics, marketing_emergence_journal
-
-**Debate**: marketing_debate_start, marketing_debate_synthesize, marketing_debate_perspective, marketing_debate_history
-
-**MetaCognition**: marketing_metacognition_status, marketing_engine_report, marketing_auto_experiment_status, marketing_parameter_registry
-
-**SelfAware**: marketing_selftest_run, marketing_selftest_results, marketing_teach_status, marketing_teach_create, marketing_datascout_status, marketing_datascout_scan, marketing_simulation_run, marketing_simulation_results, marketing_simulation_scenarios, marketing_palace_status, marketing_palace_map, marketing_palace_path, marketing_palace_build, marketing_goal_status, marketing_goal_create, marketing_goal_progress
-
-**Evolution**: marketing_evolution_status, marketing_evolution_history, marketing_evolution_best, marketing_evolution_run
-
-**Reasoning**: marketing_reasoning_status, marketing_reason, marketing_explain_why, marketing_what_if
-
-**Emotions**: marketing_emotional_status, marketing_mood_history, marketing_mood_influences, marketing_mood_advice
-
-**Self-Modification**: marketing_selfmod_status, marketing_selfmod_pending, marketing_selfmod_approve, marketing_selfmod_history
-
-**Memory**: marketing_remember, marketing_recall, marketing_session_start, marketing_session_end, marketing_session_history
-
-**Ecosystem**: marketing_status, marketing_ecosystem_status, marketing_query_peer, marketing_cross_promote, marketing_trading_performance
+**Dream, Consciousness, Prediction, AutoResponder, Attention, Transfer, Narrative, Curiosity, Emergence, Debate, MetaCognition, Evolution, Reasoning, Emotions, Self-Modification, Memory, Ecosystem** — full tool suites for each
 
 ## CLI Commands
 
 ```
 marketing setup                  One-command setup: MCP + daemon
-marketing start / stop           Daemon management
+marketing start / stop           Daemon management (with watchdog)
 marketing status                 Stats: posts, campaigns, synapses, insights
 marketing doctor                 Health check
 marketing post <platform> [url]  Report a published post
@@ -163,8 +155,9 @@ marketing config                 Configuration management
 | `MARKETING_BRAIN_DATA_DIR` | `~/.marketing-brain` | Data directory |
 | `MARKETING_BRAIN_LOG_LEVEL` | `info` | Log level |
 | `MARKETING_BRAIN_API_PORT` | `7781` | REST API port |
-| `MARKETING_BRAIN_API_KEY` | — | API authentication key |
 | `MARKETING_BRAIN_MCP_HTTP_PORT` | `7782` | MCP HTTP/SSE port |
+| `ANTHROPIC_API_KEY` | — | Enables LLM features, CodeGen, Self-Mod |
+| `BRAVE_SEARCH_API_KEY` | — | Enables web research missions |
 
 ## How It Learns
 
@@ -181,12 +174,12 @@ marketing config                 Configuration management
 
 ## Brain Ecosystem
 
-| Brain | Version | Purpose | Ports |
-|-------|---------|---------|-------|
-| [Brain](../brain) | v3.34.0 | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7788 |
-| [Trading Brain](../trading-brain) | v2.29.0 | Adaptive trading intelligence with signal learning & backtesting | 7779 / 7780 |
-| **Marketing Brain** | v1.30.0 | Content strategy, engagement & cross-platform optimization | **7781** / 7782 / 7783 |
-| [Brain Core](../brain-core) | v2.34.0 | Shared infrastructure — 30+ engines | — |
+| Brain | Purpose | Ports |
+|-------|---------|-------|
+| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7788 / 7790 |
+| [Trading Brain](../trading-brain) | Adaptive trading intelligence with signal learning & paper trading | 7779 / 7780 |
+| **Marketing Brain** (this) | Content strategy, social engagement & cross-platform optimization | **7781** / 7782 / 7783 |
+| [Brain Core](../brain-core) | Shared infrastructure — 60+ engines | — |
 
 ## Support
 

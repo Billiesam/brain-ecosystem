@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/timmeck/brain-ecosystem?style=social)](https://github.com/timmeck/brain-ecosystem)
 
-**Shared infrastructure for the Brain Ecosystem — 30+ autonomous engines, synapses, IPC, MCP, dream mode, consciousness, prediction, reasoning, emotions, evolution, self-modification, and more.**
+**Shared infrastructure for the Brain Ecosystem — 60+ autonomous engines, synapses, IPC, MCP, LLM service, consciousness, research missions, notifications, self-modification, and more.**
 
-Brain Core is the nervous system that powers all three Brain MCP servers ([Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain), [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain), [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain)). A 40-step feedback orchestrator runs 30+ engines in autonomic cycles — the brain observes itself, forms hypotheses, runs experiments, dreams, debates, reasons in chains, feels emotions, evolves strategies genetically, and modifies its own source code. All packages live in the [brain-ecosystem](https://github.com/timmeck/brain-ecosystem) monorepo.
+Brain Core is the nervous system that powers all three Brain MCP servers ([Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain), [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain), [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain)). A 40-step feedback orchestrator runs 60+ engines in autonomic cycles — the brain observes itself, forms hypotheses, runs experiments, dreams, debates, reasons in chains, feels emotions, evolves strategies genetically, and modifies its own source code.
 
 ## What's Included
 
@@ -16,14 +16,21 @@ Brain Core is the nervous system that powers all three Brain MCP servers ([Brain
 | Module | Description |
 |--------|-------------|
 | **IPC Protocol** | Length-prefixed JSON frames over named pipes / Unix sockets |
-| **IPC Server** | Named pipe server with auto-recovery of stale pipes |
-| **IPC Client** | Request/response with timeouts and notification support |
+| **IPC Server/Client** | Named pipe server with auto-recovery, request/response with timeouts |
 | **MCP Server** | Stdio transport for Claude Code with auto-daemon-start |
 | **MCP HTTP Server** | SSE transport for Cursor, Windsurf, Cline, Continue |
 | **REST API Server** | HTTP server with CORS, auth, SSE events, batch RPC |
-| **IPC Validation** | Parameter validation (string 10KB, array 1000, depth 10) |
-| **IPC Errors** | Structured errors: IpcError, ValidationError, NotFoundError, TimeoutError |
 | **Security Middleware** | RateLimiter (token bucket), body size limits, security headers |
+
+### LLM Service
+
+| Module | Description |
+|--------|-------------|
+| **Multi-Provider** | Anthropic Claude + Ollama local models, auto-routing by task |
+| **Smart Caching** | Content-hash cache with TTL, avoid duplicate API calls |
+| **Rate Limiting** | Per-hour and per-day token/call budgets with automatic throttling |
+| **Usage Tracking** | Detailed stats: calls, tokens, latency, cache hit rate, cost tracking |
+| **Prompt Templates** | Reusable templates for analysis, summarization, classification, coding |
 
 ### Synapse Network & Learning
 
@@ -33,118 +40,105 @@ Brain Core is the nervous system that powers all three Brain MCP servers ([Brain
 | **Synapse Decay** | Exponential half-life decay for freshness |
 | **Spreading Activation** | BFS-based energy propagation through the graph |
 | **A* Pathfinding** | Find shortest paths between nodes |
-| **BaseSynapseManager** | Abstract manager with strengthen/weaken/activate/findPath/decay |
-| **BaseLearningEngine** | Abstract timer-managed learning engine |
-| **BaseResearchEngine** | Abstract timer-managed research engine |
-| **BaseMemoryEngine** | Abstract memory engine for expiry/consolidation/decay |
 | **Wilson Score** | Statistical confidence intervals for win rates |
-| **Time Decay** | Exponential half-life decay for rule freshness |
 
-### 30+ Autonomous Engines
+### 60+ Autonomous Engines
 
-#### Core Research (9 engines)
+#### Observation & Data
 
 | Engine | Description |
 |--------|-------------|
-| **SelfObserver** | Brain observes its own performance metrics and generates insights |
+| **SelfObserver** | Observes own performance metrics, generates insights |
 | **AnomalyDetective** | Detects statistical outliers using Z-scores and drift analysis |
-| **CrossDomainEngine** | Finds correlations between events across different brains |
-| **AdaptiveStrategy** | Adjusts strategies based on outcomes, reverts if performance drops |
-| **ExperimentEngine** | Designs and runs A/B tests on brain parameters |
-| **KnowledgeDistiller** | Extracts principles from confirmed hypotheses |
-| **ResearchAgenda** | Prioritizes what should be researched next |
-| **CounterfactualEngine** | "What if" analysis — estimates impact of hypothetical interventions |
-| **ResearchJournal** | Logs all discoveries, experiments, and breakthroughs |
+| **DataScout** | External data from GitHub/npm/Hacker News |
+| **SignalScanner** | GitHub trending repos, HN mentions, crypto signals |
+| **TechRadarEngine** | Daily tech trend scanning, repo watching, LLM relevance scoring |
 
-#### Intelligence & Awareness
+#### Understanding & Analysis
 
 | Engine | Description |
 |--------|-------------|
 | **AttentionEngine** | Dynamic focus, context detection, burst detection, engine weight allocation |
-| **TransferEngine** | Cross-brain knowledge transfer, analogies, cross-domain rules |
-| **NarrativeEngine** | Brain explains itself in natural language, finds contradictions, generates digests |
-| **CuriosityEngine** | Knowledge gap detection, UCB1 explore/exploit, blind spot detection |
-| **EmergenceEngine** | Emergent behavior detection, complexity metrics (entropy, phi), phase transitions |
-| **DebateEngine** | Multi-agent debates, advocatus diaboli, consensus synthesis |
-| **ReasoningEngine** | Forward chaining, abductive reasoning, temporal inference, counterfactuals |
-| **EmotionalModel** | 8 emotion dimensions, 6 moods, mood-based behavior recommendations |
-
-#### Meta-Cognition & Optimization
-
-| Engine | Description |
-|--------|-------------|
-| **ParameterRegistry** | Central tunable parameter store with 30+ parameters, bounds, snapshots |
-| **MetaCognitionLayer** | Engine performance grading (A-F), frequency adjustment |
-| **AutoExperimentEngine** | Autonomous parameter tuning with snapshot/rollback |
-| **EvolutionEngine** | Genetic algorithm — tournament selection, crossover, mutation, elitism |
-| **GoalEngine** | Goal planning with progress tracking, linear regression forecasting |
-| **MemoryPalace** | Knowledge graph with BFS pathfinding and auto-connection building |
-
-#### Autonomy & Self-Improvement
-
-| Engine | Description |
-|--------|-------------|
-| **SelfTestEngine** | Tests if brain truly understands its principles vs memorization |
-| **TeachEngine** | Generates teaching packages for other brains |
-| **DataScout** | External data acquisition from GitHub/npm/HN |
-| **SimulationEngine** | What-if scenarios via CausalGraph + PredictionEngine |
-| **SelfScanner** | Indexes own TypeScript source code with SHA256 change detection |
-| **SelfModificationEngine** | Generates and tests code changes autonomously via Claude API |
-| **BootstrapService** | Cold-start fix: seeds data so engines produce output from cycle 1 |
-
-### Orchestration & Core
-
-| Module | Description |
-|--------|-------------|
-| **ResearchOrchestrator** | 40-step feedback cycle orchestrating all engines every 5 minutes |
-| **DataMiner** | Bootstraps historical DB data into engines with adapter pattern |
-| **AutonomousResearchScheduler** | Self-directed research cycle execution |
-| **MetaLearningEngine** | Hyper-parameter optimization with Bayesian exploration |
 | **CausalGraph** | Granger causality analysis for event relationships |
+| **CrossDomainEngine** | Finds correlations between events across brains |
+| **PatternEngine** | Discovers recurring patterns in data |
+
+#### Ideas & Hypotheses
+
+| Engine | Description |
+|--------|-------------|
 | **HypothesisEngine** | Forms and tests hypotheses (temporal, correlation, threshold, creative) |
-| **AutoResponder** | Anomaly → automatic parameter adjustment, escalation, resolution |
+| **CuriosityEngine** | Knowledge gap detection, UCB1 explore/exploit, blind spot detection |
+| **DreamEngine** | Offline consolidation — memory replay, synapse pruning, compression, decay |
+| **DebateEngine** | Multi-agent debates, advocatus diaboli, consensus synthesis |
+
+#### Testing & Experimentation
+
+| Engine | Description |
+|--------|-------------|
+| **ExperimentEngine** | A/B tests on brain parameters |
+| **AutoExperimentEngine** | Autonomous parameter tuning with snapshot/rollback |
+| **SimulationEngine** | What-if scenarios via CausalGraph + PredictionEngine |
 | **PredictionEngine** | Holt-Winters + EWMA forecasting with auto-calibration |
 
-### Dream Mode & Consciousness
+#### Knowledge & Memory
+
+| Engine | Description |
+|--------|-------------|
+| **KnowledgeDistiller** | Extracts principles from confirmed hypotheses |
+| **MemoryPalace** | Knowledge graph with BFS pathfinding and connection building |
+| **ResearchJournal** | Logs all discoveries, experiments, breakthroughs |
+| **ConceptAbstraction** | Abstract concept formation from concrete observations |
+
+#### Action & Self-Improvement
+
+| Engine | Description |
+|--------|-------------|
+| **SelfModificationEngine** | Scans own code, generates improvements via Claude API, tests before applying |
+| **GoalEngine** | Goal planning with progress tracking and forecasting |
+| **AdaptiveStrategy** | Adjusts strategies based on outcomes, reverts if performance drops |
+| **MetaCognitionLayer** | Engine performance grading (A-F), frequency adjustment |
+| **EvolutionEngine** | Genetic algorithm — tournament selection, crossover, mutation, elitism |
+| **ReasoningEngine** | Forward chaining, abductive reasoning, temporal inference, counterfactuals |
+| **EmotionalModel** | 8 emotion dimensions, 6 moods, mood-based behavior recommendations |
+| **NarrativeEngine** | Brain explains itself in natural language, finds contradictions |
+| **TransferEngine** | Cross-brain knowledge transfer, analogies, cross-domain rules |
+
+### Research Missions
 
 | Module | Description |
 |--------|-------------|
-| **DreamEngine** | Offline memory consolidation — replay, prune, compress, decay |
-| **DreamConsolidator** | 4 phases: Memory Replay, Synapse Pruning, Compression, Importance Decay |
-| **ThoughtStream** | Circular buffer capturing every engine's thoughts in real-time |
-| **ConsciousnessServer** | HTTP + SSE server with live Consciousness Entity visualization (legacy — now part of Mission Control) |
-| **Consciousness Entity** | Animated Canvas 2D visualization: mood-colored pulsing orb, organic tentacles, 8-dimension ring, ambient particles, floating thoughts, inner eye tracking attention. 6 moods (flow/excited/anxious/reflective/bored/determined). Data from EmotionalModel via `/api/emotional` |
+| **ResearchMissionEngine** | 5-phase autonomous web research pipeline |
+| **Web Research Chain** | Brave Search + Jina Reader + Playwright + Firecrawl fallback |
+| **Phase Pipeline** | Decompose → Gather → Hypothesize → Analyze → Synthesize |
 
-### Code Generation & Mining
+### Notifications
 
 | Module | Description |
 |--------|-------------|
-| **CodeGenerator** | Claude API integration — generates code using brain knowledge as context |
-| **ContextBuilder** | Builds system prompts from principles, anti-patterns, strategies, patterns |
-| **CodeMiner** | Mines GitHub repos: README, package.json, directory structures |
-| **PatternExtractor** | Extracts dependency, tech stack, structure, and README patterns |
-| **CodegenServer** | HTTP + SSE dashboard for code review (legacy — now part of Mission Control) |
-| **SignalScanner** | GitHub trending repos, Hacker News, crypto signal tracking |
+| **NotificationService** | Multi-provider notification routing |
+| **Discord Provider** | Webhook-based Discord notifications |
+| **Telegram Provider** | Bot API Telegram notifications |
+| **Email Provider** | SMTP email notifications |
+| **Notification Bridge** | IPC-based cross-brain notification relay |
 
 ### Dashboards
 
 | Dashboard | Port | Description |
 |-----------|------|-------------|
-| **Mission Control** | 7788 | Unified 7-tab dashboard: Overview, Consciousness (Entity visualization), Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
+| **Mission Control** | 7788 | 7-tab dashboard: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
+| **Command Center** | 7790 | 7-page ecosystem dashboard with live visualizations, error log, self-mod feed, missions, knowledge growth |
 
-<p align="center"><img src="../../docs/assets/mission-control.png" alt="Mission Control Dashboard" width="700"></p>
-
-### Cross-Brain & Services
+### Cross-Brain & Ecosystem
 
 | Module | Description |
 |--------|-------------|
 | **CrossBrainClient** | Discover and query peer brains over IPC |
 | **CrossBrainNotifier** | Push event notifications to peers |
-| **CrossBrainCorrelator** | Correlate events across brains (error-trade-loss, publish-during-errors) |
+| **CrossBrainCorrelator** | Correlate events across brains |
+| **BorgSyncEngine** | Collective knowledge synchronization between all brains |
 | **EcosystemService** | Aggregated status, health score 0–100, analytics |
-| **WebhookService** | HMAC-SHA256 signed webhooks with exponential retry |
-| **ExportService** | JSON/CSV export with date range and column filters |
-| **BackupService** | Timestamped SQLite backups with integrity verification |
+| **WatchdogService** | Process monitoring, auto-restart, health checks |
 
 ### Utilities
 
@@ -152,11 +146,9 @@ Brain Core is the nervous system that powers all three Brain MCP servers ([Brain
 |--------|-------------|
 | **DB Connection** | SQLite (better-sqlite3) with WAL mode, foreign keys, caching |
 | **Logger** | Winston-based structured logging with file rotation |
-| **Event Bus** | Generic typed event emitter |
-| **CLI Colors** | Shared color palette, formatting helpers (header, table, badges) |
-| **Config Loader** | `deepMerge()` + `loadConfigFile()` for layered config |
+| **CLI Colors** | Shared color palette, formatting helpers |
 | **Embedding Engine** | Local vector embeddings with @huggingface/transformers |
-| **Memory Types** | Shared types for Memory, Session, Remember/Recall interfaces |
+| **Webhook / Export / Backup** | HMAC webhooks, JSON/CSV export, SQLite backups |
 
 ## Installation
 
@@ -172,77 +164,41 @@ npm install @timmeck/brain-core
 import {
   createConnection, IpcServer, startMcpServer,
   ResearchOrchestrator, DreamEngine, ThoughtStream,
-  UnifiedDashboardServer, PredictionEngine,
+  CommandCenterServer, LLMService,
 } from '@timmeck/brain-core';
 
 // 1. Database
 const db = createConnection('~/.my-brain/my-brain.db');
 
-// 2. Research Orchestrator (30+ engines, 40-step feedback cycle)
+// 2. LLM Service (multi-provider)
+const llm = new LLMService(db, {
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  ollamaBaseUrl: 'http://localhost:11434',
+});
+
+// 3. Research Orchestrator (60+ engines, 40-step feedback cycle)
 const orchestrator = new ResearchOrchestrator(db, { brainName: 'my-brain' });
 orchestrator.start();
 
-// 3. Dream Mode
-const dreamEngine = new DreamEngine(db, { brainName: 'my-brain' });
-orchestrator.setDreamEngine(dreamEngine);
-dreamEngine.start();
-
-// 4. Consciousness
-const thoughtStream = new ThoughtStream();
-orchestrator.setThoughtStream(thoughtStream);
-// Unified Mission Control dashboard (includes Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines)
-const dashboard = new UnifiedDashboardServer({ port: 7790, thoughtStream, ... });
+// 4. Command Center Dashboard
+const dashboard = new CommandCenterServer({
+  port: 7790,
+  selfName: 'my-brain',
+  crossBrain, ecosystemService, correlator,
+  thoughtStream: orchestrator.thoughtStream,
+  getLLMStats: () => llm.getStats(),
+});
 dashboard.start();
-
-// 5. Predictions
-const prediction = new PredictionEngine(db, { brainName: 'my-brain' });
-orchestrator.setPredictionEngine(prediction);
-prediction.start();
-```
-
-## Architecture
-
-```
-@timmeck/brain-core
-├── IPC ────────── protocol, server, client, validation, errors
-├── MCP ────────── stdio server, HTTP/SSE server
-├── API ────────── BaseApiServer, RateLimiter, security middleware
-├── Synapses ───── Hebbian, Decay, Activation, Pathfinder, BaseSynapseManager
-├── Research ───── ResearchOrchestrator (40 steps), DataMiner, BootstrapService
-│   ├── Core ───── SelfObserver, AnomalyDetective, Experiment, Adaptive, Agenda
-│   ├── Core ───── KnowledgeDistiller, Counterfactual, CrossDomain, Journal
-│   └── AutoResp ─ AutoResponder (anomaly → action)
-├── Intelligence ─ Attention, Transfer, Narrative, Curiosity, Emergence, Debate
-├── Reasoning ──── ReasoningEngine (forward chain, abduction, temporal, counterfactual)
-├── Emotional ──── EmotionalModel (8 dimensions, 6 moods)
-├── MetaCog ────── ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine
-├── Evolution ──── EvolutionEngine (genetic algorithm)
-├── Goals ─────── GoalEngine (planning, progress, forecasting)
-├── MemoryPalace ─ Knowledge graph, BFS pathfinding
-├── SelfAware ──── SelfTest, Teach, DataScout, Simulation
-├── SelfMod ────── SelfScanner, SelfModificationEngine
-├── Dream ──────── DreamEngine, DreamConsolidator
-├── Consciousness  ThoughtStream, ConsciousnessServer
-├── Prediction ─── PredictionEngine, Holt-Winters, EWMA, Calibration
-├── CodeGen ────── CodeGenerator, CodeMiner, PatternExtractor, CodegenServer
-├── Scanner ────── SignalScanner, GitHubCollector, HnCollector, CryptoCollector
-├── Causal ─────── CausalGraph (Granger causality), HypothesisEngine
-├── Cross-Brain ── Client, Notifier, Correlator, Subscriptions
-├── Dashboard ──── Mission Control (Unified), Consciousness*, CodeGen*, Hub*, Research*
-├── Services ───── Webhook, Export, Backup, Ecosystem
-├── Memory ─────── BaseMemoryEngine, types
-├── DB ─────────── SQLite connection (WAL mode)
-└── Utils ─────── hash, logger, paths, events, math, config, CLI
 ```
 
 ## Brain Ecosystem
 
-| Brain | Version | Purpose | Ports |
-|-------|---------|---------|-------|
-| [Brain](../brain) | v3.34.0 | Error memory, code intelligence, full autonomy & self-modification | 7777/7778/7788 |
-| [Trading Brain](../trading-brain) | v2.29.0 | Adaptive trading intelligence with signal learning & backtesting | 7779/7780 |
-| [Marketing Brain](../marketing-brain) | v1.30.0 | Content strategy, engagement & cross-platform optimization | 7781/7782/7783 |
-| **Brain Core** | v2.34.0 | Shared infrastructure — 30+ engines (this package) | — |
+| Brain | Purpose | Ports |
+|-------|---------|-------|
+| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777/7778/7788/7790 |
+| [Trading Brain](../trading-brain) | Adaptive trading intelligence with signal learning & paper trading | 7779/7780 |
+| [Marketing Brain](../marketing-brain) | Content strategy, social engagement & cross-platform optimization | 7781/7782/7783 |
+| **Brain Core** (this) | Shared infrastructure — 60+ engines | — |
 
 ## Support
 
