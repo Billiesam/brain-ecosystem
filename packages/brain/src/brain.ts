@@ -71,6 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -768,7 +769,84 @@ export class BrainCore {
     this.orchestrator.setMissionEngine(missionEngine);
     logger.info('ResearchMissionEngine activated — "brain missions create <topic>" ready');
 
-    logger.info('Research orchestrator started (30+ engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
+    // ── Intelligence Upgrade (Sessions 55-65) ────────────────
+
+    // 55. RAG Pipeline — vector search across all knowledge
+    const ragEngine = new RAGEngine(this.db!, { brainName: 'brain' });
+    if (this.embeddingEngine) ragEngine.setEmbeddingEngine(this.embeddingEngine);
+    ragEngine.setThoughtStream(thoughtStream);
+    if (llmService.isAvailable()) ragEngine.setLLMService(llmService);
+    services.ragEngine = ragEngine;
+
+    const ragIndexer = new RAGIndexer(this.db!);
+    ragIndexer.setRAGEngine(ragEngine);
+    services.ragIndexer = ragIndexer;
+    // Background: initial RAG indexing after 30s startup delay
+    setTimeout(() => {
+      ragIndexer.indexAll().then(count => {
+        if (count > 0) logger.info(`[RAG] Initial indexing: ${count} vectors`);
+      }).catch(err => logger.debug(`[RAG] Initial indexing skipped: ${(err as Error).message}`));
+    }, 30_000);
+
+    // 56. Knowledge Graph 2.0 — typed fact relations
+    const knowledgeGraph = new KnowledgeGraphEngine(this.db!, { brainName: 'brain' });
+    knowledgeGraph.setThoughtStream(thoughtStream);
+    services.knowledgeGraph = knowledgeGraph;
+
+    const factExtractor = new FactExtractor(this.db!, { brainName: 'brain' });
+    if (llmService.isAvailable()) factExtractor.setLLMService(llmService);
+    services.factExtractor = factExtractor;
+
+    // 57. Semantic Compression — deduplicate knowledge
+    const semanticCompressor = new SemanticCompressor(this.db!, { brainName: 'brain' });
+    semanticCompressor.setRAGEngine(ragEngine);
+    if (llmService.isAvailable()) semanticCompressor.setLLMService(llmService);
+    semanticCompressor.setThoughtStream(thoughtStream);
+    services.semanticCompressor = semanticCompressor;
+
+    // 58. Feedback Learning — RLHF reward signals
+    const feedbackEngine = new FeedbackEngine(this.db!, { brainName: 'brain' });
+    feedbackEngine.setThoughtStream(thoughtStream);
+    services.feedbackEngine = feedbackEngine;
+
+    // 59. Tool-Use Learning — track tool outcomes
+    const toolTracker = new ToolTracker(this.db!, { brainName: 'brain' });
+    const toolPatternAnalyzer = new ToolPatternAnalyzer(this.db!);
+    services.toolTracker = toolTracker;
+    services.toolPatternAnalyzer = toolPatternAnalyzer;
+
+    // 60. Proactive Suggestions — trigger-based improvement proposals
+    const proactiveEngine = new ProactiveEngine(this.db!, { brainName: 'brain' });
+    proactiveEngine.setThoughtStream(thoughtStream);
+    services.proactiveEngine = proactiveEngine;
+
+    // 61. User Modeling — adaptive responses
+    const userModel = new UserModel(this.db!, { brainName: 'brain' });
+    services.userModel = userModel;
+
+    // 62. Code Health Monitor — codebase quality tracking
+    const codeHealthMonitor = new CodeHealthMonitor(this.db!, { brainName: 'brain' });
+    codeHealthMonitor.setThoughtStream(thoughtStream);
+    services.codeHealthMonitor = codeHealthMonitor;
+
+    // 63. Inter-Brain Teaching — knowledge transfer protocol
+    const teachingProtocol = new TeachingProtocol(this.db!, { brainName: 'brain' });
+    services.teachingProtocol = teachingProtocol;
+    const curriculum = new Curriculum(this.db!);
+    services.curriculum = curriculum;
+
+    // 64. Consensus Decisions — multi-brain voting
+    const consensusEngine = new ConsensusEngine(this.db!, { brainName: 'brain' });
+    services.consensusEngine = consensusEngine;
+
+    // 65. Active Learning — gap identification & closing strategies
+    const activeLearner = new ActiveLearner(this.db!, { brainName: 'brain' });
+    activeLearner.setThoughtStream(thoughtStream);
+    services.activeLearner = activeLearner;
+
+    logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning)');
+
+    logger.info('Research orchestrator started (40+ engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 
     // 11k. Signal Scanner — GitHub/HN/Crypto signal tracking
     if (config.scanner.enabled) {

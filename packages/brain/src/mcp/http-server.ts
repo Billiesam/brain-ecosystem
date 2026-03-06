@@ -32,6 +32,7 @@ import { registerPeerToolsDirect } from './peer-tools.js';
 import { registerLLMToolsDirect } from './llm-tools.js';
 import { registerMissionToolsDirect } from './mission-tools.js';
 import { registerTechRadarToolsDirect } from './techradar-tools.js';
+import { registerIntelligenceToolsDirect } from './intelligence-tools.js';
 import { registerPromptsDirect } from './prompts.js';
 
 export class McpHttpServer {
@@ -74,6 +75,7 @@ export class McpHttpServer {
         registerLLMToolsDirect(server, router);
         registerMissionToolsDirect(server, router);
         registerTechRadarToolsDirect(server, router);
+        registerIntelligenceToolsDirect(server, router);
         registerPromptsDirect(server, router);
       },
     );

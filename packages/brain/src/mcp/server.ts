@@ -32,6 +32,7 @@ import { registerPeerTools } from './peer-tools.js';
 import { registerLLMTools } from './llm-tools.js';
 import { registerMissionTools } from './mission-tools.js';
 import { registerTechRadarTools } from './techradar-tools.js';
+import { registerIntelligenceTools } from './intelligence-tools.js';
 import { registerPrompts } from './prompts.js';
 
 export async function startMcpServer(): Promise<void> {
@@ -71,6 +72,7 @@ export async function startMcpServer(): Promise<void> {
       registerLLMTools(server, ipc);
       registerMissionTools(server, ipc);
       registerTechRadarTools(server, ipc);
+      registerIntelligenceTools(server, ipc);
     },
     registerPrompts,
   });

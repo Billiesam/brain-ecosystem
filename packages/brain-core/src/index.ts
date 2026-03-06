@@ -405,3 +405,57 @@ export type {
   NotificationEvent, NotificationProviderStatus,
   DiscordProviderConfig, TelegramProviderConfig, EmailProviderConfig,
 } from './notifications/index.js';
+
+// ── RAG Pipeline ──────────────────────────────────────────────
+export { RAGEngine, runRAGMigration } from './rag/index.js';
+export type { RAGEngineConfig, RAGSearchOptions, RAGResult, RAGIndexStats, RAGStatus } from './rag/index.js';
+export { RAGIndexer } from './rag/index.js';
+export type { RAGIndexerConfig, IndexSource, IndexerStatus } from './rag/index.js';
+
+// ── Knowledge Graph ──────────────────────────────────────────
+export { KnowledgeGraphEngine, runKnowledgeGraphMigration } from './knowledge-graph/index.js';
+export type { KnowledgeGraphConfig, KnowledgeFact, FactQuery, KnowledgeGraphStatus } from './knowledge-graph/index.js';
+export { FactExtractor } from './knowledge-graph/index.js';
+export type { ExtractedFact } from './knowledge-graph/index.js';
+
+// ── Semantic Compression ─────────────────────────────────────
+export { SemanticCompressor, runSemanticCompressorMigration } from './research/semantic-compressor.js';
+export type { SemanticCompressorConfig, CompressResult, CompressorStats } from './research/semantic-compressor.js';
+
+// ── Feedback Engine ──────────────────────────────────────────
+export { FeedbackEngine, runFeedbackMigration } from './feedback/index.js';
+export type { FeedbackEngineConfig, FeedbackSignal, FeedbackStats, FeedbackRecord } from './feedback/index.js';
+
+// ── Tool Learning ────────────────────────────────────────────
+export { ToolTracker, runToolTrackerMigration } from './tool-learning/index.js';
+export type { ToolTrackerConfig, ToolStats, ToolRecommendation } from './tool-learning/index.js';
+export { ToolPatternAnalyzer } from './tool-learning/index.js';
+export type { ToolTransition } from './tool-learning/index.js';
+
+// ── Proactive Suggestions ────────────────────────────────────
+export { ProactiveEngine, runProactiveMigration } from './proactive/index.js';
+export type { ProactiveEngineConfig, Suggestion, ProactiveStatus, ProactiveDataSources } from './proactive/index.js';
+
+// ── User Model ───────────────────────────────────────────────
+export { UserModel, runUserModelMigration } from './user-model/index.js';
+export type { UserModelConfig, UserProfile, SkillLevel } from './user-model/index.js';
+export { AdaptiveContext } from './user-model/index.js';
+export type { DetailLevel } from './user-model/index.js';
+
+// ── Code Health ──────────────────────────────────────────────
+export { CodeHealthMonitor, runCodeHealthMigration } from './code-health/index.js';
+export type { CodeHealthConfig, HealthScanResult, HealthTrend, CodeHealthStatus } from './code-health/index.js';
+
+// ── Teaching Protocol ────────────────────────────────────────
+export { TeachingProtocol, runTeachingMigration } from './teaching/index.js';
+export type { TeachingConfig, Lesson, TeachingStatus } from './teaching/index.js';
+export { Curriculum, runCurriculumMigration } from './teaching/index.js';
+export type { CurriculumItem, CurriculumStatus } from './teaching/index.js';
+
+// ── Consensus Engine ─────────────────────────────────────────
+export { ConsensusEngine, runConsensusMigration } from './consensus/index.js';
+export type { ConsensusConfig, Proposal, Vote, ConsensusResult, ConsensusStatus } from './consensus/index.js';
+
+// ── Active Learning ──────────────────────────────────────────
+export { ActiveLearner, runActiveLearningMigration } from './active-learning/index.js';
+export type { ActiveLearnerConfig, LearningGap, LearningStrategy, ActiveLearnerStatus } from './active-learning/index.js';

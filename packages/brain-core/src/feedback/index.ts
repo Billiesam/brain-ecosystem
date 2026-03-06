@@ -1,0 +1,8 @@
+export { FeedbackEngine, runFeedbackMigration } from './feedback-engine.js';
+export type {
+  FeedbackEngineConfig,
+  FeedbackSignal,
+  FeedbackRecord,
+  FeedbackCorrection,
+  FeedbackStats,
+} from './feedback-engine.js';

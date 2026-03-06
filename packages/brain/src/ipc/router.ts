@@ -128,6 +128,21 @@ export interface Services {
   borgSync?: import('@timmeck/brain-core').BorgSyncEngine;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
+  ragEngine?: import('@timmeck/brain-core').RAGEngine;
+  ragIndexer?: import('@timmeck/brain-core').RAGIndexer;
+  knowledgeGraph?: import('@timmeck/brain-core').KnowledgeGraphEngine;
+  factExtractor?: import('@timmeck/brain-core').FactExtractor;
+  semanticCompressor?: import('@timmeck/brain-core').SemanticCompressor;
+  feedbackEngine?: import('@timmeck/brain-core').FeedbackEngine;
+  toolTracker?: import('@timmeck/brain-core').ToolTracker;
+  toolPatternAnalyzer?: import('@timmeck/brain-core').ToolPatternAnalyzer;
+  proactiveEngine?: import('@timmeck/brain-core').ProactiveEngine;
+  userModel?: import('@timmeck/brain-core').UserModel;
+  codeHealthMonitor?: import('@timmeck/brain-core').CodeHealthMonitor;
+  teachingProtocol?: import('@timmeck/brain-core').TeachingProtocol;
+  curriculum?: import('@timmeck/brain-core').Curriculum;
+  consensusEngine?: import('@timmeck/brain-core').ConsensusEngine;
+  activeLearner?: import('@timmeck/brain-core').ActiveLearner;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -895,6 +910,75 @@ export class IpcRouter {
       ['plugin.get',              (params) => { const pl = s.pluginRegistry?.get(p(params).name); return pl ? { name: pl.name, version: pl.version, description: pl.description } : null; }],
       ['plugin.routes',           () => s.pluginRegistry?.getRoutes().map(r => ({ plugin: r.plugin, method: r.method })) ?? []],
       ['plugin.tools',            () => s.pluginRegistry?.getTools().map(t => ({ plugin: t.plugin, name: t.name, description: t.description })) ?? []],
+
+      // ─── RAG Pipeline ──────────────────────────────────────
+      ['rag.search',              async (params) => { if (!s.ragEngine) throw new Error('RAGEngine not available'); return s.ragEngine.search(p(params).query, { collections: p(params).collections, limit: p(params).limit, threshold: p(params).threshold }); }],
+      ['rag.status',              () => { if (!s.ragEngine) throw new Error('RAGEngine not available'); return s.ragEngine.getStatus(); }],
+      ['rag.index',               async () => { if (!s.ragIndexer) throw new Error('RAGIndexer not available'); const count = await s.ragIndexer.indexAll(); return { indexed: count }; }],
+
+      // ─── Knowledge Graph ─────────────────────────────────────
+      ['kg.query',                (params) => { if (!s.knowledgeGraph) throw new Error('KnowledgeGraph not available'); return s.knowledgeGraph.query({ subject: p(params).subject, predicate: p(params).predicate, object: p(params).object }); }],
+      ['kg.addFact',              (params) => { if (!s.knowledgeGraph) throw new Error('KnowledgeGraph not available'); return s.knowledgeGraph.addFact(p(params).subject, p(params).predicate, p(params).object, p(params).context, p(params).confidence); }],
+      ['kg.infer',                (params) => { if (!s.knowledgeGraph) throw new Error('KnowledgeGraph not available'); return s.knowledgeGraph.infer(p(params).subject, p(params).predicate); }],
+      ['kg.contradictions',       () => { if (!s.knowledgeGraph) throw new Error('KnowledgeGraph not available'); return s.knowledgeGraph.contradictions(); }],
+      ['kg.subgraph',             (params) => { if (!s.knowledgeGraph) throw new Error('KnowledgeGraph not available'); return s.knowledgeGraph.subgraph(p(params).topic, p(params).depth); }],
+      ['kg.status',               () => { if (!s.knowledgeGraph) throw new Error('KnowledgeGraph not available'); return s.knowledgeGraph.getStatus(); }],
+
+      // ─── Semantic Compression ────────────────────────────────
+      ['compression.compress',    async (params) => { if (!s.semanticCompressor) throw new Error('SemanticCompressor not available'); return s.semanticCompressor.compress(p(params).collection, p(params).threshold); }],
+      ['compression.stats',       () => { if (!s.semanticCompressor) throw new Error('SemanticCompressor not available'); return s.semanticCompressor.getStats(); }],
+
+      // ─── Feedback Learning ────────────────────────────────────
+      ['feedback.record',         (params) => { if (!s.feedbackEngine) throw new Error('FeedbackEngine not available'); return s.feedbackEngine.recordFeedback(p(params).type, p(params).targetId, p(params).signal, p(params).detail); }],
+      ['feedback.score',          (params) => { if (!s.feedbackEngine) throw new Error('FeedbackEngine not available'); return s.feedbackEngine.getRewardScore(p(params).type, p(params).targetId); }],
+      ['feedback.stats',          () => { if (!s.feedbackEngine) throw new Error('FeedbackEngine not available'); return s.feedbackEngine.getStats(); }],
+      ['feedback.history',        (params) => { if (!s.feedbackEngine) throw new Error('FeedbackEngine not available'); return s.feedbackEngine.getFeedbackHistory(p(params).type, p(params).targetId, p(params).limit); }],
+
+      // ─── Tool Learning ────────────────────────────────────────
+      ['toolTracker.record',      (params) => { if (!s.toolTracker) throw new Error('ToolTracker not available'); return s.toolTracker.recordUsage(p(params).tool, p(params).context, p(params).duration, p(params).outcome); }],
+      ['toolTracker.stats',       (params) => { if (!s.toolTracker) throw new Error('ToolTracker not available'); return s.toolTracker.getToolStats(p(params).tool); }],
+      ['toolTracker.recommend',   (params) => { if (!s.toolTracker) throw new Error('ToolTracker not available'); return s.toolTracker.recommend(p(params).context); }],
+      ['toolTracker.patterns',    () => { if (!s.toolPatternAnalyzer) throw new Error('ToolPatternAnalyzer not available'); return s.toolPatternAnalyzer.getTransitions(); }],
+
+      // ─── Proactive Suggestions ────────────────────────────────
+      ['proactive.analyze',       async (params) => { if (!s.proactiveEngine) throw new Error('ProactiveEngine not available'); return s.proactiveEngine.analyze(p(params)); }],
+      ['proactive.suggestions',   (params) => { if (!s.proactiveEngine) throw new Error('ProactiveEngine not available'); return s.proactiveEngine.getSuggestions(p(params).limit); }],
+      ['proactive.dismiss',       (params) => { if (!s.proactiveEngine) throw new Error('ProactiveEngine not available'); return s.proactiveEngine.dismiss(p(params).id); }],
+      ['proactive.status',        () => { if (!s.proactiveEngine) throw new Error('ProactiveEngine not available'); return s.proactiveEngine.getStatus(); }],
+
+      // ─── User Model ──────────────────────────────────────────
+      ['userModel.update',        (params) => { if (!s.userModel) throw new Error('UserModel not available'); return s.userModel.updateFromInteraction(p(params).toolName, p(params).context, p(params).outcome); }],
+      ['userModel.profile',       () => { if (!s.userModel) throw new Error('UserModel not available'); return s.userModel.getProfile(); }],
+      ['userModel.preference',    (params) => { if (!s.userModel) throw new Error('UserModel not available'); return s.userModel.setPreference(p(params).key, p(params).value); }],
+      ['userModel.status',        () => { if (!s.userModel) throw new Error('UserModel not available'); return s.userModel.getStatus(); }],
+
+      // ─── Code Health ─────────────────────────────────────────
+      ['codeHealth.scan',         (params) => { if (!s.codeHealthMonitor) throw new Error('CodeHealthMonitor not available'); return s.codeHealthMonitor.scan(p(params).projectPath); }],
+      ['codeHealth.trends',       (params) => { if (!s.codeHealthMonitor) throw new Error('CodeHealthMonitor not available'); return s.codeHealthMonitor.trends(p(params).projectPath, p(params).limit); }],
+      ['codeHealth.status',       () => { if (!s.codeHealthMonitor) throw new Error('CodeHealthMonitor not available'); return s.codeHealthMonitor.getStatus(); }],
+
+      // ─── Teaching Protocol ────────────────────────────────────
+      ['teaching.teach',          (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.teach(p(params).targetBrain, { domain: p(params).domain, principle: p(params).principle, evidence: p(params).evidence, applicability: p(params).applicability }); }],
+      ['teaching.learn',          (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.learn(p(params)); }],
+      ['teaching.requestLesson',  (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.requestLesson(p(params).fromBrain, p(params).topic); }],
+      ['teaching.history',        (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.getHistory(p(params).direction, p(params).limit); }],
+      ['teaching.curriculum',     () => { if (!s.curriculum) throw new Error('Curriculum not available'); return s.curriculum.getTeachable('brain'); }],
+      ['teaching.status',         () => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.getStatus(); }],
+
+      // ─── Consensus Decisions ──────────────────────────────────
+      ['consensus.propose',       (params) => { if (!s.consensusEngine) throw new Error('ConsensusEngine not available'); return s.consensusEngine.propose({ type: p(params).type, description: p(params).description, options: p(params).options, context: p(params).context }); }],
+      ['consensus.vote',          (params) => { if (!s.consensusEngine) throw new Error('ConsensusEngine not available'); return s.consensusEngine.vote(p(params).proposalId, p(params).option, p(params).confidence, p(params).reasoning); }],
+      ['consensus.resolve',       (params) => { if (!s.consensusEngine) throw new Error('ConsensusEngine not available'); return s.consensusEngine.resolve(p(params).proposalId); }],
+      ['consensus.get',           (params) => { if (!s.consensusEngine) throw new Error('ConsensusEngine not available'); return s.consensusEngine.getProposal(p(params).id); }],
+      ['consensus.history',       (params) => { if (!s.consensusEngine) throw new Error('ConsensusEngine not available'); return s.consensusEngine.getHistory(p(params).status, p(params).limit); }],
+      ['consensus.status',        () => { if (!s.consensusEngine) throw new Error('ConsensusEngine not available'); return s.consensusEngine.getStatus(); }],
+
+      // ─── Active Learning ──────────────────────────────────────
+      ['activeLearning.gaps',     (params) => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.getOpenGaps(p(params).limit); }],
+      ['activeLearning.addGap',   (params) => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.addGap(p(params).type, p(params).topic, p(params).description, p(params).impact, p(params).ease); }],
+      ['activeLearning.plan',     (params) => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.planLearning(p(params).gapId); }],
+      ['activeLearning.close',    (params) => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.closeGap(p(params).gapId, p(params).outcome); }],
+      ['activeLearning.status',   () => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.getStatus(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({
