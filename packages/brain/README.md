@@ -78,7 +78,6 @@ The ResearchOrchestrator runs a 40-step feedback cycle every 5 minutes:
 | **Mission Control** | 7788 | 7-tab: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
 | **Command Center** | 7790 | 7-page: Ecosystem, Learning Pipeline, Trading Flow, Marketing Flow, Cross-Brain & Borg, Activity & Missions, Infrastructure |
 
-<p align="center"><img src="../../docs/assets/mission-control.png" alt="Mission Control Dashboard" width="700"></p>
 
 **Command Center features:** Brain status cards, health gauge, LLM usage, thought stream, error log, engine dependency flow, knowledge growth chart, self-modification feed, mission tracker with 5-phase progress, quick actions, animated Borg network, peer graph
 

@@ -74,7 +74,6 @@ All brains support MCP over HTTP with SSE transport:
 | **Mission Control** | 7788 | 7-tab dashboard: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
 | **Command Center** | 7790 | 7-page ecosystem dashboard: Brain Status, Learning Pipeline, Trading Flow, Marketing Flow, Cross-Brain, Activity & Missions, Infrastructure |
 
-<p align="center"><img src="docs/assets/mission-control.png" alt="Mission Control — the brain visualizes its own consciousness" width="700"></p>
 
 - **Command Center** — Live overview of the entire ecosystem: all 3 brains, 60+ engines, error log, self-modification feed, research missions, knowledge growth chart, engine dependency flow, quick actions, Borg network with animated sync packets, LLM usage, thought stream
 
