@@ -24,6 +24,14 @@ export interface CommandCenterOptions {
   thoughtStream?: ThoughtStream | null;
   getLLMStats?: () => unknown;
   getLLMHistory?: (hours: number) => unknown;
+  getErrors?: () => unknown;
+  getSelfModStatus?: () => unknown;
+  getSelfModHistory?: (limit?: number) => unknown;
+  getMissions?: () => unknown;
+  getMissionList?: (status?: string, limit?: number) => unknown;
+  getKnowledgeStats?: () => unknown;
+  getTimeSeries?: (days?: number) => unknown;
+  triggerAction?: (action: string, params?: unknown) => Promise<unknown>;
 }
 
 // ── Server ───────────────────────────────────────────────
@@ -84,7 +92,12 @@ export class CommandCenterServer {
         if (url.pathname === '/api/analytics') { this.handleAnalytics(res); return; }
         if (url.pathname === '/api/llm') { this.handleLLM(res); return; }
         if (url.pathname === '/api/thoughts') { this.handleThoughts(res, url); return; }
+        if (url.pathname === '/api/errors') { this.handleErrors(res); return; }
+        if (url.pathname === '/api/selfmod') { this.handleSelfMod(res); return; }
+        if (url.pathname === '/api/missions') { this.handleMissions(res, url); return; }
+        if (url.pathname === '/api/knowledge') { this.handleKnowledge(res); return; }
         if (url.pathname === '/api/borg/toggle' && req.method === 'POST') { this.handleBorgToggle(req, res); return; }
+        if (url.pathname === '/api/action' && req.method === 'POST') { this.handleAction(req, res); return; }
         if (url.pathname === '/events') { this.handleSSE(req, res); return; }
 
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -159,6 +172,44 @@ export class CommandCenterServer {
         .then(analytics => this.broadcast('analytics', analytics))
         .catch(() => {});
     }, 30_000));
+
+    // Errors (20s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getErrors) return;
+      try { this.broadcast('errors', this.options.getErrors()); } catch { /* ignore */ }
+    }, 20_000));
+
+    // Self-Mod (30s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getSelfModStatus) return;
+      try {
+        this.broadcast('selfmod', {
+          status: this.options.getSelfModStatus(),
+          history: this.options.getSelfModHistory?.(10) ?? [],
+        });
+      } catch { /* ignore */ }
+    }, 30_000));
+
+    // Missions (15s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getMissions) return;
+      try {
+        this.broadcast('missions', {
+          status: this.options.getMissions(),
+          list: this.options.getMissionList?.() ?? [],
+        });
+      } catch { /* ignore */ }
+    }, 15_000));
+
+    // Knowledge (60s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getKnowledgeStats) return;
+      try { this.broadcast('knowledge', this.options.getKnowledgeStats()); } catch { /* ignore */ }
+    }, 60_000));
 
     // Heartbeat (30s)
     this.timers.push(setInterval(() => {
@@ -235,8 +286,18 @@ export class CommandCenterServer {
       } : null;
       const llm = this.options.getLLMStats?.() ?? null;
       const thoughts = this.options.thoughtStream?.getRecent(30) ?? [];
+      const errors = this.options.getErrors?.() ?? null;
+      const selfmod = this.options.getSelfModStatus ? {
+        status: this.options.getSelfModStatus(),
+        history: this.options.getSelfModHistory?.(10) ?? [],
+      } : null;
+      const missions = this.options.getMissions ? {
+        status: this.options.getMissions(),
+        list: this.options.getMissionList?.() ?? [],
+      } : null;
+      const knowledge = this.options.getKnowledgeStats?.() ?? null;
 
-      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts });
+      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge });
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
     }
@@ -303,6 +364,37 @@ export class CommandCenterServer {
     this.json(res, engine ? ts.getByEngine(engine, limit) : ts.getRecent(limit));
   }
 
+  private handleErrors(res: http.ServerResponse): void {
+    this.json(res, this.options.getErrors?.() ?? { errors: [], summary: null });
+  }
+
+  private handleSelfMod(res: http.ServerResponse): void {
+    if (!this.options.getSelfModStatus) {
+      this.json(res, { status: null, history: [] });
+      return;
+    }
+    this.json(res, {
+      status: this.options.getSelfModStatus(),
+      history: this.options.getSelfModHistory?.(20) ?? [],
+    });
+  }
+
+  private handleMissions(res: http.ServerResponse, url: URL): void {
+    if (!this.options.getMissions) {
+      this.json(res, { status: null, list: [] });
+      return;
+    }
+    const status = url.searchParams.get('status') ?? undefined;
+    this.json(res, {
+      status: this.options.getMissions(),
+      list: this.options.getMissionList?.(status) ?? [],
+    });
+  }
+
+  private handleKnowledge(res: http.ServerResponse): void {
+    this.json(res, this.options.getKnowledgeStats?.() ?? { timeSeries: [], totals: null });
+  }
+
   private handleBorgToggle(req: http.IncomingMessage, res: http.ServerResponse): void {
     if (!this.options.borgSync) {
       this.json(res, { error: 'Borg sync not available' }, 501);
@@ -320,6 +412,30 @@ export class CommandCenterServer {
         }
         this.options.borgSync!.setEnabled(enabled);
         this.json(res, { enabled, toggled: true });
+      } catch (err) {
+        this.json(res, { error: (err as Error).message }, 400);
+      }
+    });
+  }
+
+  private handleAction(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (!this.options.triggerAction) {
+      this.json(res, { error: 'Actions not available' }, 501);
+      return;
+    }
+
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { action, params } = JSON.parse(body || '{}') as { action?: string; params?: unknown };
+        if (!action || typeof action !== 'string') {
+          this.json(res, { error: 'Missing "action" string' }, 400);
+          return;
+        }
+        this.options.triggerAction!(action, params)
+          .then(result => this.json(res, { ok: true, action, result }))
+          .catch(err => this.json(res, { error: (err as Error).message }, 500));
       } catch (err) {
         this.json(res, { error: (err as Error).message }, 400);
       }

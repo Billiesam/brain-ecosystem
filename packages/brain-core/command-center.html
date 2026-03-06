@@ -143,6 +143,53 @@ canvas{display:block;width:100%;height:100%}
 .tbl td{padding:8px 10px;border-bottom:1px solid rgba(100,140,255,0.06)}
 .tbl tr:hover td{background:rgba(0,229,255,0.03)}
 
+/* ── Error Feed ───────────────────────────────────────── */
+.error-feed{max-height:260px;overflow-y:auto;font-size:12px}
+.error-item{padding:8px 10px;border-bottom:1px solid rgba(255,68,102,0.08);display:flex;gap:10px;align-items:flex-start}
+.error-level{font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap}
+.error-level.err{color:var(--red);background:rgba(255,68,102,0.12)}
+.error-level.warn{color:var(--orange);background:rgba(255,153,51,0.12)}
+.error-msg{color:var(--text);flex:1;line-height:1.4;word-break:break-word}
+
+/* ── Self-Mod ─────────────────────────────────────────── */
+.mod-item{padding:10px;border-bottom:1px solid rgba(100,140,255,0.06);display:flex;gap:12px;align-items:flex-start}
+.mod-status{font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap}
+.mod-applied{color:var(--green);background:rgba(0,255,136,0.12)}
+.mod-testing{color:var(--yellow);background:rgba(255,204,0,0.12)}
+.mod-proposed{color:var(--cyan);background:rgba(0,229,255,0.1)}
+.mod-failed{color:var(--red);background:rgba(255,68,102,0.12)}
+.mod-title{font-weight:600;font-size:12px;margin-bottom:2px}
+.mod-detail{font-size:11px;color:var(--text-dim)}
+
+/* ── Mission Card ─────────────────────────────────────── */
+.mission-card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px}
+.mission-topic{font-weight:600;font-size:13px;margin-bottom:6px}
+.mission-phases{display:flex;gap:4px;margin-top:8px}
+.mission-phase{flex:1;height:4px;border-radius:2px;background:rgba(100,140,255,0.1)}
+.mission-phase.done{background:var(--green)}
+.mission-phase.running{background:var(--cyan);animation:pulse-glow 1.5s infinite}
+.mission-phase.fail{background:var(--red)}
+.mission-meta{font-size:10px;color:var(--text-dim);margin-top:6px;display:flex;gap:12px}
+
+/* ── Knowledge Chart ──────────────────────────────────── */
+.chart-wrap{position:relative;height:200px;padding:10px 0}
+.chart-wrap svg{width:100%;height:100%}
+
+/* ── Quick Actions ────────────────────────────────────── */
+.quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.action-btn{padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer;font-size:12px;transition:all .2s;display:flex;align-items:center;gap:6px}
+.action-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--bg-card-hover)}
+.action-btn:active{transform:scale(0.97)}
+.action-btn.running{border-color:var(--yellow);color:var(--yellow);pointer-events:none}
+.action-btn .action-icon{font-size:14px}
+
+/* ── Dependency Flow ──────────────────────────────────── */
+.dep-flow{display:flex;align-items:stretch;gap:4px;padding:12px 0;overflow-x:auto}
+.dep-group{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:10px;min-width:140px;flex:1}
+.dep-group-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px;text-align:center}
+.dep-engine{font-size:11px;padding:3px 6px;margin:2px 0;border-radius:4px;background:rgba(0,229,255,0.06);color:var(--text);text-align:center}
+.dep-arrow{display:flex;align-items:center;color:var(--cyan);font-size:18px;opacity:.4;animation:pulse-arrow 2s ease-in-out infinite}
+
 /* ── Misc ──────────────────────────────────────────────── */
 .section{margin-bottom:24px}
 .section-title{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -187,6 +234,7 @@ canvas{display:block;width:100%;height:100%}
     <div class="nav-item" data-page="marketing"><span class="nav-icon">&#x1F4E3;</span><span class="nav-label">Marketing Flow</span></div>
     <div class="nav-section">System</div>
     <div class="nav-item" data-page="crossbrain"><span class="nav-icon">&#x1F517;</span><span class="nav-label">Cross-Brain</span></div>
+    <div class="nav-item" data-page="activity"><span class="nav-icon">&#x26A1;</span><span class="nav-label">Aktivität</span></div>
     <div class="nav-item" data-page="infra"><span class="nav-icon">&#x2699;</span><span class="nav-label">Infrastruktur</span></div>
   </div>
 
@@ -207,6 +255,17 @@ canvas{display:block;width:100%;height:100%}
     <div class="content">
       <!-- ════ Page 1: Ecosystem Overview ═════════════════ -->
       <div class="page active" id="page-overview">
+        <!-- Quick Actions -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F3AE;</span> Schnellaktionen</div>
+          <div class="quick-actions" id="quickActions">
+            <button class="action-btn" data-action="learning-cycle"><span class="action-icon">&#x1F504;</span> Lernzyklus starten</button>
+            <button class="action-btn" data-action="borg-sync"><span class="action-icon">&#x1F47E;</span> Borg Sync</button>
+            <button class="action-btn" data-action="tech-scan"><span class="action-icon">&#x1F4E1;</span> Tech-Radar Scan</button>
+            <button class="action-btn" data-action="health-check"><span class="action-icon">&#x1F3E5;</span> Health Check</button>
+          </div>
+        </div>
+
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F916;</span> Brain Status</div>
           <div class="grid grid-3" id="brainCards"></div>
@@ -228,16 +287,24 @@ canvas{display:block;width:100%;height:100%}
               </div>
             </div>
             <div class="section">
-              <div class="section-title"><span class="icon">&#x1F4CA;</span> LLM Nutzung</div>
-              <div class="card" id="llmCard"><div class="empty">Waiting for LLM data...</div></div>
+              <div class="section-title"><span class="icon">&#x1F4CA;</span> KI-Nutzung</div>
+              <div class="card" id="llmCard"><div class="empty">Warte auf KI-Daten...</div></div>
             </div>
           </div>
 
           <div class="section">
             <div class="section-title"><span class="icon">&#x1F4AD;</span> Brain denkt gerade... <span id="thoughtCount" style="color:var(--text-dim);font-weight:400;font-size:12px"></span></div>
             <div class="card" style="padding:0">
-              <div class="thought-stream" id="thoughtStream"><div class="empty">Waiting for thoughts...</div></div>
+              <div class="thought-stream" id="thoughtStream"><div class="empty">Warte auf Gedanken...</div></div>
             </div>
+          </div>
+        </div>
+
+        <!-- Error Log -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x26A0;</span> Letzte Fehler & Warnungen <span id="errorCount" style="color:var(--text-dim);font-weight:400;font-size:12px"></span></div>
+          <div class="card" style="padding:0">
+            <div class="error-feed" id="errorFeed"><div class="empty">Keine Fehler — alles läuft!</div></div>
           </div>
         </div>
 
@@ -252,21 +319,96 @@ canvas{display:block;width:100%;height:100%}
       <!-- ════ Page 2: Lern-Kreislauf ═════════════════════ -->
       <div class="page" id="page-learning">
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F504;</span> Der Lern-Kreislauf</div>
+          <div class="section-title"><span class="icon">&#x1F504;</span> So lernt Brain — Der Kreislauf</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Daten kommen rein, Brain analysiert sie, bildet Hypothesen, testet sie als Experimente und macht daraus Wissen. Dieser Kreislauf läuft ständig.</p>
           <div class="pipeline" id="learnPipeline">
             <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F4E5;</div><div class="pipe-label">Daten rein</div><div class="pipe-value" id="lp-data">0</div></div></div>
             <div class="pipe-arrow">&#x27A1;</div>
-            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F50D;</div><div class="pipe-label">Analyse</div><div class="pipe-value" id="lp-analysis">0</div></div></div>
+            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F50D;</div><div class="pipe-label">Analysieren</div><div class="pipe-value" id="lp-analysis">0</div></div></div>
             <div class="pipe-arrow">&#x27A1;</div>
-            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F4A1;</div><div class="pipe-label">Hypothesen</div><div class="pipe-value" id="lp-hypotheses">0</div></div></div>
+            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F4A1;</div><div class="pipe-label">Ideen bilden</div><div class="pipe-value" id="lp-hypotheses">0</div></div></div>
             <div class="pipe-arrow">&#x27A1;</div>
-            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F9EA;</div><div class="pipe-label">Experimente</div><div class="pipe-value" id="lp-experiments">0</div></div></div>
+            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F9EA;</div><div class="pipe-label">Ausprobieren</div><div class="pipe-value" id="lp-experiments">0</div></div></div>
             <div class="pipe-arrow">&#x27A1;</div>
-            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F4DC;</div><div class="pipe-label">Prinzipien</div><div class="pipe-value" id="lp-principles">0</div></div></div>
+            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x1F4DC;</div><div class="pipe-label">Wissen merken</div><div class="pipe-value" id="lp-principles">0</div></div></div>
             <div class="pipe-arrow">&#x27A1;</div>
-            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x26A1;</div><div class="pipe-label">Aktionen</div><div class="pipe-value" id="lp-actions">0</div></div></div>
+            <div class="pipe-stage"><div class="pipe-box"><div class="pipe-icon">&#x26A1;</div><div class="pipe-label">Umsetzen</div><div class="pipe-value" id="lp-actions">0</div></div></div>
           </div>
         </div>
+
+        <!-- Engine Dependency Flow -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F500;</span> Wie die Engines zusammenarbeiten</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Jede Engine hat eine Aufgabe. Zusammen bilden sie eine Kette — von der Beobachtung bis zur Aktion.</p>
+          <div class="dep-flow" id="engineDependencyFlow">
+            <div class="dep-group">
+              <div class="dep-group-title">&#x1F441; Beobachten</div>
+              <div class="dep-engine">DataScout</div>
+              <div class="dep-engine">TechRadar</div>
+              <div class="dep-engine">SignalScanner</div>
+              <div class="dep-engine">AnomalyDetective</div>
+            </div>
+            <div class="dep-arrow">&#x27A1;</div>
+            <div class="dep-group">
+              <div class="dep-group-title">&#x1F9E0; Verstehen</div>
+              <div class="dep-engine">CausalEngine</div>
+              <div class="dep-engine">PatternEngine</div>
+              <div class="dep-engine">Curiosity</div>
+              <div class="dep-engine">Attention</div>
+            </div>
+            <div class="dep-arrow">&#x27A1;</div>
+            <div class="dep-group">
+              <div class="dep-group-title">&#x1F4A1; Ideen</div>
+              <div class="dep-engine">HypothesisEngine</div>
+              <div class="dep-engine">DreamEngine</div>
+              <div class="dep-engine">DebateEngine</div>
+            </div>
+            <div class="dep-arrow">&#x27A1;</div>
+            <div class="dep-group">
+              <div class="dep-group-title">&#x1F9EA; Testen</div>
+              <div class="dep-engine">ExperimentEngine</div>
+              <div class="dep-engine">SimulationEngine</div>
+              <div class="dep-engine">Prediction</div>
+            </div>
+            <div class="dep-arrow">&#x27A1;</div>
+            <div class="dep-group">
+              <div class="dep-group-title">&#x1F4DA; Wissen</div>
+              <div class="dep-engine">KnowledgeDistiller</div>
+              <div class="dep-engine">MemoryPalace</div>
+              <div class="dep-engine">ResearchJournal</div>
+            </div>
+            <div class="dep-arrow">&#x27A1;</div>
+            <div class="dep-group">
+              <div class="dep-group-title">&#x26A1; Handeln</div>
+              <div class="dep-engine">SelfMod</div>
+              <div class="dep-engine">GoalEngine</div>
+              <div class="dep-engine">Strategy</div>
+              <div class="dep-engine">MetaCognition</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Knowledge Growth -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F4C8;</span> Wissens-Wachstum — Wird Brain schlauer?</div>
+          <div class="card">
+            <div class="grid grid-4" id="knowledgeTotals">
+              <div style="text-align:center"><div class="card-value" id="kn-principles" style="color:var(--cyan)">0</div><div class="card-sub">Regeln gelernt</div></div>
+              <div style="text-align:center"><div class="card-value" id="kn-hypotheses" style="color:var(--yellow)">0</div><div class="card-sub">Hypothesen getestet</div></div>
+              <div style="text-align:center"><div class="card-value" id="kn-experiments" style="color:var(--green)">0</div><div class="card-sub">Experimente gemacht</div></div>
+              <div style="text-align:center"><div class="card-value" id="kn-errors" style="color:var(--red)">0</div><div class="card-sub">Fehler gelöst</div></div>
+            </div>
+            <div class="chart-wrap" id="knowledgeChart">
+              <svg id="knowledgeSvg" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+            </div>
+            <div style="display:flex;gap:16px;justify-content:center;font-size:10px;color:var(--text-dim)">
+              <span><span style="color:var(--cyan)">&#x2B24;</span> Regeln</span>
+              <span><span style="color:var(--green)">&#x2B24;</span> Lösungen</span>
+              <span><span style="color:var(--red)">&#x2B24;</span> Fehler</span>
+            </div>
+          </div>
+        </div>
+
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Engine Stationen</div>
           <div class="engine-grid" id="brainEngineGrid"><div class="empty">Loading...</div></div>
@@ -276,7 +418,8 @@ canvas{display:block;width:100%;height:100%}
       <!-- ════ Page 3: Trading Flow ═══════════════════════ -->
       <div class="page" id="page-trading">
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F4C8;</span> Trading Pipeline</div>
+          <div class="section-title"><span class="icon">&#x1F4C8;</span> So tradet Trading-Brain</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Signale kommen rein, werden analysiert, als Paper Trade getestet und das Ergebnis fließt zurück ins Lernen.</p>
           <div class="pipeline">
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(0,255,136,0.2)"><div class="pipe-icon">&#x1F4E1;</div><div class="pipe-label">Signale</div><div class="pipe-value" id="tp-signals" style="color:var(--green)">0</div></div></div>
             <div class="pipe-arrow" style="color:var(--green)">&#x27A1;</div>
@@ -290,9 +433,9 @@ canvas{display:block;width:100%;height:100%}
           </div>
         </div>
         <div class="grid grid-3">
-          <div class="card"><div class="card-title">Equity</div><div class="card-value" id="tradingEquity" style="color:var(--green)">--</div><div class="card-sub">Paper Trading Balance</div></div>
-          <div class="card"><div class="card-title">Win Rate</div><div class="card-value" id="tradingWinRate" style="color:var(--green)">--</div><div class="card-sub">Gewinnrate</div></div>
-          <div class="card"><div class="card-title">Offene Positionen</div><div class="card-value" id="tradingPositions" style="color:var(--green)">--</div><div class="card-sub">Aktive Trades</div></div>
+          <div class="card"><div class="card-title">Equity</div><div class="card-value" id="tradingEquity" style="color:var(--green)">--</div><div class="card-sub">Paper Trading Guthaben</div></div>
+          <div class="card"><div class="card-title">Win Rate</div><div class="card-value" id="tradingWinRate" style="color:var(--green)">--</div><div class="card-sub">Gewinnrate aller Trades</div></div>
+          <div class="card"><div class="card-title">Offene Positionen</div><div class="card-value" id="tradingPositions" style="color:var(--green)">--</div><div class="card-sub">Aktive Trades gerade</div></div>
         </div>
         <div class="section" style="margin-top:16px">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Trading Engines</div>
@@ -303,7 +446,8 @@ canvas{display:block;width:100%;height:100%}
       <!-- ════ Page 4: Marketing Flow ═════════════════════ -->
       <div class="page" id="page-marketing">
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F4E3;</span> Marketing Pipeline</div>
+          <div class="section-title"><span class="icon">&#x1F4E3;</span> So lernt Marketing-Brain</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Posts werden veröffentlicht, das Engagement wird gemessen, Muster erkannt und die Strategie angepasst.</p>
           <div class="pipeline">
             <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(255,68,204,0.2)"><div class="pipe-icon">&#x270D;</div><div class="pipe-label">Posts</div><div class="pipe-value" id="mp-posts" style="color:var(--magenta)">0</div></div></div>
             <div class="pipe-arrow" style="color:var(--magenta)">&#x27A1;</div>
@@ -328,19 +472,21 @@ canvas{display:block;width:100%;height:100%}
       <!-- ════ Page 5: Cross-Brain & Borg ═════════════════ -->
       <div class="page" id="page-crossbrain">
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F517;</span> Cross-Brain Kommunikation</div>
+          <div class="section-title"><span class="icon">&#x1F517;</span> So kommunizieren die Brains</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Die drei Brains tauschen ständig Nachrichten aus. Jeder fliegende Punkt ist eine Nachricht. Lila = Borg-Wissens-Sync.</p>
           <div class="card canvas-wrap" style="height:280px">
             <canvas id="crossBrainCanvas"></canvas>
           </div>
         </div>
         <div class="grid grid-2">
           <div class="section">
-            <div class="section-title"><span class="icon">&#x1F47E;</span> Borg Sync</div>
+            <div class="section-title"><span class="icon">&#x1F47E;</span> Borg Sync — Geteiltes Wissen</div>
             <div class="card" id="borgCard">
+              <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px">Borg synchronisiert Wissen zwischen allen Brains. Was einer lernt, wissen alle.</p>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                 <div>
                   <div class="card-title" style="margin-bottom:4px">Collective Sync</div>
-                  <div id="borgStatus" style="font-size:13px;color:var(--text-dim)">Not available</div>
+                  <div id="borgStatus" style="font-size:13px;color:var(--text-dim)">Nicht verfügbar</div>
                 </div>
                 <button class="btn" id="borgToggle" disabled>Toggle</button>
               </div>
@@ -348,30 +494,61 @@ canvas{display:block;width:100%;height:100%}
             </div>
           </div>
           <div class="section">
-            <div class="section-title"><span class="icon">&#x1F4DC;</span> Korrelationen</div>
-            <div class="card"><div id="correlationList"><div class="empty">No correlations yet</div></div></div>
+            <div class="section-title"><span class="icon">&#x1F4DC;</span> Korrelationen — Was hängt zusammen?</div>
+            <div class="card"><div id="correlationList"><div class="empty">Noch keine Korrelationen gefunden</div></div></div>
           </div>
         </div>
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F4C3;</span> Sync Historie</div>
-          <div class="card"><div id="borgHistory"><div class="empty">No sync history</div></div></div>
+          <div class="section-title"><span class="icon">&#x1F4C3;</span> Sync Verlauf</div>
+          <div class="card"><div id="borgHistory"><div class="empty">Noch kein Sync passiert</div></div></div>
         </div>
       </div>
 
-      <!-- ════ Page 6: Infrastruktur ══════════════════════ -->
+      <!-- ════ Page 6: Activity (Self-Mod + Missions) ═════ -->
+      <div class="page" id="page-activity">
+        <!-- Self-Modification -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F527;</span> Brain verbessert sich selbst</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Brain erkennt Probleme im eigenen Code und schlägt Verbesserungen vor. Jede Änderung wird erst getestet, bevor sie angewendet wird.</p>
+          <div class="grid grid-4" id="selfModStats">
+            <div class="card" style="text-align:center"><div class="card-value" id="sm-total" style="color:var(--cyan)">0</div><div class="card-sub">Vorschläge insgesamt</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="sm-applied" style="color:var(--green)">0</div><div class="card-sub">Erfolgreich angewendet</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="sm-testing" style="color:var(--yellow)">0</div><div class="card-sub">Wird gerade getestet</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="sm-failed" style="color:var(--red)">0</div><div class="card-sub">Fehlgeschlagen</div></div>
+          </div>
+          <div class="card" style="padding:0;margin-top:12px">
+            <div style="max-height:300px;overflow-y:auto" id="selfModFeed"><div class="empty">Brain hat sich noch nicht selbst verbessert</div></div>
+          </div>
+        </div>
+
+        <!-- Mission Tracker -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F680;</span> Aktive Recherche-Missionen</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Brain forscht eigenständig zu Themen. Jede Mission durchläuft 5 Phasen: Aufteilen, Sammeln, Hypothesen bilden, Analysieren, Zusammenfassen.</p>
+          <div class="grid grid-3" id="missionStats">
+            <div class="card" style="text-align:center"><div class="card-value" id="ms-active" style="color:var(--cyan)">0</div><div class="card-sub">Aktive Missionen</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="ms-completed" style="color:var(--green)">0</div><div class="card-sub">Abgeschlossen</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="ms-sources" style="color:var(--purple)">0</div><div class="card-sub">Quellen gesammelt</div></div>
+          </div>
+          <div id="missionList" style="margin-top:12px"><div class="empty">Keine aktiven Missionen</div></div>
+        </div>
+      </div>
+
+      <!-- ════ Page 7: Infrastruktur ══════════════════════ -->
       <div class="page" id="page-infra">
         <div class="grid grid-2">
           <div class="section">
-            <div class="section-title"><span class="icon">&#x1F6E1;</span> Watchdog</div>
+            <div class="section-title"><span class="icon">&#x1F6E1;</span> Watchdog — Hält alles am Laufen</div>
             <div class="card" id="watchdogCard"><div class="empty">Loading...</div></div>
           </div>
           <div class="section">
-            <div class="section-title"><span class="icon">&#x1F9E9;</span> Plugins</div>
+            <div class="section-title"><span class="icon">&#x1F9E9;</span> Plugins — Erweiterungen</div>
             <div class="card" id="pluginCard"><div class="empty">Loading...</div></div>
           </div>
         </div>
         <div class="section">
-          <div class="section-title"><span class="icon">&#x1F3ED;</span> Alle Engines</div>
+          <div class="section-title"><span class="icon">&#x1F3ED;</span> Alle Engines auf einen Blick</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Grün = aktiv, Gelb = bereit, Grau = aus. Die Zahl zeigt wie viele Gedanken die Engine produziert hat.</p>
           <div class="engine-grid" id="allEngineGrid"><div class="empty">Loading...</div></div>
         </div>
         <div class="section">
@@ -385,10 +562,22 @@ canvas{display:block;width:100%;height:100%}
 
 <script>
 // ── State ─────────────────────────────────────────────────
-const state = { ecosystem:null, engines:[], watchdog:[], plugins:[], borg:null, analytics:null, llm:null, thoughts:[], connected:false, lastThoughtTime:0 };
+const state = {
+  ecosystem:null, engines:[], watchdog:[], plugins:[], borg:null, analytics:null,
+  llm:null, thoughts:[], connected:false, lastThoughtTime:0,
+  errors:null, selfmod:null, missions:null, knowledge:null
+};
 
 // ── Navigation ────────────────────────────────────────────
-const titles = { overview:'Ecosystem Overview', learning:'Der Lern-Kreislauf', trading:'Trading Flow', marketing:'Marketing Flow', crossbrain:'Cross-Brain & Borg', infra:'Infrastruktur' };
+const titles = {
+  overview:'Ecosystem Overview',
+  learning:'Der Lern-Kreislauf',
+  trading:'Trading Flow',
+  marketing:'Marketing Flow',
+  crossbrain:'Cross-Brain & Borg',
+  activity:'Aktivität & Missionen',
+  infra:'Infrastruktur'
+};
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -410,12 +599,16 @@ function connectSSE() {
   es.addEventListener('analytics', e => { state.analytics = JSON.parse(e.data); renderAnalytics(); });
   es.addEventListener('llm', e => { state.llm = JSON.parse(e.data); renderLLM(); });
   es.addEventListener('thought', e => { addThought(JSON.parse(e.data)); });
+  es.addEventListener('errors', e => { state.errors = JSON.parse(e.data); renderErrors(); });
+  es.addEventListener('selfmod', e => { state.selfmod = JSON.parse(e.data); renderSelfMod(); });
+  es.addEventListener('missions', e => { state.missions = JSON.parse(e.data); renderMissions(); });
+  es.addEventListener('knowledge', e => { state.knowledge = JSON.parse(e.data); renderKnowledge(); });
   es.onerror = () => { state.connected = false; updateConnection(); };
 }
 
 function updateConnection() {
   const b = document.getElementById('connectionBadge');
-  b.textContent = state.connected ? 'Connected' : 'Disconnected';
+  b.textContent = state.connected ? 'Verbunden' : 'Getrennt';
   b.className = 'badge ' + (state.connected ? 'badge-ok' : 'badge-err');
 }
 
@@ -426,8 +619,12 @@ async function loadInitial() {
     state.ecosystem = data.ecosystem; state.engines = data.engines || [];
     state.watchdog = data.watchdog || []; state.plugins = data.plugins || [];
     state.borg = data.borg; state.analytics = data.analytics; state.llm = data.llm;
+    state.errors = data.errors; state.selfmod = data.selfmod;
+    state.missions = data.missions; state.knowledge = data.knowledge;
     if (data.thoughts) { state.thoughts = data.thoughts; renderThoughts(); }
-    renderEcosystem(); renderEngines(); renderWatchdog(); renderPlugins(); renderBorg(); renderAnalytics(); renderLLM();
+    renderEcosystem(); renderEngines(); renderWatchdog(); renderPlugins();
+    renderBorg(); renderAnalytics(); renderLLM(); renderErrors();
+    renderSelfMod(); renderMissions(); renderKnowledge();
   } catch {}
 }
 
@@ -443,12 +640,12 @@ function addThought(t) {
 function renderThoughts() {
   const el = document.getElementById('thoughtStream');
   const cnt = document.getElementById('thoughtCount');
-  if (!state.thoughts.length) { el.innerHTML = '<div class="empty">Waiting for thoughts...</div>'; cnt.textContent = ''; return; }
+  if (!state.thoughts.length) { el.innerHTML = '<div class="empty">Warte auf Gedanken...</div>'; cnt.textContent = ''; return; }
   cnt.textContent = `(${state.thoughts.length})`;
   el.innerHTML = state.thoughts.slice(0, 50).map(t => {
     const time = new Date(t.timestamp).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
     const sigClass = t.significance === 'breakthrough' ? 'sig-breakthrough' : t.significance === 'notable' ? 'sig-notable' : 'sig-routine';
-    const sigLabel = t.significance === 'breakthrough' ? 'Durchbruch' : t.significance === 'notable' ? 'Bemerkenswert' : '';
+    const sigLabel = t.significance === 'breakthrough' ? 'Durchbruch!' : t.significance === 'notable' ? 'Bemerkenswert' : '';
     return `<div class="thought-item">
       <span class="thought-time">${time}</span>
       <span class="thought-engine" style="color:var(--cyan)">${t.engine}</span>
@@ -463,7 +660,7 @@ function updatePulse() {
   const dot = document.getElementById('pulseDot');
   const label = document.getElementById('pulseLabel');
   const age = Date.now() - state.lastThoughtTime;
-  if (state.lastThoughtTime === 0) { dot.className = 'pulse-dot off'; label.textContent = 'Waiting...'; return; }
+  if (state.lastThoughtTime === 0) { dot.className = 'pulse-dot off'; label.textContent = 'Warte...'; return; }
   if (age < 30000) { dot.className = 'pulse-dot'; label.textContent = 'Brain arbeitet'; }
   else if (age < 120000) { dot.className = 'pulse-dot idle'; label.textContent = 'Idle'; }
   else { dot.className = 'pulse-dot off'; label.textContent = 'Ruhig'; }
@@ -474,29 +671,174 @@ setInterval(updatePulse, 5000);
 function renderLLM() {
   const el = document.getElementById('llmCard');
   const s = state.llm;
-  if (!s) { el.innerHTML = '<div class="empty">Kein LLM Service</div>'; return; }
+  if (!s) { el.innerHTML = '<div class="empty">Kein KI-Service aktiv</div>'; return; }
 
   const hourPct = s.tokensThisHour && s.budgetRemainingHour != null ? Math.min(100, (s.tokensThisHour / (s.tokensThisHour + s.budgetRemainingHour)) * 100) : 0;
   const dayPct = s.tokensToday && s.budgetRemainingDay != null ? Math.min(100, (s.tokensToday / (s.tokensToday + s.budgetRemainingDay)) * 100) : 0;
 
   el.innerHTML = `
     <div class="llm-grid">
-      <div class="llm-stat"><div class="llm-stat-value">${s.totalCalls ?? 0}</div><div class="llm-stat-label">API Calls</div></div>
-      <div class="llm-stat"><div class="llm-stat-value">${formatK(s.totalTokens ?? 0)}</div><div class="llm-stat-label">Tokens Total</div></div>
-      <div class="llm-stat"><div class="llm-stat-value">${s.cacheHitRate != null ? (s.cacheHitRate * 100).toFixed(0) + '%' : '--'}</div><div class="llm-stat-label">Cache Hit Rate</div></div>
-      <div class="llm-stat"><div class="llm-stat-value">${s.callsThisHour ?? 0}</div><div class="llm-stat-label">Calls/Stunde</div></div>
-      <div class="llm-stat"><div class="llm-stat-value">${s.averageLatencyMs ? Math.round(s.averageLatencyMs) + 'ms' : '--'}</div><div class="llm-stat-label">Latenz</div></div>
-      <div class="llm-stat"><div class="llm-stat-value">${s.errors ?? 0}</div><div class="llm-stat-label">Fehler</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.totalCalls ?? 0}</div><div class="llm-stat-label">KI-Anfragen</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${formatK(s.totalTokens ?? 0)}</div><div class="llm-stat-label">Tokens verbraucht</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.cacheHitRate != null ? (s.cacheHitRate * 100).toFixed(0) + '%' : '--'}</div><div class="llm-stat-label">Cache Treffer</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.callsThisHour ?? 0}</div><div class="llm-stat-label">Anfragen/Stunde</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.averageLatencyMs ? Math.round(s.averageLatencyMs) + 'ms' : '--'}</div><div class="llm-stat-label">Antwortzeit</div></div>
+      <div class="llm-stat"><div class="llm-stat-value">${s.errors ?? 0}</div><div class="llm-stat-label">KI-Fehler</div></div>
     </div>
     <div style="margin-top:12px">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:2px"><span>Budget Stunde</span><span>${formatK(s.tokensThisHour ?? 0)} / ${formatK((s.tokensThisHour ?? 0) + (s.budgetRemainingHour ?? 0))}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:2px"><span>Budget pro Stunde</span><span>${formatK(s.tokensThisHour ?? 0)} / ${formatK((s.tokensThisHour ?? 0) + (s.budgetRemainingHour ?? 0))}</span></div>
       <div class="llm-bar"><div class="llm-bar-fill" style="width:${hourPct}%;background:${hourPct > 80 ? 'var(--red)' : hourPct > 50 ? 'var(--orange)' : 'var(--cyan)'}"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin:8px 0 2px"><span>Budget Tag</span><span>${formatK(s.tokensToday ?? 0)} / ${formatK((s.tokensToday ?? 0) + (s.budgetRemainingDay ?? 0))}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin:8px 0 2px"><span>Budget pro Tag</span><span>${formatK(s.tokensToday ?? 0)} / ${formatK((s.tokensToday ?? 0) + (s.budgetRemainingDay ?? 0))}</span></div>
       <div class="llm-bar"><div class="llm-bar-fill" style="width:${dayPct}%;background:${dayPct > 80 ? 'var(--red)' : dayPct > 50 ? 'var(--orange)' : 'var(--green)'}"></div></div>
     </div>
-    ${s.model ? `<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Model: ${s.model}</div>` : ''}
-    ${s.providers ? `<div style="margin-top:4px;font-size:10px;color:var(--text-dim)">Provider: ${s.providers.map(p => `<span style="color:${p.available ? 'var(--green)' : 'var(--red)'}">${p.name}</span>`).join(', ')}</div>` : ''}
+    ${s.model ? `<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">KI-Modell: ${s.model}</div>` : ''}
+    ${s.providers ? `<div style="margin-top:4px;font-size:10px;color:var(--text-dim)">Anbieter: ${s.providers.map(p => `<span style="color:${p.available ? 'var(--green)' : 'var(--red)'}">${p.name}</span>`).join(', ')}</div>` : ''}
   `;
+}
+
+// ── Error Log ─────────────────────────────────────────────
+function renderErrors() {
+  const el = document.getElementById('errorFeed');
+  const cnt = document.getElementById('errorCount');
+  const d = state.errors;
+  if (!d) { el.innerHTML = '<div class="empty">Keine Fehler — alles läuft!</div>'; cnt.textContent = ''; return; }
+  const errors = d.errors || d;
+  if (!Array.isArray(errors) || !errors.length) { el.innerHTML = '<div class="empty">Keine Fehler — alles läuft!</div>'; cnt.textContent = ''; return; }
+  cnt.textContent = `(${errors.length})`;
+  el.innerHTML = errors.slice(0, 20).map(e => {
+    const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }) : '';
+    const level = e.resolved ? 'warn' : 'err';
+    const msg = e.message || e.error_message || e.title || 'Unbekannter Fehler';
+    const source = e.source || e.project || '';
+    return `<div class="error-item">
+      <span class="thought-time">${time}</span>
+      <span class="error-level ${level}">${e.resolved ? 'Gelöst' : 'Fehler'}</span>
+      ${source ? `<span style="font-size:11px;color:var(--cyan);min-width:60px">${escHtml(source)}</span>` : ''}
+      <span class="error-msg">${escHtml(msg)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Self-Mod Activity ─────────────────────────────────────
+function renderSelfMod() {
+  const d = state.selfmod;
+  if (!d || !d.status) {
+    setText('sm-total', 0); setText('sm-applied', 0); setText('sm-testing', 0); setText('sm-failed', 0);
+    document.getElementById('selfModFeed').innerHTML = '<div class="empty">Brain hat sich noch nicht selbst verbessert</div>';
+    return;
+  }
+  const s = d.status;
+  setText('sm-total', s.totalModifications || 0);
+  const byStatus = s.byStatus || {};
+  setText('sm-applied', byStatus.applied || 0);
+  setText('sm-testing', (byStatus.testing || 0) + (byStatus.generating || 0));
+  setText('sm-failed', (byStatus.failed || 0) + (byStatus.rejected || 0));
+
+  const hist = d.history || [];
+  const el = document.getElementById('selfModFeed');
+  if (!hist.length) { el.innerHTML = '<div class="empty">Noch keine Verbesserungen</div>'; return; }
+  el.innerHTML = hist.map(m => {
+    const statusMap = { applied:'Angewendet', testing:'Wird getestet', ready:'Bereit', proposed:'Vorgeschlagen', generating:'Generiert', failed:'Fehlgeschlagen', rejected:'Abgelehnt', rolled_back:'Zurückgesetzt' };
+    const statusClass = m.status === 'applied' ? 'mod-applied' : m.status === 'testing' || m.status === 'generating' ? 'mod-testing' : m.status === 'failed' || m.status === 'rejected' ? 'mod-failed' : 'mod-proposed';
+    const time = m.created_at ? new Date(m.created_at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+    return `<div class="mod-item">
+      <span class="mod-status ${statusClass}">${statusMap[m.status] || m.status}</span>
+      <div style="flex:1">
+        <div class="mod-title">${escHtml(m.title || 'Verbesserung')}</div>
+        <div class="mod-detail">${escHtml(m.problem_description || '')} ${time ? `<span style="float:right">${time}</span>` : ''}</div>
+        ${m.target_files?.length ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px">Dateien: ${m.target_files.map(f => f.split('/').pop()).join(', ')}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Mission Tracker ───────────────────────────────────────
+function renderMissions() {
+  const d = state.missions;
+  if (!d || !d.status) {
+    setText('ms-active', 0); setText('ms-completed', 0); setText('ms-sources', 0);
+    document.getElementById('missionList').innerHTML = '<div class="empty">Keine aktiven Missionen</div>';
+    return;
+  }
+  const s = d.status;
+  setText('ms-active', s.activeMissions || 0);
+  setText('ms-completed', s.completedMissions || 0);
+  setText('ms-sources', s.totalSources || 0);
+
+  const list = d.list || [];
+  const el = document.getElementById('missionList');
+  if (!list.length) { el.innerHTML = '<div class="empty">Keine aktiven Missionen</div>'; return; }
+  const phases = ['decomposing','gathering','hypothesizing','analyzing','synthesizing'];
+  const phaseLabels = { decomposing:'Aufteilen', gathering:'Sammeln', hypothesizing:'Ideen bilden', analyzing:'Analysieren', synthesizing:'Zusammenfassen' };
+  el.innerHTML = list.slice(0, 10).map(m => {
+    const statusIdx = phases.indexOf(m.status);
+    const phaseHtml = phases.map((p, i) => {
+      const cls = m.status === 'complete' ? 'done' : m.status === 'failed' ? (i <= statusIdx ? 'fail' : '') : (i < statusIdx ? 'done' : i === statusIdx ? 'running' : '');
+      return `<div class="mission-phase ${cls}" title="${phaseLabels[p] || p}"></div>`;
+    }).join('');
+    const statusText = m.status === 'complete' ? 'Fertig' : m.status === 'failed' ? 'Fehlgeschlagen' : phaseLabels[m.status] || m.status;
+    const depth = m.depth === 'deep' ? 'Tiefgehend' : m.depth === 'quick' ? 'Schnell' : 'Standard';
+    return `<div class="mission-card">
+      <div class="mission-topic">${escHtml(m.topic || 'Mission')}</div>
+      <div style="font-size:11px;color:var(--text-dim)">${statusText} — ${depth} — ${m.sourceCount || 0} Quellen</div>
+      <div class="mission-phases">${phaseHtml}</div>
+      <div class="mission-meta">
+        <span>Gestartet: ${m.createdAt ? new Date(m.createdAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '?'}</span>
+        ${m.completedAt ? `<span>Fertig: ${new Date(m.completedAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Knowledge Growth ──────────────────────────────────────
+function renderKnowledge() {
+  const d = state.knowledge;
+  if (!d) return;
+  // Totals
+  if (d.totals) {
+    setText('kn-principles', d.totals.principles || d.totals.rules || 0);
+    setText('kn-hypotheses', d.totals.hypotheses || 0);
+    setText('kn-experiments', d.totals.experiments || 0);
+    setText('kn-errors', d.totals.errorsSolved || d.totals.solutions || 0);
+  }
+  // Time series chart
+  const ts = d.timeSeries || [];
+  if (!ts.length) return;
+  drawKnowledgeChart(ts);
+}
+
+function drawKnowledgeChart(data) {
+  const svg = document.getElementById('knowledgeSvg');
+  if (!svg || !data.length) return;
+  const w = 600, h = 180, pad = 30;
+  const maxVal = Math.max(1, ...data.map(d => Math.max(d.errors || 0, d.solutions || 0)));
+  const xStep = (w - pad * 2) / Math.max(1, data.length - 1);
+
+  function path(key, color) {
+    const pts = data.map((d, i) => {
+      const x = pad + i * xStep;
+      const y = h - pad - ((d[key] || 0) / maxVal) * (h - pad * 2);
+      return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+    }).join(' ');
+    return `<path d="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`;
+  }
+
+  // Grid lines
+  let grid = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = pad + (i / 4) * (h - pad * 2);
+    grid += `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="rgba(100,140,255,0.08)" stroke-width="1"/>`;
+  }
+  // X labels (show every few)
+  let labels = '';
+  const step = Math.max(1, Math.floor(data.length / 7));
+  for (let i = 0; i < data.length; i += step) {
+    const x = pad + i * xStep;
+    const d = data[i].date || '';
+    labels += `<text x="${x}" y="${h-5}" text-anchor="middle" fill="var(--text-dim)" font-size="9">${d.slice(5)}</text>`;
+  }
+
+  svg.innerHTML = grid + labels + path('errors', '#ff4466') + path('solutions', '#00ff88');
 }
 
 // ── Render: Ecosystem ─────────────────────────────────────
@@ -505,26 +847,27 @@ function renderEcosystem() {
   const hb = document.getElementById('healthBadge');
   const h = eco.health;
   if (h) {
-    hb.textContent = h.status === 'healthy' ? 'Healthy' : h.status === 'degraded' ? 'Degraded' : 'Critical';
+    hb.textContent = h.status === 'healthy' ? 'Gesund' : h.status === 'degraded' ? 'Eingeschränkt' : 'Kritisch';
     hb.className = 'badge ' + (h.status === 'healthy' ? 'badge-ok' : h.status === 'degraded' ? 'badge-warn' : 'badge-err');
     const score = h.score || 0;
     document.getElementById('gaugeArc').setAttribute('stroke-dasharray', `${(score / 100) * 172} 172`);
     document.getElementById('gaugeArc').setAttribute('stroke', score > 70 ? 'var(--green)' : score > 40 ? 'var(--orange)' : 'var(--red)');
     document.getElementById('gaugeValue').textContent = Math.round(score);
   }
-  // Brain cards
   const container = document.getElementById('brainCards');
   const brainNames = ['brain', 'trading-brain', 'marketing-brain'];
   const labels = { brain:'Brain', 'trading-brain':'Trading-Brain', 'marketing-brain':'Marketing-Brain' };
+  const descs = { brain:'Lernt aus Fehlern, verbessert Code', 'trading-brain':'Paper Trading, Signal-Analyse', 'marketing-brain':'Content-Strategie, Engagement' };
   const classes = { brain:'brain-brain', 'trading-brain':'brain-trading', 'marketing-brain':'brain-marketing' };
   container.innerHTML = brainNames.map(name => {
     const b = (eco.brains || []).find(x => x.name === name) || { name, available:false };
     return `<div class="card brain-card ${classes[name]}">
       <div class="brain-status"><span class="dot ${b.available ? 'dot-on' : 'dot-off'}"></span><span class="brain-name">${labels[name]}</span></div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">${descs[name]}</div>
       <div class="brain-meta">
         <span>${b.available ? 'Online' : 'Offline'}</span>
         ${b.version ? `<span>v${b.version}</span>` : ''}${b.pid ? `<span>PID ${b.pid}</span>` : ''}
-        ${b.uptime ? `<span>${fmtUp(b.uptime)}</span>` : ''}${b.methods ? `<span>${b.methods} methods</span>` : ''}
+        ${b.uptime ? `<span>${fmtUp(b.uptime)}</span>` : ''}${b.methods ? `<span>${b.methods} Tools</span>` : ''}
       </div></div>`;
   }).join('');
   drawPeerGraph(eco.brains || []);
@@ -533,7 +876,7 @@ function renderEcosystem() {
 
 function renderCorrelations(c) {
   const el = document.getElementById('correlationList');
-  if (!c.length) { el.innerHTML = '<div class="empty">No correlations yet</div>'; return; }
+  if (!c.length) { el.innerHTML = '<div class="empty">Noch keine Zusammenhänge gefunden</div>'; return; }
   el.innerHTML = c.slice(0, 10).map(x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
     <span style="color:var(--cyan)">${x.sourceA}/${x.eventA}</span> <span style="color:var(--text-dim)">&#x2194;</span>
     <span style="color:var(--magenta)">${x.sourceB}/${x.eventB}</span>
@@ -555,7 +898,7 @@ function renderEngines() {
 
 function renderGrid(id, engines, showBrain = false) {
   const el = document.getElementById(id); if (!el) return;
-  if (!engines.length) { el.innerHTML = '<div class="empty">No engines</div>'; return; }
+  if (!engines.length) { el.innerHTML = '<div class="empty">Keine Engines</div>'; return; }
   el.innerHTML = engines.map(e => {
     const st = e.lastActivity && (Date.now() - e.lastActivity < 60000) ? 'active' : e.thoughtCount > 0 ? 'idle' : 'off';
     const lbl = showBrain && e.brain ? `${e.brain}/${e.engine}` : (e.engine || e.name || '?');
@@ -581,46 +924,80 @@ function updateLearningPipeline(engines) {
 // ── Render: Analytics ─────────────────────────────────────
 function renderAnalytics() {
   const a = state.analytics; if (!a) return;
-  if (a.trading) { setText('tp-signals', a.trading.signals||0); setText('tp-trades', a.trading.trades||0); setText('tradingWinRate', a.trading.winRate ? (a.trading.winRate*100).toFixed(1)+'%' : '--'); }
-  if (a.marketing) { setText('mp-posts', a.marketing.posts||0); setText('mp-engagement', a.marketing.engagement||0); setText('marketingCampaigns', a.marketing.campaigns||0); }
+  if (a.trading) {
+    const t = a.trading;
+    setText('tp-signals', num(t.signals));
+    setText('tp-trades', num(t.trades));
+    setText('tradingWinRate', t.winRate ? (Number(t.winRate)*100).toFixed(1)+'%' : '--');
+    setText('tradingEquity', t.equity ? '$'+Number(t.equity).toLocaleString() : '--');
+    setText('tradingPositions', num(t.positions));
+  }
+  if (a.marketing) {
+    const m = a.marketing;
+    setText('mp-posts', num(m.posts));
+    setText('mp-engagement', num(m.engagement));
+    setText('marketingCampaigns', num(m.campaigns));
+  }
 }
+function num(v) { if (v == null) return 0; if (typeof v === 'object') return v.total || v.count || v.length || Object.keys(v).length || 0; return Number(v) || 0; }
 
 // ── Render: Watchdog ──────────────────────────────────────
 function renderWatchdog() {
   const el = document.getElementById('watchdogCard');
   const d = state.watchdog || [];
-  if (!d.length) { el.innerHTML = '<div class="empty">No watchdog configured</div>'; return; }
-  el.innerHTML = `<table class="tbl"><thead><tr><th>Daemon</th><th>Status</th><th>PID</th><th>Uptime</th><th>Restarts</th></tr></thead><tbody>` +
-    d.map(x => `<tr><td>${x.name}</td><td><span class="dot ${x.running?'dot-on':'dot-off'}" style="margin-right:6px"></span>${x.running?(x.healthy?'Healthy':'Unhealthy'):'Stopped'}</td><td>${x.pid||'-'}</td><td>${x.uptime?fmtUp(x.uptime/1000):'-'}</td><td>${x.restarts||0}</td></tr>`).join('') + '</tbody></table>';
+  if (!d.length) { el.innerHTML = '<div class="empty">Kein Watchdog konfiguriert</div>'; return; }
+  el.innerHTML = `<table class="tbl"><thead><tr><th>Dienst</th><th>Status</th><th>PID</th><th>Laufzeit</th><th>Neustarts</th></tr></thead><tbody>` +
+    d.map(x => `<tr><td>${x.name}</td><td><span class="dot ${x.running?'dot-on':'dot-off'}" style="margin-right:6px"></span>${x.running?(x.healthy?'Gesund':'Problem'):'Gestoppt'}</td><td>${x.pid||'-'}</td><td>${x.uptime?fmtUp(x.uptime/1000):'-'}</td><td>${x.restarts||0}</td></tr>`).join('') + '</tbody></table>';
   const hc = document.getElementById('healthCheckCard');
   const ok = d.every(x => x.running && x.healthy), off = d.filter(x => !x.running).length;
-  hc.innerHTML = `<div style="display:flex;gap:20px;align-items:center"><span style="font-size:32px">${ok?'&#x2705;':'&#x26A0;'}</span><div><div style="font-size:15px;font-weight:600;color:${ok?'var(--green)':'var(--orange)'}">${ok?'All Systems Operational':`${off} offline`}</div><div style="font-size:12px;color:var(--text-dim);margin-top:4px">${d.length} daemons</div></div></div>`;
+  hc.innerHTML = `<div style="display:flex;gap:20px;align-items:center"><span style="font-size:32px">${ok?'&#x2705;':'&#x26A0;'}</span><div><div style="font-size:15px;font-weight:600;color:${ok?'var(--green)':'var(--orange)'}">${ok?'Alle Systeme laufen':`${off} Dienste offline`}</div><div style="font-size:12px;color:var(--text-dim);margin-top:4px">${d.length} Dienste überwacht</div></div></div>`;
 }
 
 function renderPlugins() {
   const el = document.getElementById('pluginCard');
   const p = state.plugins || [];
-  if (!p.length) { el.innerHTML = '<div class="empty">No plugins</div>'; return; }
-  el.innerHTML = p.map(x => `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><div><div style="font-weight:600;font-size:13px">${x.name}</div><div style="font-size:11px;color:var(--text-dim)">${x.description||''} v${x.version}</div></div><span class="tag tag-green">${x.status||'loaded'}</span></div>`).join('');
+  if (!p.length) { el.innerHTML = '<div class="empty">Keine Plugins installiert</div>'; return; }
+  el.innerHTML = p.map(x => `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><div><div style="font-weight:600;font-size:13px">${x.name}</div><div style="font-size:11px;color:var(--text-dim)">${x.description||''} v${x.version}</div></div><span class="tag tag-green">${x.status||'Geladen'}</span></div>`).join('');
 }
 
 // ── Render: Borg ──────────────────────────────────────────
 function renderBorg() {
   const b = state.borg;
   const sEl = document.getElementById('borgStatus'), btn = document.getElementById('borgToggle'), det = document.getElementById('borgDetails'), hist = document.getElementById('borgHistory');
-  if (!b || !b.status) { sEl.textContent = 'Not available'; btn.disabled = true; return; }
+  if (!b || !b.status) { sEl.textContent = 'Nicht verfügbar'; btn.disabled = true; return; }
   const s = b.status;
-  sEl.innerHTML = `<span class="dot ${s.enabled?'dot-on':'dot-off'}" style="margin-right:6px"></span>${s.enabled?'Active':'Disabled'} &mdash; ${s.mode}`;
-  btn.disabled = false; btn.className = s.enabled ? 'btn btn-active' : 'btn'; btn.textContent = s.enabled ? 'Disable' : 'Enable';
-  det.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-top:8px"><div><span style="color:var(--text-dim)">Syncs</span><br><strong>${s.totalSyncs||0}</strong></div><div><span style="color:var(--text-dim)">Sent</span><br><strong>${s.totalSent||0}</strong></div><div><span style="color:var(--text-dim)">Received</span><br><strong>${s.totalReceived||0}</strong></div></div>`;
+  sEl.innerHTML = `<span class="dot ${s.enabled?'dot-on':'dot-off'}" style="margin-right:6px"></span>${s.enabled?'Aktiv':'Deaktiviert'} &mdash; ${s.mode || 'Standard'}`;
+  btn.disabled = false; btn.className = s.enabled ? 'btn btn-active' : 'btn'; btn.textContent = s.enabled ? 'Deaktivieren' : 'Aktivieren';
+  det.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-top:8px"><div><span style="color:var(--text-dim)">Syncs</span><br><strong>${s.totalSyncs||0}</strong></div><div><span style="color:var(--text-dim)">Gesendet</span><br><strong>${s.totalSent||0}</strong></div><div><span style="color:var(--text-dim)">Empfangen</span><br><strong>${s.totalReceived||0}</strong></div></div>`;
   const h = b.history || [];
-  if (!h.length) { hist.innerHTML = '<div class="empty">No sync history</div>'; return; }
-  hist.innerHTML = `<table class="tbl"><thead><tr><th>Zeit</th><th>Richtung</th><th>Peer</th><th>Items</th><th>Akzeptiert</th></tr></thead><tbody>` +
-    h.slice(-15).reverse().map(x => `<tr><td>${new Date(x.timestamp).toLocaleTimeString('de-DE')}</td><td>${x.direction==='sent'?'&#x2B06;':'&#x2B07;'} ${x.direction}</td><td>${x.peer}</td><td>${x.itemCount}</td><td>${x.accepted}</td></tr>`).join('') + '</tbody></table>';
+  if (!h.length) { hist.innerHTML = '<div class="empty">Noch kein Sync passiert</div>'; return; }
+  hist.innerHTML = `<table class="tbl"><thead><tr><th>Zeit</th><th>Richtung</th><th>Partner</th><th>Elemente</th><th>Akzeptiert</th></tr></thead><tbody>` +
+    h.slice(-15).reverse().map(x => `<tr><td>${new Date(x.timestamp).toLocaleTimeString('de-DE')}</td><td>${x.direction==='sent'?'&#x2B06;':'&#x2B07;'} ${x.direction==='sent'?'Gesendet':'Empfangen'}</td><td>${x.peer}</td><td>${x.itemCount}</td><td>${x.accepted}</td></tr>`).join('') + '</tbody></table>';
 }
 document.getElementById('borgToggle').addEventListener('click', async () => {
   if (!state.borg?.status) return;
   try { await fetch('/api/borg/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled:!state.borg.status.enabled}) }); } catch {}
+});
+
+// ── Quick Actions ─────────────────────────────────────────
+document.querySelectorAll('.action-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const action = btn.dataset.action;
+    btn.classList.add('running');
+    btn.querySelector('.action-icon').textContent = '\u23F3';
+    try {
+      const res = await fetch('/api/action', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action }) });
+      const data = await res.json();
+      btn.querySelector('.action-icon').textContent = data.ok ? '\u2705' : '\u274C';
+    } catch {
+      btn.querySelector('.action-icon').textContent = '\u274C';
+    }
+    setTimeout(() => {
+      btn.classList.remove('running');
+      const icons = { 'learning-cycle':'\u{1F504}', 'borg-sync':'\u{1F47E}', 'tech-scan':'\u{1F4E1}', 'health-check':'\u{1F3E5}' };
+      btn.querySelector('.action-icon').textContent = icons[action] || '\u26A1';
+    }, 2000);
+  });
 });
 
 // ── Canvas: Peer Graph ────────────────────────────────────
@@ -650,11 +1027,10 @@ function drawPeerGraph(brains) {
 
 // ── Canvas: Cross-Brain + Borg Animation ──────────────────
 let particles = [];
-let borgPackets = []; // big borg sync packets
+let borgPackets = [];
 function spawnBorgPacket(src, dst, items) {
   borgPackets.push({ src, dst, items, progress: 0, speed: 0.004 + Math.random() * 0.003 });
 }
-// When borg data updates, spawn visual packets from history
 let lastBorgHistLen = 0;
 function checkBorgPackets() {
   const h = state.borg?.history || [];
@@ -685,35 +1061,24 @@ function initCrossBrainCanvas() {
     let s=n[Math.random()*n.length|0],d=n[Math.random()*n.length|0];
     while(d===s)d=n[Math.random()*n.length|0];
     const a=positions[s],b=positions[d];
-    particles.push({x:a.x,y:a.y,tx:b.x,ty:b.y,color:a.color,progress:0,speed:.008+Math.random()*.012,isBorg:false});
+    particles.push({x:a.x,y:a.y,tx:b.x,ty:b.y,color:a.color,progress:0,speed:.008+Math.random()*.012});
   }
 
   function draw() {
     const ctx=canvas.getContext('2d'),w=canvas.width/2,h=canvas.height/2;
     ctx.save(); ctx.scale(2,2); ctx.clearRect(0,0,w,h); getPos();
     checkBorgPackets();
-
     const borgEnabled = state.borg?.status?.enabled;
     const borgSent = state.borg?.status?.totalSent || 0;
     const borgRecv = state.borg?.status?.totalReceived || 0;
     const n=Object.keys(positions);
-
-    // Draw connections
     for(let i=0;i<n.length;i++) for(let j=i+1;j<n.length;j++) {
       const a=positions[n[i]],b=positions[n[j]];
-      // Borg connections glow brighter when enabled
       ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
       ctx.strokeStyle = borgEnabled ? 'rgba(170,136,255,0.15)' : 'rgba(100,140,255,0.1)';
-      ctx.lineWidth = borgEnabled ? 2 : 1;
-      ctx.stroke();
-      // Dashed borg overlay
-      if (borgEnabled) {
-        ctx.beginPath(); ctx.setLineDash([4,8]); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
-        ctx.strokeStyle='rgba(170,136,255,0.12)'; ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
-      }
+      ctx.lineWidth = borgEnabled ? 2 : 1; ctx.stroke();
+      if (borgEnabled) { ctx.beginPath(); ctx.setLineDash([4,8]); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle='rgba(170,136,255,0.12)'; ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]); }
     }
-
-    // Regular message particles
     if(Math.random()<.05&&state.connected) spawnMsg();
     particles=particles.filter(p=>p.progress<1);
     for(const p of particles) {
@@ -723,56 +1088,33 @@ function initCrossBrainCanvas() {
       const g=ctx.createRadialGradient(cx,cy,0,cx,cy,6); g.addColorStop(0,p.color+'40'); g.addColorStop(1,p.color+'00');
       ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
     }
-
-    // Borg sync packets — bigger, purple, with item count label
     borgPackets=borgPackets.filter(p=>p.progress<1);
     for(const bp of borgPackets) {
       bp.progress+=bp.speed;
       const t=bp.progress;
       const sp=positions[bp.src]||positions.brain, dp=positions[bp.dst]||positions.brain;
       const cx=sp.x+(dp.x-sp.x)*t, cy=sp.y+(dp.y-sp.y)*t-Math.sin(t*Math.PI)*35;
-      // Outer glow
       ctx.beginPath(); ctx.arc(cx,cy,14,0,Math.PI*2);
       const gg=ctx.createRadialGradient(cx,cy,0,cx,cy,14);
       gg.addColorStop(0,'rgba(170,136,255,0.35)'); gg.addColorStop(1,'rgba(170,136,255,0)');
       ctx.fillStyle=gg; ctx.fill();
-      // Inner packet
       ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fillStyle='#aa88ff'; ctx.fill();
       ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fillStyle='#ddccff'; ctx.fill();
-      // Item count label
-      if(bp.items>0) {
-        ctx.fillStyle='#fff'; ctx.font='bold 9px Segoe UI,sans-serif'; ctx.textAlign='center';
-        ctx.fillText(bp.items+'x',cx,cy-12);
-      }
+      if(bp.items>0) { ctx.fillStyle='#fff'; ctx.font='bold 9px Segoe UI,sans-serif'; ctx.textAlign='center'; ctx.fillText(bp.items+'x',cx,cy-12); }
     }
-
-    // Draw nodes
     for(const[name,p]of Object.entries(positions)) {
-      // Borg ring (purple outer ring when borg enabled)
-      if(borgEnabled) {
-        ctx.beginPath(); ctx.arc(p.x,p.y,24,0,Math.PI*2);
-        ctx.strokeStyle='rgba(170,136,255,0.25)'; ctx.lineWidth=1; ctx.stroke();
-      }
-      // Glow
+      if(borgEnabled) { ctx.beginPath(); ctx.arc(p.x,p.y,24,0,Math.PI*2); ctx.strokeStyle='rgba(170,136,255,0.25)'; ctx.lineWidth=1; ctx.stroke(); }
       ctx.beginPath(); ctx.arc(p.x,p.y,28,0,Math.PI*2);
-      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28);
-      g.addColorStop(0,p.color+'25'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
-      // Circle
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28); g.addColorStop(0,p.color+'25'); g.addColorStop(1,p.color+'00'); ctx.fillStyle=g; ctx.fill();
       ctx.beginPath(); ctx.arc(p.x,p.y,18,0,Math.PI*2);
       ctx.fillStyle=p.color+'15'; ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
-      // Inner dot
       ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill();
-      // Label
-      ctx.fillStyle='#fff'; ctx.font='12px Segoe UI,sans-serif'; ctx.textAlign='center';
-      ctx.fillText(p.label,p.x,p.y+34);
+      ctx.fillStyle='#fff'; ctx.font='12px Segoe UI,sans-serif'; ctx.textAlign='center'; ctx.fillText(p.label,p.x,p.y+34);
     }
-
-    // Borg legend (bottom center)
     if(borgEnabled) {
       ctx.fillStyle='rgba(170,136,255,0.7)'; ctx.font='10px Segoe UI,sans-serif'; ctx.textAlign='center';
-      ctx.fillText(`BORG ACTIVE  \u2022  ${borgSent} sent  \u2022  ${borgRecv} received`, w/2, h-8);
+      ctx.fillText(`BORG AKTIV  \u2022  ${borgSent} gesendet  \u2022  ${borgRecv} empfangen`, w/2, h-8);
     }
-
     ctx.restore(); requestAnimationFrame(draw);
   }
   draw();

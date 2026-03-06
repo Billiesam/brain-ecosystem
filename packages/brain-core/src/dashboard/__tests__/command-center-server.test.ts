@@ -113,7 +113,6 @@ describe('CommandCenterServer', () => {
     const res = await request(result.port, '/');
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
-    // Should contain the fallback or real HTML
     expect(res.body).toContain('Command Center');
   });
 
@@ -131,6 +130,10 @@ describe('CommandCenterServer', () => {
     expect(data).toHaveProperty('watchdog');
     expect(data).toHaveProperty('plugins');
     expect(data).toHaveProperty('analytics');
+    expect(data).toHaveProperty('errors');
+    expect(data).toHaveProperty('selfmod');
+    expect(data).toHaveProperty('missions');
+    expect(data).toHaveProperty('knowledge');
     expect(data.ecosystem.brains).toHaveLength(1);
     expect(data.ecosystem.brains[0].name).toBe('brain');
   });
@@ -304,7 +307,6 @@ describe('CommandCenterServer', () => {
         let data = '';
         res.on('data', (chunk) => {
           data += chunk;
-          // After first event, resolve
           if (data.includes('event: connected')) {
             res.destroy();
             resolve(data);
@@ -394,15 +396,166 @@ describe('CommandCenterServer', () => {
     expect(mockTS.getByEngine).toHaveBeenCalledWith('hypothesis', 50);
   });
 
-  it('GET /api/state includes llm and thoughts', async () => {
-    const result = await startServer();
+  it('GET /api/state includes all data sources', async () => {
+    const result = await startServer({
+      getErrors: vi.fn().mockReturnValue({ errors: [{ message: 'test', timestamp: Date.now() }] }),
+      getSelfModStatus: vi.fn().mockReturnValue({ totalModifications: 3, byStatus: { applied: 2, failed: 1 } }),
+      getSelfModHistory: vi.fn().mockReturnValue([{ title: 'Fix bug', status: 'applied' }]),
+      getMissions: vi.fn().mockReturnValue({ activeMissions: 1, completedMissions: 5, totalSources: 20 }),
+      getMissionList: vi.fn().mockReturnValue([{ topic: 'AI research', status: 'gathering' }]),
+      getKnowledgeStats: vi.fn().mockReturnValue({ totals: { principles: 10 }, timeSeries: [] }),
+    });
     server = result.server;
 
     const res = await request(result.port, '/api/state');
     const data = JSON.parse(res.body);
     expect(data).toHaveProperty('llm');
     expect(data).toHaveProperty('thoughts');
+    expect(data).toHaveProperty('errors');
+    expect(data).toHaveProperty('selfmod');
+    expect(data).toHaveProperty('missions');
+    expect(data).toHaveProperty('knowledge');
     expect(data.llm.totalCalls).toBe(42);
+    expect(data.errors.errors).toHaveLength(1);
+    expect(data.selfmod.status.totalModifications).toBe(3);
+    expect(data.missions.status.activeMissions).toBe(1);
+    expect(data.knowledge.totals.principles).toBe(10);
+  });
+
+  // ── New endpoint tests ──────────────────────────────────
+
+  it('GET /api/errors returns error data when available', async () => {
+    const mockErrors = { errors: [{ message: 'Something broke', timestamp: Date.now(), resolved: false }] };
+    const result = await startServer({ getErrors: vi.fn().mockReturnValue(mockErrors) });
+    server = result.server;
+
+    const res = await request(result.port, '/api/errors');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.errors).toHaveLength(1);
+    expect(data.errors[0].message).toBe('Something broke');
+  });
+
+  it('GET /api/errors returns empty when no error source', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/errors');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data).toHaveProperty('errors');
+  });
+
+  it('GET /api/selfmod returns self-modification status', async () => {
+    const result = await startServer({
+      getSelfModStatus: vi.fn().mockReturnValue({ totalModifications: 5, byStatus: { applied: 3, failed: 2 } }),
+      getSelfModHistory: vi.fn().mockReturnValue([
+        { title: 'Improve caching', status: 'applied', created_at: new Date().toISOString() },
+      ]),
+    });
+    server = result.server;
+
+    const res = await request(result.port, '/api/selfmod');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.status.totalModifications).toBe(5);
+    expect(data.history).toHaveLength(1);
+    expect(data.history[0].title).toBe('Improve caching');
+  });
+
+  it('GET /api/selfmod returns empty when no selfmod', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/selfmod');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.status).toBeNull();
+    expect(data.history).toEqual([]);
+  });
+
+  it('GET /api/missions returns mission status and list', async () => {
+    const result = await startServer({
+      getMissions: vi.fn().mockReturnValue({ activeMissions: 2, completedMissions: 10, totalSources: 50 }),
+      getMissionList: vi.fn().mockReturnValue([
+        { topic: 'Quantum computing', status: 'gathering', depth: 'deep', sourceCount: 5 },
+      ]),
+    });
+    server = result.server;
+
+    const res = await request(result.port, '/api/missions');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.status.activeMissions).toBe(2);
+    expect(data.list).toHaveLength(1);
+    expect(data.list[0].topic).toBe('Quantum computing');
+  });
+
+  it('GET /api/missions returns empty when no mission engine', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/missions');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.status).toBeNull();
+    expect(data.list).toEqual([]);
+  });
+
+  it('GET /api/knowledge returns knowledge stats', async () => {
+    const result = await startServer({
+      getKnowledgeStats: vi.fn().mockReturnValue({
+        totals: { principles: 15, hypotheses: 30, experiments: 12, solutions: 8 },
+        timeSeries: [{ date: '2026-03-01', errors: 5, solutions: 3 }],
+      }),
+    });
+    server = result.server;
+
+    const res = await request(result.port, '/api/knowledge');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.totals.principles).toBe(15);
+    expect(data.timeSeries).toHaveLength(1);
+  });
+
+  it('GET /api/knowledge returns empty when no source', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/knowledge');
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data).toHaveProperty('timeSeries');
+  });
+
+  it('POST /api/action triggers an action', async () => {
+    const mockTrigger = vi.fn().mockResolvedValue({ triggered: true });
+    const result = await startServer({ triggerAction: mockTrigger });
+    server = result.server;
+
+    const res = await request(result.port, '/api/action', 'POST', JSON.stringify({ action: 'learning-cycle' }));
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data.ok).toBe(true);
+    expect(data.action).toBe('learning-cycle');
+    expect(mockTrigger).toHaveBeenCalledWith('learning-cycle', undefined);
+  });
+
+  it('POST /api/action returns 501 when no triggerAction', async () => {
+    const result = await startServer();
+    server = result.server;
+
+    const res = await request(result.port, '/api/action', 'POST', JSON.stringify({ action: 'test' }));
+    expect(res.statusCode).toBe(501);
+  });
+
+  it('POST /api/action returns 400 on missing action', async () => {
+    const mockTrigger = vi.fn().mockResolvedValue({});
+    const result = await startServer({ triggerAction: mockTrigger });
+    server = result.server;
+
+    const res = await request(result.port, '/api/action', 'POST', JSON.stringify({ foo: 'bar' }));
+    expect(res.statusCode).toBe(400);
   });
 
   it('stop() closes the server', async () => {

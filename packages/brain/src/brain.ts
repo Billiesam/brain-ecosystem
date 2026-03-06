@@ -1001,6 +1001,39 @@ export class BrainCore {
       thoughtStream,
       getLLMStats: () => services.llmService?.getStats() ?? null,
       getLLMHistory: (hours: number) => services.llmService?.getUsageHistory(hours) ?? [],
+      getErrors: () => {
+        const errors = services.error?.query({ limit: 20 }) ?? [];
+        const summary = services.analytics?.getSummary() ?? null;
+        return { errors, summary };
+      },
+      getSelfModStatus: () => services.selfModificationEngine?.getStatus() ?? null,
+      getSelfModHistory: (limit = 10) => services.selfModificationEngine?.getHistory(limit) ?? [],
+      getMissions: () => services.missionEngine?.getStatus() ?? null,
+      getMissionList: (status?: string, limit = 20) => services.missionEngine?.listMissions(status as never, limit) ?? [],
+      getKnowledgeStats: () => {
+        const timeSeries = services.analytics?.getTimeSeries(undefined, 30) ?? [];
+        const summary = services.analytics?.getSummary();
+        return {
+          totals: {
+            principles: summary?.rules?.active ?? 0,
+            hypotheses: summary?.insights?.active ?? 0,
+            experiments: summary?.antipatterns?.total ?? 0,
+            solutions: summary?.solutions?.total ?? 0,
+          },
+          timeSeries,
+        };
+      },
+      triggerAction: async (action: string) => {
+        switch (action) {
+          case 'learning-cycle':
+            services.learning?.runCycle();
+            return { triggered: true };
+          case 'health-check':
+            return services.analytics?.getSummary() ?? {};
+          default:
+            return { triggered: false, message: `Unknown action: ${action}` };
+        }
+      },
     });
     this.commandCenter.start();
     logger.info('Command Center dashboard on :7790');
