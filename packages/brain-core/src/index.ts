@@ -90,6 +90,19 @@ export { CrossBrainSubscriptionManager } from './cross-brain/subscription.js';
 export type { EventSubscription } from './cross-brain/subscription.js';
 export { CrossBrainCorrelator } from './cross-brain/correlator.js';
 export type { CorrelatorEvent, Correlation, EcosystemHealth, CorrelatorConfig } from './cross-brain/correlator.js';
+export { BorgSyncEngine } from './cross-brain/borg-sync-engine.js';
+export type { BorgDataProvider } from './cross-brain/borg-sync-engine.js';
+export { DEFAULT_BORG_CONFIG } from './cross-brain/borg-types.js';
+export type { BorgConfig, SyncPacket, SyncItem, SyncHistoryEntry } from './cross-brain/borg-types.js';
+
+// ── Watchdog ──────────────────────────────────────────────
+export { WatchdogService, createDefaultWatchdogConfig } from './watchdog/watchdog-service.js';
+export type { WatchdogConfig, DaemonConfig, DaemonStatus } from './watchdog/watchdog-service.js';
+export { WindowsServiceManager } from './watchdog/windows-service.js';
+
+// ── Plugin SDK ────────────────────────────────────────────
+export { PluginRegistry } from './plugin/plugin-registry.js';
+export type { BrainPlugin, PluginContext, PluginToolDefinition, PluginRouteDefinition, PluginManifest, PluginRecord } from './plugin/types.js';
 
 // ── Ecosystem ──────────────────────────────────────────────
 export { EcosystemService } from './ecosystem/service.js';
