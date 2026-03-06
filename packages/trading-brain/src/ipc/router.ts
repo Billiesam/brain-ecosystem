@@ -105,6 +105,7 @@ export interface Services {
   llmService?: import('@timmeck/brain-core').LLMService;
   paper?: import('../paper/paper.service.js').PaperService;
   marketData?: import('../market/market-data-service.js').MarketDataService;
+  borgSync?: import('@timmeck/brain-core').BorgSyncEngine;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -676,6 +677,14 @@ export class IpcRouter {
         }
         return (ollamaProvider as any).getStatus();
       }],
+
+      // ─── Borg Sync ──────────────────────────────────────────
+      ['borg.status',             () => s.borgSync?.getStatus() ?? { enabled: false }],
+      ['borg.history',            (params) => s.borgSync?.getHistory((params as { limit?: number })?.limit) ?? []],
+      ['borg.enable',             () => { s.borgSync?.setEnabled(true); return { enabled: true }; }],
+      ['borg.disable',            () => { s.borgSync?.setEnabled(false); return { enabled: false }; }],
+      ['cross-brain.borgSync',    (params) => s.borgSync?.handleIncomingSync(params as import('@timmeck/brain-core').SyncPacket) ?? { accepted: 0, rejected: 0 }],
+      ['cross-brain.borgExport',  () => s.borgSync?.handleExportRequest() ?? { source: 'trading-brain', timestamp: new Date().toISOString(), items: [] }],
 
       ['status', () => ({
         name: 'trading-brain',

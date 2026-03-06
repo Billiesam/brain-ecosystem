@@ -60,7 +60,8 @@ import { BlueskyProvider } from './social/bluesky-provider.js';
 import { RedditProvider } from './social/reddit-provider.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine, BorgSyncEngine } from '@timmeck/brain-core';
+import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 
 export class MarketingCore {
   private db: Database.Database | null = null;
@@ -73,6 +74,7 @@ export class MarketingCore {
   private crossBrain: CrossBrainClient | null = null;
   private notifier: CrossBrainNotifier | null = null;
   private transferEngine: TransferEngine | null = null;
+  private borgSync: BorgSyncEngine | null = null;
   private config: MarketingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -197,10 +199,44 @@ export class MarketingCore {
     this.notifier = new CrossBrainNotifier(this.crossBrain, 'marketing-brain');
     services.crossBrain = this.crossBrain;
 
+    // 10b. Borg Sync Engine — collective knowledge sync (opt-in, default: disabled)
+    const borgProvider: BorgDataProvider = {
+      getShareableItems: (): SyncItem[] => {
+        const items: SyncItem[] = [];
+        try {
+          for (const r of services.rule.listRules().slice(0, 100)) {
+            items.push({ type: 'rule', id: `rule-${r.id}`, title: r.pattern, content: `Marketing rule: ${r.pattern} → ${r.recommendation}`, confidence: r.confidence, source: 'marketing-brain', createdAt: r.created_at });
+          }
+        } catch { /* no rules */ }
+        try {
+          for (const i of services.insight.listActive(50)) {
+            items.push({ type: 'insight', id: `insight-${i.id}`, title: i.title, content: i.description, confidence: i.confidence, source: 'marketing-brain', createdAt: i.created_at });
+          }
+        } catch { /* no insights */ }
+        return items;
+      },
+      importItems: (incoming: SyncItem[], source: string): number => {
+        logger.info(`[borg] Received ${incoming.length} items from ${source}`);
+        let accepted = 0;
+        for (const item of incoming) {
+          try {
+            services.memory.remember({ key: `borg:${source}:${item.id}`, content: `[${item.type}] ${item.title}: ${item.content}`, category: 'fact', source: 'inferred', tags: ['borg', source] });
+            accepted++;
+          } catch { /* duplicate or DB error */ }
+        }
+        return accepted;
+      },
+    };
+    this.borgSync = new BorgSyncEngine('marketing-brain', this.crossBrain!, borgProvider);
+    services.borgSync = this.borgSync;
+
     // 11. IPC Server
     const router = new IpcRouter(services);
     this.ipcServer = new IpcServer(router, config.ipc.pipeName);
     this.ipcServer.start();
+
+    // 11a. Start Borg Sync (after IPC ready)
+    this.borgSync.start();
 
     // 12. MCP HTTP Server (SSE for Cursor/Windsurf/Cline)
     if (config.mcpHttp.enabled) {
@@ -282,6 +318,7 @@ export class MarketingCore {
   }
 
   private cleanup(): void {
+    this.borgSync?.stop();
     this.researchEngine?.stop();
     this.learningEngine?.stop();
     this.dashboardServer?.stop();
@@ -298,6 +335,7 @@ export class MarketingCore {
     this.learningEngine = null;
     this.researchEngine = null;
     this.transferEngine = null;
+    this.borgSync = null;
   }
 
   restart(): void {

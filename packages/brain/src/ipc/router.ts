@@ -125,6 +125,7 @@ export interface Services {
   missionEngine?: import('@timmeck/brain-core').ResearchMissionEngine;
   watchdog?: import('@timmeck/brain-core').WatchdogService;
   pluginRegistry?: import('@timmeck/brain-core').PluginRegistry;
+  borgSync?: import('@timmeck/brain-core').BorgSyncEngine;
   projectScanner?: ProjectScanner;
   reposignalImporter?: ReposignalImporter;
 }
@@ -866,6 +867,16 @@ export class IpcRouter {
       // ─── Watchdog ──────────────────────────────────────────
       ['watchdog.status',         () => s.watchdog?.getStatus() ?? []],
       ['watchdog.restart',        (params) => s.watchdog?.restartDaemon(p(params).name) ?? false],
+
+      // ─── Borg Sync ──────────────────────────────────────────
+      ['borg.status',             () => s.borgSync?.getStatus() ?? { enabled: false }],
+      ['borg.history',            (params) => s.borgSync?.getHistory((params as { limit?: number })?.limit) ?? []],
+      ['borg.config',             () => s.borgSync?.getConfig() ?? null],
+      ['borg.enable',             () => { s.borgSync?.setEnabled(true); return { enabled: true }; }],
+      ['borg.disable',            () => { s.borgSync?.setEnabled(false); return { enabled: false }; }],
+      ['borg.sync',               async () => { await s.borgSync?.syncCycle(); return { synced: true }; }],
+      ['cross-brain.borgSync',    (params) => s.borgSync?.handleIncomingSync(params as import('@timmeck/brain-core').SyncPacket) ?? { accepted: 0, rejected: 0 }],
+      ['cross-brain.borgExport',  () => s.borgSync?.handleExportRequest() ?? { source: 'brain', timestamp: new Date().toISOString(), items: [] }],
 
       // ─── Plugin Registry ──────────────────────────────────
       ['plugin.list',             () => s.pluginRegistry?.list() ?? []],

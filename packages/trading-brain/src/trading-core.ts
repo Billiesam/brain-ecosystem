@@ -62,8 +62,8 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider } from '@timmeck/brain-core';
-import type { HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, BorgSyncEngine } from '@timmeck/brain-core';
+import type { BorgDataProvider, SyncItem, HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 export class TradingCore {
   private db: Database.Database | null = null;
@@ -85,6 +85,7 @@ export class TradingCore {
   private emergenceEngine: EmergenceEngine | null = null;
   private debateEngine: DebateEngine | null = null;
   private peerNetwork: PeerNetwork | null = null;
+  private borgSync: BorgSyncEngine | null = null;
   private config: TradingBrainConfig | null = null;
   private configPath?: string;
   private restarting = false;
@@ -662,6 +663,37 @@ export class TradingCore {
 
     logger.info('Research orchestrator started (30+ engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 
+    // 12e. Borg Sync Engine — collective knowledge sync (opt-in, default: disabled)
+    const borgProvider: BorgDataProvider = {
+      getShareableItems: (): SyncItem[] => {
+        const items: SyncItem[] = [];
+        try {
+          for (const r of services.ruleRepo.getAll().slice(0, 100)) {
+            items.push({ type: 'rule', id: `rule-${r.id}`, title: r.pattern, content: `Trading rule: ${r.pattern} (win_rate: ${r.win_rate}, avg_profit: ${r.avg_profit})`, confidence: r.confidence, source: 'trading-brain', createdAt: r.created_at });
+          }
+        } catch { /* no rules */ }
+        try {
+          for (const i of services.insight.getAll().slice(0, 50)) {
+            items.push({ type: 'insight', id: `insight-${i.id}`, title: i.title, content: i.description, confidence: 0.7, source: 'trading-brain', createdAt: i.created_at });
+          }
+        } catch { /* no insights */ }
+        return items;
+      },
+      importItems: (incoming: SyncItem[], source: string): number => {
+        logger.info(`[borg] Received ${incoming.length} items from ${source}`);
+        let accepted = 0;
+        for (const item of incoming) {
+          try {
+            services.memory.remember({ key: `borg:${source}:${item.id}`, content: `[${item.type}] ${item.title}: ${item.content}`, category: 'fact', source: 'inferred', tags: ['borg', source] });
+            accepted++;
+          } catch { /* duplicate or DB error */ }
+        }
+        return accepted;
+      },
+    };
+    this.borgSync = new BorgSyncEngine('trading-brain', this.crossBrain!, borgProvider);
+    services.borgSync = this.borgSync;
+
     // 13. IPC Server
     const router = new IpcRouter(services);
     this.ipcServer = new IpcServer(router, config.ipc.pipeName, 'trading-brain', 'trading-brain');
@@ -669,6 +701,9 @@ export class TradingCore {
 
     // Wire subscription manager into IPC router
     router.setSubscriptionManager(this.subscriptionManager, this.ipcServer);
+
+    // 13a. Start Borg Sync (after IPC ready)
+    this.borgSync.start();
 
     // 13b. PeerNetwork — UDP multicast auto-discovery
     this.peerNetwork = new PeerNetwork({
@@ -761,6 +796,7 @@ export class TradingCore {
   }
 
   private cleanup(): void {
+    this.borgSync?.stop();
     this.paperEngine?.stop();
     this.peerNetwork?.stopDiscovery();
     this.subscriptionManager?.disconnectAll();
@@ -788,6 +824,7 @@ export class TradingCore {
     this.emergenceEngine = null;
     this.debateEngine = null;
     this.peerNetwork = null;
+    this.borgSync = null;
     this.subscriptionManager = null;
     this.correlator = null;
   }

@@ -108,6 +108,7 @@ export interface Services {
   peerNetwork?: import('@timmeck/brain-core').PeerNetwork;
   llmService?: import('@timmeck/brain-core').LLMService;
   socialService?: import('../social/social-service.js').SocialService;
+  borgSync?: import('@timmeck/brain-core').BorgSyncEngine;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -710,6 +711,14 @@ export class IpcRouter {
       ['social.readFeed',          async (p: unknown) => { if (!s.socialService) throw new Error('SocialService not available'); const params = (p ?? {}) as Record<string, unknown>; return s.socialService.readFeed(params.provider as string | undefined, params.options as any); }],
       ['social.search',            async (p: unknown) => { if (!s.socialService) throw new Error('SocialService not available'); const params = (p ?? {}) as Record<string, unknown>; return s.socialService.search(params.query as string, params.provider as string | undefined, params.options as any); }],
       ['social.engagement',        async (p: unknown) => { if (!s.socialService) throw new Error('SocialService not available'); const params = (p ?? {}) as Record<string, unknown>; return s.socialService.getEngagement(params.provider as string, params.postId as string); }],
+
+      // ─── Borg Sync ──────────────────────────────────────────
+      ['borg.status',             () => s.borgSync?.getStatus() ?? { enabled: false }],
+      ['borg.history',            (params) => s.borgSync?.getHistory((params as { limit?: number })?.limit) ?? []],
+      ['borg.enable',             () => { s.borgSync?.setEnabled(true); return { enabled: true }; }],
+      ['borg.disable',            () => { s.borgSync?.setEnabled(false); return { enabled: false }; }],
+      ['cross-brain.borgSync',    (params) => s.borgSync?.handleIncomingSync(params as import('@timmeck/brain-core').SyncPacket) ?? { accepted: 0, rejected: 0 }],
+      ['cross-brain.borgExport',  () => s.borgSync?.handleExportRequest() ?? { source: 'marketing-brain', timestamp: new Date().toISOString(), items: [] }],
 
       ['status',               () => ({
         name: 'marketing-brain',

@@ -66,7 +66,8 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, TechRadarEngine, runTechRadarMigration, NotificationService as MultiChannelNotificationService, runNotificationMigration, DiscordProvider, TelegramProvider, EmailProvider, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, ConsciousnessServer, PredictionEngine, SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator, CodegenServer, AttentionEngine, TransferEngine, UnifiedDashboardServer, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, TechRadarEngine, runTechRadarMigration, NotificationService as MultiChannelNotificationService, runNotificationMigration, DiscordProvider, TelegramProvider, EmailProvider, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine } from '@timmeck/brain-core';
+import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
@@ -96,6 +97,7 @@ export class BrainCore {
   private debateEngine: DebateEngine | null = null;
   private peerNetwork: PeerNetwork | null = null;
   private pluginRegistry: PluginRegistry | null = null;
+  private borgSync: BorgSyncEngine | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
   private configPath?: string;
@@ -1002,7 +1004,35 @@ export class BrainCore {
     this.pluginRegistry = new PluginRegistry(pluginDir);
     services.pluginRegistry = this.pluginRegistry;
 
-    // 11e. Command Center Dashboard
+    // 11e. Borg Sync Engine — collective knowledge sync (opt-in, default: disabled)
+    const borgProvider: BorgDataProvider = {
+      getShareableItems: (): SyncItem[] => {
+        const items: SyncItem[] = [];
+        try {
+          const principles = this.orchestrator?.knowledgeDistiller?.getPrinciples(undefined, 100) ?? [];
+          for (const p of principles) {
+            items.push({ type: 'rule', id: p.id, title: p.statement, content: `${p.domain}: ${p.statement} (source: ${p.source})`, confidence: p.confidence, source: 'brain', createdAt: new Date().toISOString() });
+          }
+        } catch { /* no principles available */ }
+        return items;
+      },
+      importItems: (incoming: SyncItem[], source: string): number => {
+        logger.info(`[borg] Received ${incoming.length} items from ${source}`);
+        // Store as memories for now — brain can process them in future cycles
+        let accepted = 0;
+        for (const item of incoming) {
+          try {
+            services.memory?.remember({ key: `borg:${source}:${item.id}`, content: `[${item.type}] ${item.title}: ${item.content}`, category: 'fact', source: 'inferred', tags: ['borg', source] });
+            accepted++;
+          } catch { /* duplicate or DB error — skip */ }
+        }
+        return accepted;
+      },
+    };
+    this.borgSync = new BorgSyncEngine('brain', this.crossBrain!, borgProvider);
+    services.borgSync = this.borgSync;
+
+    // 11f. Command Center Dashboard
     this.commandCenter = new CommandCenterServer({
       port: 7790,
       selfName: 'brain',
@@ -1084,7 +1114,10 @@ export class BrainCore {
       logger.error(`Plugin loading failed: ${(err as Error).message}`);
     });
 
-    // 12d. PeerNetwork — UDP multicast auto-discovery
+    // 12d. Start Borg Sync (after IPC/cross-brain ready, respects config.enabled)
+    this.borgSync?.start();
+
+    // 12e. PeerNetwork — UDP multicast auto-discovery
     this.peerNetwork = new PeerNetwork({
       brainName: 'brain',
       httpPort: config.api.port,
@@ -1187,6 +1220,7 @@ export class BrainCore {
       this.cleanupTimer = null;
     }
 
+    this.borgSync?.stop();
     this.peerNetwork?.stopDiscovery();
     // Unload all plugins gracefully
     if (this.pluginRegistry?.size) {
@@ -1227,6 +1261,7 @@ export class BrainCore {
     this.researchScheduler = null;
     this.peerNetwork = null;
     this.pluginRegistry = null;
+    this.borgSync = null;
   }
 
   restart(): void {
