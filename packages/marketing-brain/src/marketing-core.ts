@@ -59,6 +59,11 @@ import { SocialService } from './social/social-service.js';
 import { BlueskyProvider } from './social/bluesky-provider.js';
 import { RedditProvider } from './social/reddit-provider.js';
 
+// Scheduling
+import { SchedulerRepository } from './db/repositories/scheduler.repository.js';
+import { SchedulerService } from './services/scheduler.service.js';
+import { CalendarService } from './services/calendar.service.js';
+
 // Cross-Brain
 import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine, BorgSyncEngine, DebateEngine } from '@timmeck/brain-core';
 import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
@@ -78,6 +83,9 @@ export class MarketingCore {
   private debateEngine: DebateEngine | null = null;
   private config: MarketingBrainConfig | null = null;
   private retentionTimer: ReturnType<typeof setInterval> | null = null;
+  private schedulerTimer: ReturnType<typeof setInterval> | null = null;
+  private socialPollTimer: ReturnType<typeof setInterval> | null = null;
+  private engagementTrackTimer: ReturnType<typeof setInterval> | null = null;
   private configPath?: string;
   private restarting = false;
 
@@ -193,6 +201,72 @@ export class MarketingCore {
       }
     }).catch(() => { /* Reddit not configured, fine */ });
     services.socialService = socialService;
+
+    // 9d. Scheduler + Calendar — auto-publish due posts every 60s
+    const calendarService = new CalendarService(db);
+    const schedulerRepo = new SchedulerRepository(db);
+    const schedulerService = new SchedulerService(schedulerRepo, calendarService);
+    services.scheduler = schedulerService;
+    services.calendar = calendarService;
+    this.schedulerTimer = setInterval(() => {
+      try {
+        schedulerService.checkDue();
+      } catch (err) {
+        logger.warn(`[scheduler] checkDue error: ${(err as Error).message}`);
+      }
+    }, 60_000);
+    logger.info('Scheduler checkDue timer started (every 60s)');
+
+    // 9e. Social Feed Polling — read feeds every 30min (graceful: no credentials → no polling)
+    this.socialPollTimer = setInterval(async () => {
+      const providers = socialService.getProviders();
+      if (providers.length === 0) return;
+      try {
+        const items = await socialService.readFeed(undefined, { limit: 20 });
+        if (items.length > 0) {
+          logger.debug(`[social-poll] Read ${items.length} feed items from ${providers.length} provider(s)`);
+          // Store notable items as memories for learning
+          for (const item of items.slice(0, 5)) {
+            try {
+              memoryService.remember({
+                key: `social:feed:${item.platform}:${item.id}`,
+                content: `[${item.platform}] ${item.author}: ${item.text?.slice(0, 200) ?? ''}`,
+                category: 'fact',
+                source: 'inferred',
+                tags: ['social-feed', item.platform],
+              });
+            } catch { /* duplicate or DB error — skip */ }
+          }
+        }
+      } catch (err) {
+        logger.debug(`[social-poll] Feed polling error: ${(err as Error).message}`);
+      }
+    }, 30 * 60 * 1000);
+
+    // 9f. Engagement Auto-Tracking — check metrics for own posts every 2h
+    this.engagementTrackTimer = setInterval(async () => {
+      try {
+        const recentPosts = postRepo.listPublished(20);
+        for (const post of recentPosts) {
+          if (!post.url || !post.platform) continue;
+          try {
+            // Use URL as provider postId (providers parse it internally)
+            const metrics = await socialService.getEngagement(post.platform, post.url);
+            if (metrics.likes > 0 || metrics.reposts > 0 || metrics.replies > 0) {
+              engagementRepo.create({
+                post_id: post.id,
+                likes: metrics.likes,
+                comments: metrics.replies,
+                shares: metrics.reposts,
+              });
+              logger.debug(`[engagement] Updated metrics for post #${post.id}: ${metrics.likes}L/${metrics.reposts}R/${metrics.replies}C`);
+            }
+          } catch { /* individual post tracking can fail */ }
+        }
+      } catch (err) {
+        logger.debug(`[engagement] Tracking error: ${(err as Error).message}`);
+      }
+    }, 2 * 60 * 60 * 1000);
 
     // Expose learning engine + cross-brain to IPC
     services.learning = this.learningEngine;
@@ -364,6 +438,18 @@ export class MarketingCore {
     if (this.retentionTimer) {
       clearInterval(this.retentionTimer);
       this.retentionTimer = null;
+    }
+    if (this.schedulerTimer) {
+      clearInterval(this.schedulerTimer);
+      this.schedulerTimer = null;
+    }
+    if (this.socialPollTimer) {
+      clearInterval(this.socialPollTimer);
+      this.socialPollTimer = null;
+    }
+    if (this.engagementTrackTimer) {
+      clearInterval(this.engagementTrackTimer);
+      this.engagementTrackTimer = null;
     }
     this.borgSync?.stop();
     this.researchEngine?.stop();

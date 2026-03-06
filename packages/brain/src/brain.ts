@@ -507,6 +507,7 @@ export class BrainCore {
     dataScout.addAdapter(new HackerNewsAdapter());
     dataScout.setThoughtStream(thoughtStream);
     this.orchestrator.setDataScout(dataScout);
+    dataScout.startPeriodicScan(6 * 3600 * 1000);  // every 6h
     services.dataScout = dataScout;
 
     // 11j.15 SimulationEngine — what-if scenario simulations
@@ -764,6 +765,7 @@ export class BrainCore {
       journal: this.orchestrator.journal,
     });
     services.missionEngine = missionEngine;
+    this.orchestrator.setMissionEngine(missionEngine);
     logger.info('ResearchMissionEngine activated — "brain missions create <topic>" ready');
 
     logger.info('Research orchestrator started (30+ engines, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
@@ -1054,6 +1056,8 @@ export class BrainCore {
       },
       getSelfModStatus: () => services.selfModificationEngine?.getStatus() ?? null,
       getSelfModHistory: (limit = 10) => services.selfModificationEngine?.getHistory(limit) ?? [],
+      selfmodApprove: (id: number) => services.selfModificationEngine?.approveModification(id),
+      selfmodReject: (id: number, notes?: string) => services.selfModificationEngine?.rejectModification(id, notes),
       getMissions: () => services.missionEngine?.getStatus() ?? null,
       getMissionList: (status?: string, limit = 20) => services.missionEngine?.listMissions(status as never, limit) ?? [],
       getKnowledgeStats: () => {
@@ -1191,6 +1195,32 @@ export class BrainCore {
 
     // 13b. Cross-Brain Event Subscriptions
     this.setupCrossBrainSubscriptions();
+
+    // 13c. Project Watch — rescan known projects on startup (delayed 5min)
+    setTimeout(() => {
+      try {
+        const projects = projectRepo.getAll();
+        const scanner = services.projectScanner;
+        if (!scanner || projects.length === 0) return;
+
+        let rescanned = 0;
+        for (const proj of projects) {
+          if (!proj.path) continue;
+          try {
+            if (!fs.existsSync(proj.path)) continue;
+            scanner.scan(proj.path, proj.name, { skipBuild: true, gitDepth: 50 });
+            rescanned++;
+          } catch (err) {
+            logger.debug(`[project-watch] Rescan failed for ${proj.name}: ${(err as Error).message}`);
+          }
+        }
+        if (rescanned > 0) {
+          logger.info(`[project-watch] Startup rescan complete: ${rescanned}/${projects.length} project(s)`);
+        }
+      } catch (err) {
+        logger.debug(`[project-watch] Startup rescan error: ${(err as Error).message}`);
+      }
+    }, 5 * 60 * 1000);
 
     // 14. PID file
     const pidPath = path.join(path.dirname(config.dbPath), 'brain.pid');

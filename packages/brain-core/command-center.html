@@ -785,15 +785,32 @@ function renderSelfMod() {
     const statusMap = { applied:'Angewendet', testing:'Wird getestet', ready:'Bereit', proposed:'Vorgeschlagen', generating:'Generiert', failed:'Fehlgeschlagen', rejected:'Abgelehnt', rolled_back:'Zurückgesetzt' };
     const statusClass = m.status === 'applied' ? 'mod-applied' : m.status === 'testing' || m.status === 'generating' ? 'mod-testing' : m.status === 'failed' || m.status === 'rejected' ? 'mod-failed' : 'mod-proposed';
     const time = m.created_at ? new Date(m.created_at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+    const actions = (m.status === 'ready' || m.status === 'proposed') ?
+      `<div style="margin-top:4px;display:flex;gap:6px">
+        <button onclick="selfmodAction(${m.id},'approve')" style="background:var(--green);color:#fff;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:11px">Approve</button>
+        <button onclick="selfmodAction(${m.id},'reject')" style="background:var(--red);color:#fff;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:11px">Reject</button>
+      </div>` : '';
+    const riskBadge = m.risk_level ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${m.risk_level==='high'?'var(--red)':m.risk_level==='medium'?'var(--yellow)':'var(--green)'};color:#fff;margin-left:6px">${m.risk_level}</span>` : '';
     return `<div class="mod-item">
       <span class="mod-status ${statusClass}">${statusMap[m.status] || m.status}</span>
       <div style="flex:1">
-        <div class="mod-title">${escHtml(m.title || 'Verbesserung')}</div>
+        <div class="mod-title">${escHtml(m.title || 'Verbesserung')}${riskBadge}</div>
         <div class="mod-detail">${escHtml(m.problem_description || '')} ${time ? `<span style="float:right">${time}</span>` : ''}</div>
         ${m.target_files?.length ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px">Dateien: ${m.target_files.map(f => f.split('/').pop()).join(', ')}</div>` : ''}
+        ${actions}
       </div>
     </div>`;
   }).join('');
+}
+
+async function selfmodAction(id, action) {
+  try {
+    const res = await fetch(`/api/selfmod/${action}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) });
+    const data = await res.json();
+    if (!res.ok) { alert(`Fehler: ${data.error || 'Unbekannt'}`); return; }
+    // Refresh selfmod data
+    fetch('/api/selfmod').then(r => r.json()).then(d => { state.selfmod = d; renderSelfMod(); });
+  } catch(e) { alert(`Fehler: ${e.message}`); }
 }
 
 // ── Mission Tracker ───────────────────────────────────────

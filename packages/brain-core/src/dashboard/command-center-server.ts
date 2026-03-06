@@ -27,6 +27,8 @@ export interface CommandCenterOptions {
   getErrors?: () => unknown;
   getSelfModStatus?: () => unknown;
   getSelfModHistory?: (limit?: number) => unknown;
+  selfmodApprove?: (id: number) => unknown;
+  selfmodReject?: (id: number, notes?: string) => unknown;
   getMissions?: () => unknown;
   getMissionList?: (status?: string, limit?: number) => unknown;
   getKnowledgeStats?: () => unknown;
@@ -98,6 +100,7 @@ export class CommandCenterServer {
         if (url.pathname === '/api/thoughts') { this.handleThoughts(res, url); return; }
         if (url.pathname === '/api/errors') { this.handleErrors(res); return; }
         if (url.pathname === '/api/selfmod') { this.handleSelfMod(res); return; }
+        if ((url.pathname === '/api/selfmod/approve' || url.pathname === '/api/selfmod/reject') && req.method === 'POST') { this.handleSelfModAction(req, res, url.pathname); return; }
         if (url.pathname === '/api/missions') { this.handleMissions(res, url); return; }
         if (url.pathname === '/api/knowledge') { this.handleKnowledge(res); return; }
         if (url.pathname === '/api/debates') { this.handleDebates(res); return; }
@@ -401,6 +404,28 @@ export class CommandCenterServer {
     this.json(res, {
       status: this.options.getSelfModStatus(),
       history: this.options.getSelfModHistory?.(20) ?? [],
+    });
+  }
+
+  private handleSelfModAction(req: http.IncomingMessage, res: http.ServerResponse, pathname: string): void {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body) as { id: number; notes?: string };
+        const action = pathname.endsWith('/approve') ? 'approve' : 'reject';
+        let result: unknown;
+        if (action === 'approve') {
+          if (!this.options.selfmodApprove) { this.json(res, { error: 'selfmodApprove not configured' }, 400); return; }
+          result = this.options.selfmodApprove(data.id);
+        } else {
+          if (!this.options.selfmodReject) { this.json(res, { error: 'selfmodReject not configured' }, 400); return; }
+          result = this.options.selfmodReject(data.id, data.notes);
+        }
+        this.json(res, { ok: true, result });
+      } catch (err) {
+        this.json(res, { error: (err as Error).message }, 500);
+      }
     });
   }
 

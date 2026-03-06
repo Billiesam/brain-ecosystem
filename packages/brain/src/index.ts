@@ -42,6 +42,7 @@ import { watchdogCommand } from './cli/commands/watchdog.js';
 import { serviceCommand } from './cli/commands/service.js';
 import { pluginsCommand } from './cli/commands/plugins.js';
 import { borgCommand } from './cli/commands/borg.js';
+import { selfmodCommand } from './cli/commands/selfmod.js';
 import { getCurrentVersion } from './cli/update-check.js';
 
 const program = new Command();
@@ -75,6 +76,7 @@ program.addCommand(watchdogCommand());
 program.addCommand(serviceCommand());
 program.addCommand(pluginsCommand());
 program.addCommand(borgCommand());
+program.addCommand(selfmodCommand());
 
 // Hidden command: run MCP server (called by Claude Code)
 program

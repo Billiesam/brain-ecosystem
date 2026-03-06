@@ -45,6 +45,7 @@ import type { SelfModificationEngine } from '../self-modification/self-modificat
 import type { BootstrapService } from './bootstrap-service.js';
 import type { ConceptAbstraction } from '../concept-abstraction/concept-abstraction.js';
 import type { LLMService } from '../llm/llm-service.js';
+import type { ResearchMissionEngine } from '../missions/mission-engine.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -107,6 +108,8 @@ export class ResearchOrchestrator {
   private bootstrapService: BootstrapService | null = null;
   private conceptAbstraction: ConceptAbstraction | null = null;
   private llmService: LLMService | null = null;
+  private missionEngine: ResearchMissionEngine | null = null;
+  private lastAutoMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
 
   private db: Database.Database;
@@ -222,6 +225,11 @@ export class ResearchOrchestrator {
   /** Set the CuriosityEngine — knowledge gap detection and exploration/exploitation. */
   setCuriosityEngine(engine: CuriosityEngine): void {
     this.curiosityEngine = engine;
+  }
+
+  /** Set the MissionEngine — auto-missions from curiosity-driven research. */
+  setMissionEngine(engine: ResearchMissionEngine): void {
+    this.missionEngine = engine;
   }
 
   /** Set the EmergenceEngine — tracks emergent behaviors and complexity metrics. */
@@ -1193,6 +1201,43 @@ export class ResearchOrchestrator {
         }
       } catch (err) {
         this.log.error(`[orchestrator] Curiosity step error: ${(err as Error).message}`);
+      }
+    }
+
+    // 18b. Auto-Missions: Curiosity → MissionEngine bridge
+    // When CuriosityEngine finds a dark_zone gap with high score, auto-create a research mission.
+    // Limits: max 1 auto-mission per hour, max 3 active concurrent missions.
+    if (this.missionEngine && this.curiosityEngine && this.cycleCount % this.agendaEvery === 0) {
+      try {
+        const gaps = this.curiosityEngine.getGaps(5);
+        const highPrioGap = gaps.find(g => g.gapType === 'dark_zone' && g.gapScore > 0.6);
+        const hourSinceLastMission = (Date.now() - this.lastAutoMissionTime) > 3600_000;
+
+        if (highPrioGap && hourSinceLastMission) {
+          const topic = highPrioGap.topic ?? `Knowledge gap: ${highPrioGap.gapType}`;
+          try {
+            this.missionEngine.createMission(topic, 'standard');
+            this.lastAutoMissionTime = Date.now();
+            ts?.emit('mission_engine', 'exploring',
+              `Auto-mission started: "${topic}" (gap score: ${(highPrioGap.gapScore * 100).toFixed(0)}%)`,
+              'notable',
+            );
+            this.journal.write({
+              type: 'milestone',
+              title: `Auto-mission: ${topic}`,
+              content: `CuriosityEngine dark_zone gap triggered automatic research mission. Gap score: ${highPrioGap.gapScore.toFixed(2)}, questions: ${highPrioGap.questions?.slice(0, 2).join(' | ') ?? 'none'}`,
+              tags: [this.brainName, 'auto-mission', 'curiosity'],
+              references: [],
+              significance: 'notable',
+              data: { missionTopic: topic, gapScore: highPrioGap.gapScore },
+            });
+          } catch (err) {
+            // Max concurrent missions reached — that's fine, try next cycle
+            this.log.debug(`[orchestrator] Auto-mission skipped: ${(err as Error).message}`);
+          }
+        }
+      } catch (err) {
+        this.log.debug(`[orchestrator] Auto-mission check error: ${(err as Error).message}`);
       }
     }
 

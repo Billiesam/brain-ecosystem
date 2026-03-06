@@ -514,7 +514,7 @@ export class SelfModificationEngine {
     }
   }
 
-  /** Apply an approved modification — write files and build. */
+  /** Apply an approved modification — git backup → write files → build+test → commit or revert. */
   applyModification(modificationId: number): SelfModification {
     const mod = this.getModification(modificationId);
     if (!mod) throw new Error(`Modification #${modificationId} not found`);
@@ -526,7 +526,23 @@ export class SelfModificationEngine {
     }
     if (!this.config.projectRoot) throw new Error('projectRoot not configured');
 
-    // Save rollback data
+    // 1. Git backup — create a backup branch before modifying anything
+    const backupBranch = `selfmod-backup-${modificationId}-${Date.now()}`;
+    let hasGit = false;
+    try {
+      execSync('git rev-parse --is-inside-work-tree', { cwd: this.config.projectRoot, stdio: 'pipe' });
+      hasGit = true;
+      execSync(`git stash push -m "selfmod-${modificationId}-backup"`, { cwd: this.config.projectRoot, stdio: 'pipe' });
+      execSync(`git stash pop`, { cwd: this.config.projectRoot, stdio: 'pipe' });
+      // Tag the current state so we can always get back
+      execSync(`git branch ${backupBranch}`, { cwd: this.config.projectRoot, stdio: 'pipe' });
+      this.log.info(`[self-mod] Git backup branch created: ${backupBranch}`);
+    } catch {
+      // No git or git failed — continue without backup (rollbackData still works)
+      hasGit = false;
+    }
+
+    // 2. Save rollback data
     const rollbackData: FileDiff[] = [];
     for (const diff of mod.generated_diff) {
       const fullPath = path.resolve(this.config.projectRoot, diff.filePath);
@@ -535,14 +551,14 @@ export class SelfModificationEngine {
       rollbackData.push({ filePath: diff.filePath, oldContent: originalContent, newContent: diff.newContent });
     }
 
-    // Write files
+    // 3. Write files
     for (const diff of mod.generated_diff) {
       const fullPath = path.resolve(this.config.projectRoot, diff.filePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, diff.newContent, 'utf-8');
     }
 
-    // Build
+    // 4. Build
     try {
       execSync('npm run build', {
         cwd: this.config.projectRoot,
@@ -551,13 +567,49 @@ export class SelfModificationEngine {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
     } catch (err) {
-      // Build failed after apply — restore
+      // Build failed — restore files
       this.restoreFiles(rollbackData);
       this.updateModification(modificationId, {
         status: 'failed',
         test_output: `Apply build failed: ${(err as Error).message}`,
       });
       throw new Error(`Build failed after applying: ${(err as Error).message}`);
+    }
+
+    // 5. Run tests
+    try {
+      execSync('npm test', {
+        cwd: this.config.projectRoot,
+        timeout: 120_000,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      // Tests failed — automatic revert
+      this.restoreFiles(rollbackData);
+      this.log.warn(`[self-mod] Tests failed after apply for #${modificationId} — auto-reverted`);
+      this.updateModification(modificationId, {
+        status: 'failed',
+        test_result: 'failed',
+        test_output: `Apply tests failed (auto-reverted): ${(err as Error).message}`,
+      });
+      this.ts?.emit('self-modification', 'reflecting', `Apply reverted (tests failed): ${mod.title}`, 'notable');
+      throw new Error(`Tests failed after applying — reverted: ${(err as Error).message}`);
+    }
+
+    // 6. Git commit on success
+    if (hasGit) {
+      try {
+        const changedFiles = mod.generated_diff.map(d => d.filePath);
+        for (const f of changedFiles) {
+          execSync(`git add "${f}"`, { cwd: this.config.projectRoot, stdio: 'pipe' });
+        }
+        const commitMsg = `[selfmod] ${mod.title}\n\nModification #${modificationId}\nSource: ${mod.source_engine}`;
+        execSync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { cwd: this.config.projectRoot, stdio: 'pipe' });
+        this.log.info(`[self-mod] Git commit created for #${modificationId}`);
+      } catch (err) {
+        this.log.warn(`[self-mod] Git commit failed (non-critical): ${(err as Error).message}`);
+      }
     }
 
     this.updateModification(modificationId, {

@@ -52,6 +52,7 @@ import { PaperRepository } from './db/repositories/paper.repository.js';
 import { MarketDataService } from './market/market-data-service.js';
 import { CoinGeckoProvider } from './market/coingecko-provider.js';
 import { YahooProvider } from './market/yahoo-provider.js';
+import { CCXTProvider } from './market/ccxt-provider.js';
 
 // IPC
 import { IpcRouter, type Services } from './ipc/router.js';
@@ -209,6 +210,19 @@ export class TradingCore {
     marketDataService.registerProvider(new YahooProvider());
     services.marketData = marketDataService;
     logger.info('MarketDataService initialized (CoinGecko + Yahoo)');
+
+    // CCXT WebSocket Provider (optional — graceful if ccxt not installed)
+    const ccxtProvider = new CCXTProvider();
+    ccxtProvider.isAvailable().then(ok => {
+      if (ok) {
+        marketDataService.registerProvider(ccxtProvider);
+        logger.info(`CCXT provider registered (${ccxtProvider.name})`);
+        // Auto-start WebSocket streaming for all tracked crypto symbols
+        marketDataService.startStreaming(config.paper.cryptoIds).catch(err => {
+          logger.debug(`[MarketData] Streaming auto-connect skipped: ${(err as Error).message}`);
+        });
+      }
+    }).catch(() => { /* CCXT not installed — REST fallback stays */ });
 
     // Expose engines + cross-brain to IPC
     services.learning = this.learningEngine;
@@ -465,6 +479,7 @@ export class TradingCore {
     dataScout.addAdapter(new HackerNewsAdapter());
     dataScout.setThoughtStream(thoughtStream);
     this.orchestrator.setDataScout(dataScout);
+    dataScout.startPeriodicScan(6 * 3600 * 1000);  // every 6h
     services.dataScout = dataScout;
 
     // 12q. SimulationEngine — what-if scenario simulations

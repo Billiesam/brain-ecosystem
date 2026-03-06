@@ -55,6 +55,7 @@ export class DataScout {
   private db: Database.Database;
   private adapters: ScoutAdapter[];
   private thoughtStream: ThoughtStream | null = null;
+  private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private log = getLogger();
 
   constructor(db: Database.Database, adapters: ScoutAdapter[] = []) {
@@ -157,6 +158,29 @@ export class DataScout {
       bySource,
       recentDiscoveries: recent,
     };
+  }
+
+  /** Start periodic scanning at the given interval. */
+  startPeriodicScan(intervalMs = 6 * 3600 * 1000): void {
+    if (this.scanTimer) return;  // already running
+    this.log.info(`[data-scout] Starting periodic scan every ${Math.round(intervalMs / 60_000)}min`);
+    // Initial scan after 2min delay (let everything boot first)
+    this.scanTimer = setTimeout(() => {
+      this.scout().catch(e => this.log.error(`[data-scout] Periodic scan error: ${(e as Error).message}`));
+      this.scanTimer = setInterval(() => {
+        this.scout().catch(e => this.log.error(`[data-scout] Periodic scan error: ${(e as Error).message}`));
+      }, intervalMs);
+    }, 120_000);
+  }
+
+  /** Stop periodic scanning. */
+  stopPeriodicScan(): void {
+    if (this.scanTimer) {
+      clearTimeout(this.scanTimer);
+      clearInterval(this.scanTimer);
+      this.scanTimer = null;
+      this.log.info('[data-scout] Periodic scan stopped');
+    }
   }
 
   // ── Private ──────────────────────────────────────────────
