@@ -20,8 +20,8 @@ export interface EcosystemStatus {
 
 export interface AggregatedAnalytics {
   brain?: { errors: number; solutions: number; modules: number };
-  trading?: { trades: number; winRate: number; signals: number };
-  marketing?: { posts: number; campaigns: number; engagement: number };
+  trading?: { trades: number; winRate: number; signals: number; equity?: number; positions?: number; pnl?: number; rules?: number };
+  marketing?: { posts: number; campaigns: number; engagement: number; strategies?: number; rules?: number; templates?: number };
 }
 
 export class EcosystemService {
@@ -94,10 +94,11 @@ export class EcosystemService {
   async getAggregatedAnalytics(): Promise<AggregatedAnalytics> {
     const analytics: AggregatedAnalytics = {};
 
-    const [brainResult, tradingResult, marketingResult] = await Promise.all([
+    const [brainResult, tradingResult, marketingResult, paperResult] = await Promise.all([
       this.crossBrain.query('brain', 'analytics.summary'),
       this.crossBrain.query('trading-brain', 'analytics.summary'),
       this.crossBrain.query('marketing-brain', 'analytics.summary'),
+      this.crossBrain.query('trading-brain', 'paper.status'),
     ]);
 
     if (brainResult != null) {
@@ -110,20 +111,36 @@ export class EcosystemService {
     }
 
     if (tradingResult != null) {
-      const data = tradingResult as Record<string, number>;
+      const data = tradingResult as Record<string, unknown>;
+      const trades = data.trades as Record<string, number> | number | undefined;
+      const rules = data.rules as Record<string, number> | undefined;
+      const network = data.network as Record<string, number> | undefined;
+      const paper = paperResult as Record<string, unknown> | null;
       analytics.trading = {
-        trades: data.trades ?? 0,
-        winRate: data.winRate ?? 0,
-        signals: data.signals ?? 0,
+        trades: typeof trades === 'object' ? trades?.total ?? 0 : Number(trades) || 0,
+        winRate: typeof trades === 'object' ? (trades?.recentWinRate ?? 0) / 100 : 0,
+        signals: network?.synapses ?? 0,
+        rules: typeof rules === 'object' ? rules?.total ?? 0 : 0,
+        equity: Number(paper?.equity) || 0,
+        positions: Number(paper?.openPositions) || 0,
+        pnl: Number(paper?.totalPnL) || 0,
       };
     }
 
     if (marketingResult != null) {
-      const data = marketingResult as Record<string, number>;
+      const data = marketingResult as Record<string, unknown>;
+      const posts = data.posts as Record<string, number> | number | undefined;
+      const campaigns = data.campaigns as Record<string, number> | undefined;
+      const strategies = data.strategies as Record<string, number> | undefined;
+      const rules = data.rules as Record<string, number> | undefined;
+      const templates = data.templates as Record<string, number> | undefined;
       analytics.marketing = {
-        posts: data.posts ?? 0,
-        campaigns: data.campaigns ?? 0,
-        engagement: data.engagement ?? 0,
+        posts: typeof posts === 'object' ? posts?.total ?? 0 : Number(posts) || 0,
+        campaigns: typeof campaigns === 'object' ? campaigns?.total ?? 0 : Number(campaigns) || 0,
+        engagement: 0, // computed client-side from posts
+        strategies: typeof strategies === 'object' ? strategies?.total ?? 0 : 0,
+        rules: typeof rules === 'object' ? rules?.active ?? rules?.total ?? 0 : 0,
+        templates: typeof templates === 'object' ? templates?.total ?? 0 : 0,
       };
     }
 

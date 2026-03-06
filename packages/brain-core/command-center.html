@@ -606,7 +606,7 @@ canvas{display:block;width:100%;height:100%}
 const state = {
   ecosystem:null, engines:[], watchdog:[], plugins:[], borg:null, analytics:null,
   llm:null, thoughts:[], connected:false, lastThoughtTime:0,
-  errors:null, selfmod:null, missions:null, knowledge:null
+  errors:null, selfmod:null, missions:null, knowledge:null, debates:null
 };
 
 // ── Navigation ────────────────────────────────────────────
@@ -973,7 +973,10 @@ function renderAnalytics() {
   if (a.trading) {
     const t = a.trading;
     setText('tp-signals', num(t.signals));
+    setText('tp-analysis', num(t.rules));
     setText('tp-trades', num(t.trades));
+    setText('tp-pnl', t.pnl != null ? (t.pnl >= 0 ? '+' : '') + '$' + Number(t.pnl).toFixed(0) : '0');
+    setText('tp-learned', num(t.rules));
     setText('tradingWinRate', t.winRate ? (Number(t.winRate)*100).toFixed(1)+'%' : '--');
     setText('tradingEquity', t.equity ? '$'+Number(t.equity).toLocaleString() : '--');
     setText('tradingPositions', num(t.positions));
@@ -981,8 +984,12 @@ function renderAnalytics() {
   if (a.marketing) {
     const m = a.marketing;
     setText('mp-posts', num(m.posts));
-    setText('mp-engagement', num(m.engagement));
+    setText('mp-engagement', num(m.strategies));
+    setText('mp-patterns', num(m.rules));
+    setText('mp-campaigns', num(m.campaigns));
     setText('marketingCampaigns', num(m.campaigns));
+    setText('marketingTopContent', num(m.templates) > 0 ? num(m.templates) + ' Templates' : '--');
+    setText('marketingAudience', num(m.strategies) > 0 ? num(m.strategies) + ' Strategien' : '--');
   }
 }
 function num(v) { if (v == null) return 0; if (typeof v === 'object') return v.total || v.count || v.length || Object.keys(v).length || 0; return Number(v) || 0; }

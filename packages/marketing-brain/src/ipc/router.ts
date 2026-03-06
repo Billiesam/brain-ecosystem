@@ -304,30 +304,30 @@ export class IpcRouter {
       }],
 
       // Competitors
-      ['competitor.add',           (params) => s.competitor!.addCompetitor(p(params))],
-      ['competitor.list',          () => s.competitor!.listCompetitors()],
-      ['competitor.remove',        (params) => s.competitor!.removeCompetitor(p(params).id)],
-      ['competitor.recordPost',    (params) => s.competitor!.recordPost(p(params))],
-      ['competitor.posts',         (params) => s.competitor!.getCompetitorPosts(p(params).competitorId, p(params).limit)],
-      ['competitor.analyze',       (params) => s.competitor!.analyzeCompetitor(p(params).competitorId ?? p(params).id)],
-      ['competitor.compare',       (params) => s.competitor!.compareWithSelf(p(params).competitorId ?? p(params).id)],
+      ['competitor.add',           (params) => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.addCompetitor(p(params)); }],
+      ['competitor.list',          () => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.listCompetitors(); }],
+      ['competitor.remove',        (params) => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.removeCompetitor(p(params).id); }],
+      ['competitor.recordPost',    (params) => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.recordPost(p(params)); }],
+      ['competitor.posts',         (params) => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.getCompetitorPosts(p(params).competitorId, p(params).limit); }],
+      ['competitor.analyze',       (params) => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.analyzeCompetitor(p(params).competitorId ?? p(params).id); }],
+      ['competitor.compare',       (params) => { if (!s.competitor) throw new Error('Competitor service not available'); return s.competitor.compareWithSelf(p(params).competitorId ?? p(params).id); }],
 
       // Scheduler
-      ['scheduler.schedule',       (params) => s.scheduler!.schedulePost(p(params))],
-      ['scheduler.list',           () => s.scheduler!.listScheduled()],
-      ['scheduler.pending',        () => s.scheduler!.listPending()],
-      ['scheduler.cancel',         (params) => s.scheduler!.cancelPost(p(params).id)],
-      ['scheduler.checkDue',       () => s.scheduler!.checkDue()],
-      ['scheduler.reschedule',     (params) => s.scheduler!.reschedule(p(params).id, p(params).scheduledAt)],
+      ['scheduler.schedule',       (params) => { if (!s.scheduler) throw new Error('Scheduler service not available'); return s.scheduler.schedulePost(p(params)); }],
+      ['scheduler.list',           () => { if (!s.scheduler) throw new Error('Scheduler service not available'); return s.scheduler.listScheduled(); }],
+      ['scheduler.pending',        () => { if (!s.scheduler) throw new Error('Scheduler service not available'); return s.scheduler.listPending(); }],
+      ['scheduler.cancel',         (params) => { if (!s.scheduler) throw new Error('Scheduler service not available'); return s.scheduler.cancelPost(p(params).id); }],
+      ['scheduler.checkDue',       () => { if (!s.scheduler) throw new Error('Scheduler service not available'); return s.scheduler.checkDue(); }],
+      ['scheduler.reschedule',     (params) => { if (!s.scheduler) throw new Error('Scheduler service not available'); return s.scheduler.reschedule(p(params).id, p(params).scheduledAt); }],
 
       // Content Generator
-      ['content.generate',         (params) => s.contentGenerator!.generateDraft(p(params).platform, p(params).topic)],
-      ['content.hashtags',         (params) => s.contentGenerator!.suggestHashtags(p(params).platform, p(params).limit)],
+      ['content.generate',         (params) => { if (!s.contentGenerator) throw new Error('Content generator not available'); return s.contentGenerator.generateDraft(p(params).platform, p(params).topic); }],
+      ['content.hashtags',         (params) => { if (!s.contentGenerator) throw new Error('Content generator not available'); return s.contentGenerator.suggestHashtags(p(params).platform, p(params).limit); }],
 
       // Platform Adapter
-      ['platform.adapt',           (params) => s.platformAdapter!.adaptForPlatform(p(params).content, p(params).targetPlatform, p(params).sourceFormat)],
-      ['platform.crossAdapt',      (params) => s.platformAdapter!.adaptCrossPlatform(p(params).content, p(params).sourcePlatform, p(params).targetPlatforms)],
-      ['platform.config',          (params) => s.platformAdapter!.getPlatformConfig(p(params).platform)],
+      ['platform.adapt',           (params) => { if (!s.platformAdapter) throw new Error('Platform adapter not available'); return s.platformAdapter.adaptForPlatform(p(params).content, p(params).targetPlatform, p(params).sourceFormat); }],
+      ['platform.crossAdapt',      (params) => { if (!s.platformAdapter) throw new Error('Platform adapter not available'); return s.platformAdapter.adaptCrossPlatform(p(params).content, p(params).sourcePlatform, p(params).targetPlatforms); }],
+      ['platform.config',          (params) => { if (!s.platformAdapter) throw new Error('Platform adapter not available'); return s.platformAdapter.getPlatformConfig(p(params).platform); }],
 
       // Cross-Brain Notifications
       ['cross-brain.notify',   (params) => {

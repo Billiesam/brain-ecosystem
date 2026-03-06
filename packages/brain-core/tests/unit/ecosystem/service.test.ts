@@ -153,18 +153,19 @@ describe('EcosystemService', () => {
 
   describe('getAggregatedAnalytics', () => {
     it('returns analytics from responding peers', async () => {
-      mockCrossBrain.query.mockImplementation((peer: string) => {
+      mockCrossBrain.query.mockImplementation((peer: string, method: string) => {
         if (peer === 'brain') return Promise.resolve({ errors: 10, solutions: 5, modules: 3 });
-        if (peer === 'trading-brain') return Promise.resolve({ trades: 20, winRate: 0.75, signals: 8 });
-        if (peer === 'marketing-brain') return Promise.resolve({ posts: 15, campaigns: 4, engagement: 200 });
+        if (peer === 'trading-brain' && method === 'analytics.summary') return Promise.resolve({ trades: { total: 20, recentWinRate: 75 }, rules: { total: 3 }, network: { synapses: 8 } });
+        if (peer === 'trading-brain' && method === 'paper.status') return Promise.resolve({ equity: 10000, openPositions: 5, totalPnL: 200 });
+        if (peer === 'marketing-brain') return Promise.resolve({ posts: { total: 15 }, campaigns: { total: 4 }, strategies: { total: 2 }, rules: { active: 1 }, templates: { total: 0 } });
         return Promise.resolve(null);
       });
 
       const analytics = await service.getAggregatedAnalytics();
 
       expect(analytics.brain).toEqual({ errors: 10, solutions: 5, modules: 3 });
-      expect(analytics.trading).toEqual({ trades: 20, winRate: 0.75, signals: 8 });
-      expect(analytics.marketing).toEqual({ posts: 15, campaigns: 4, engagement: 200 });
+      expect(analytics.trading).toEqual({ trades: 20, winRate: 0.75, signals: 8, rules: 3, equity: 10000, positions: 5, pnl: 200 });
+      expect(analytics.marketing).toEqual({ posts: 15, campaigns: 4, engagement: 0, strategies: 2, rules: 1, templates: 0 });
     });
 
     it('handles offline peers gracefully', async () => {
@@ -191,27 +192,28 @@ describe('EcosystemService', () => {
     });
 
     it('maps trading analytics correctly', async () => {
-      mockCrossBrain.query.mockImplementation((peer: string) => {
-        if (peer === 'trading-brain') return Promise.resolve({ trades: 42, winRate: 0.6, signals: 15 });
+      mockCrossBrain.query.mockImplementation((peer: string, method: string) => {
+        if (peer === 'trading-brain' && method === 'analytics.summary') return Promise.resolve({ trades: { total: 42, recentWinRate: 60 }, rules: { total: 5 }, network: { synapses: 15 } });
+        if (peer === 'trading-brain' && method === 'paper.status') return Promise.resolve({ equity: 8000, openPositions: 3, totalPnL: -100 });
         return Promise.resolve(null);
       });
 
       const analytics = await service.getAggregatedAnalytics();
 
-      expect(analytics.trading).toEqual({ trades: 42, winRate: 0.6, signals: 15 });
+      expect(analytics.trading).toEqual({ trades: 42, winRate: 0.6, signals: 15, rules: 5, equity: 8000, positions: 3, pnl: -100 });
       expect(analytics.brain).toBeUndefined();
       expect(analytics.marketing).toBeUndefined();
     });
 
     it('maps marketing analytics correctly', async () => {
       mockCrossBrain.query.mockImplementation((peer: string) => {
-        if (peer === 'marketing-brain') return Promise.resolve({ posts: 30, campaigns: 7, engagement: 500 });
+        if (peer === 'marketing-brain') return Promise.resolve({ posts: { total: 30 }, campaigns: { total: 7 }, strategies: { total: 3 }, rules: { active: 2 }, templates: { total: 1 } });
         return Promise.resolve(null);
       });
 
       const analytics = await service.getAggregatedAnalytics();
 
-      expect(analytics.marketing).toEqual({ posts: 30, campaigns: 7, engagement: 500 });
+      expect(analytics.marketing).toEqual({ posts: 30, campaigns: 7, engagement: 0, strategies: 3, rules: 2, templates: 1 });
       expect(analytics.brain).toBeUndefined();
       expect(analytics.trading).toBeUndefined();
     });
