@@ -7,7 +7,7 @@
 
 **Shared infrastructure for the Brain Ecosystem — 72+ autonomous engines, synapses, IPC, MCP, LLM service, consciousness, research missions, notifications, self-modification, RAG, Knowledge Graph, code assimilation, and more.**
 
-Brain Core is the nervous system that powers all three Brain MCP servers ([Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain), [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain), [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain)). A 49-step feedback orchestrator runs 72+ engines in autonomic cycles — the brain observes itself, forms hypotheses, runs experiments, dreams, debates, reasons in chains, feels emotions, evolves strategies genetically, absorbs code from other repos, extracts reusable features, and modifies its own source code. Full intelligence suite: RAG pipeline, Knowledge Graph, semantic compression, RLHF feedback, tool learning, proactive suggestions, user modeling, code health monitor, inter-brain teaching, consensus voting, active learning, code assimilation with feature extraction.
+Brain Core is the nervous system that powers all three Brain MCP servers ([Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/brain), [Trading Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/trading-brain), [Marketing Brain](https://github.com/timmeck/brain-ecosystem/tree/main/packages/marketing-brain)). A 51-step feedback orchestrator runs 72+ engines in autonomic cycles — the brain observes itself, forms hypotheses, runs experiments, dreams, debates, reasons in chains, feels emotions, evolves strategies genetically, absorbs code from other repos, extracts reusable features, and modifies its own source code. Full intelligence suite: RAG pipeline, Knowledge Graph, semantic compression, RLHF feedback, tool learning, proactive suggestions, user modeling, code health monitor, inter-brain teaching, consensus voting, active learning, code assimilation with feature extraction.
 
 ## What's Included
 
@@ -140,6 +140,13 @@ Brain Core is the nervous system that powers all three Brain MCP servers ([Brain
 | **WatchdogService** | Process monitoring, auto-restart, health checks |
 | **PluginRegistry** | Community plugin loading, lifecycle hooks, MCP tools, IPC routes |
 | **WindowsServiceManager** | NSSM/SC.exe service install/uninstall/status |
+| **CheckpointManager** | Workflow state save/load/resume/fork with crash recovery |
+| **TraceCollector** | Hierarchical traces with spans, P50/P99 latency, cost tracking |
+| **AgentTrainer** | Benchmark suites, scenario-based training, performance grading |
+| **ToolScopeManager** | Context-aware dynamic tool filtering per task |
+| **PluginMarketplace** | Plugin discovery, rating, and installation |
+| **CodeSandbox** | Docker-isolated code execution for safe experimentation |
+| **MessagingInput** | Bidirectional Telegram + Discord bots for remote control |
 
 ### Utilities
 
@@ -177,7 +184,7 @@ const llm = new LLMService(db, {
   ollamaBaseUrl: 'http://localhost:11434',
 });
 
-// 3. Research Orchestrator (72+ engines, 49-step feedback cycle)
+// 3. Research Orchestrator (72+ engines, 51-step feedback cycle)
 const orchestrator = new ResearchOrchestrator(db, { brainName: 'my-brain' });
 orchestrator.start();
 

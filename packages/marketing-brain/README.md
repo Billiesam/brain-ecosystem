@@ -7,7 +7,7 @@
 
 **Self-Learning Marketing Intelligence System for Claude Code — 142 MCP Tools, 72+ Engines**
 
-Marketing Brain is an MCP server that gives Claude Code a persistent marketing memory. It tracks every post you publish, learns what works across 6 platforms, and builds a Hebbian synapse network connecting posts, campaigns, strategies, templates, and insights. Live social feeds from Bluesky + Reddit. Over time, it learns your best-performing patterns, generates content drafts, schedules posts, analyzes competitors, and runs 72+ autonomous engines in a 49-step feedback cycle to discover engagement patterns, reason about causality, evolve strategies genetically, and improve itself. Full intelligence suite: RAG, Knowledge Graph, feedback learning, tool tracking, user model, proactive suggestions. Multi-provider LLM (Anthropic + Ollama). 407 tests.
+Marketing Brain is an MCP server that gives Claude Code a persistent marketing memory. It tracks every post you publish, learns what works across 6 platforms, and builds a Hebbian synapse network connecting posts, campaigns, strategies, templates, and insights. Live social feeds from Bluesky + Reddit. Over time, it learns your best-performing patterns, generates content drafts, schedules posts, analyzes competitors, and runs 72+ autonomous engines in a 51-step feedback cycle to discover engagement patterns, reason about causality, evolve strategies genetically, and improve itself. Full intelligence suite: RAG, Knowledge Graph, feedback learning, tool tracking, user model, proactive suggestions. Multi-provider LLM (Anthropic + Ollama). 407 tests. Workflow checkpointing, structured LLM output, observability tracing, agent training, dynamic tool scoping.
 
 ## Quick Start
 
@@ -55,7 +55,7 @@ That's it. One command configures MCP, hooks, and starts the daemon.
 
 ### 72+ Autonomous Engines
 
-The ResearchOrchestrator runs a 40-step feedback cycle every 5 minutes:
+The ResearchOrchestrator runs a 51-step feedback cycle every 5 minutes:
 
 - **Observation** — SelfObserver, AnomalyDetective, DataScout, SignalScanner, TechRadar
 - **Understanding** — AttentionEngine, CausalGraph, CrossDomain, PatternEngine
@@ -89,8 +89,7 @@ DataMiner bootstraps all historical posts and engagement data at startup.
 | Dashboard | Port | What It Shows |
 |-----------|------|--------------|
 | **Marketing Dashboard** | 7783 | Interactive synapse graph, platform charts, top posts, insights |
-| **Mission Control** | 7788 | 7-tab: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
-| **Command Center** | 7790 | 7-page: Ecosystem, Learning Pipeline, Trading Flow, Marketing Flow, Cross-Brain & Borg, Activity & Missions, Infrastructure |
+| **Command Center** | 7790 | 9-page: Ecosystem, Consciousness, Learning, Trading, Marketing, Intelligence, Cross-Brain, Debates, Infrastructure |
 
 ### Memory & Sessions
 - **Persistent Memory** — Preferences, decisions, context, facts, goals, lessons
@@ -176,7 +175,7 @@ marketing config                 Configuration management
 
 | Brain | Purpose | Ports |
 |-------|---------|-------|
-| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7788 / 7790 |
+| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777 / 7778 / 7790 |
 | [Trading Brain](../trading-brain) | Adaptive trading intelligence with signal learning & paper trading | 7779 / 7780 |
 | **Marketing Brain** (this) | Content strategy, social engagement & cross-platform optimization | **7781** / 7782 / 7783 |
 | [Brain Core](../brain-core) | Shared infrastructure — 72+ engines | — |

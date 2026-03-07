@@ -7,7 +7,7 @@
 
 **Autonomous Error Memory, Code Intelligence & Self-Improving AI for Claude Code — 162 MCP Tools, 72+ Engines**
 
-Brain is an MCP server that gives Claude Code a persistent, self-improving memory. It remembers errors, learns solutions, and runs 72+ autonomous engines in a 50-step feedback cycle. It observes itself, detects anomalies, forms and tests hypotheses, distills principles, reasons in chains, feels emotions, evolves strategies genetically, debates itself, challenges its own principles (Advocatus Diaboli), gets curious about knowledge gaps, syncs knowledge via Borg collective, loads community plugins, absorbs code from GitHub repos, extracts reusable features, recommends missing features, and modifies its own source code. Multi-provider LLM (Anthropic + Ollama). RAG vector search across all knowledge. Knowledge Graph with transitive inference. RLHF feedback learning. Tool-use learning. User modeling. Proactive suggestions. Code assimilation with feature extraction + recommendation. Autonomous web research missions. Live tech radar scanning. 162 MCP tools. 3076 tests.
+Brain is an MCP server that gives Claude Code a persistent, self-improving memory. It remembers errors, learns solutions, and runs 72+ autonomous engines in a 51-step feedback cycle. It observes itself, detects anomalies, forms and tests hypotheses, distills principles, reasons in chains, feels emotions, evolves strategies genetically, debates itself, challenges its own principles (Advocatus Diaboli), gets curious about knowledge gaps, syncs knowledge via Borg collective, loads community plugins, absorbs code from GitHub repos, extracts reusable features, recommends missing features, and modifies its own source code. Multi-provider LLM (Anthropic + Ollama). RAG vector search across all knowledge. Knowledge Graph with transitive inference. RLHF feedback learning. Tool-use learning. User modeling. Proactive suggestions. Code assimilation with feature extraction + recommendation. Autonomous web research missions. Live tech radar scanning. 162 MCP tools. 3,316 tests.
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ Browser ────────HTTP──────►  Command Center  (:779
                     ▼               ▼               ▼
               Error Memory    Research Engine   72+ Engines
               Code Intel      Mission Engine    ResearchOrchestrator
-              Synapse Net     LLM Service       50-step feedback loop
+              Synapse Net     LLM Service       51-step feedback loop
               Prevention      Web Research          │
               Git Intel       TechRadar         ┌───┴───────────┐
                     │                           ▼               ▼
@@ -79,7 +79,7 @@ Cross-brain communication via IPC named pipes (trading-brain, marketing-brain).
 
 ### 72+ Autonomous Engines
 
-The ResearchOrchestrator runs a 50-step feedback cycle every 5 minutes:
+The ResearchOrchestrator runs a 51-step feedback cycle every 5 minutes:
 
 #### Core Research Engines
 
@@ -149,7 +149,7 @@ The ResearchOrchestrator runs a 50-step feedback cycle every 5 minutes:
 | RepoAbsorber | Absorbs external repos and indexes their knowledge |
 | FeatureExtractor | Extracts reusable functions, patterns, data structures |
 | FeatureRecommender | Detects needs, matches features, builds connections |
-| ResearchOrchestrator | Orchestrates the entire 50-step feedback cycle |
+| ResearchOrchestrator | Orchestrates the entire 51-step feedback cycle |
 
 ### Self-Improvement Loop
 

@@ -12,7 +12,7 @@
 
 ![Command Center](docs/assets/command-center.png)
 
-Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 72+ autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. Multi-provider LLM support (Anthropic + Ollama). Live market data via CCXT WebSocket. Social feeds via Bluesky + Reddit. Web research via Brave Search + Playwright + Firecrawl. Borg collective sync. Plugin SDK for community brains. Advocatus Diaboli principle challenges. RAG vector search across all knowledge. Knowledge Graph with transitive inference and automatic contradiction resolution. Semantic compression. RLHF feedback learning. Proactive suggestions. Inter-brain teaching. Multi-brain consensus voting. Active learning with gap detection. Code assimilation from GitHub repos with feature extraction and self-capability awareness. Generic retry and batch-queue utilities. 424+ MCP tools. 3,108 tests. The brain literally thinks about itself, gets curious, runs experiments, absorbs code from other repos, and writes code to improve itself.
+Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 72+ autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. Multi-provider LLM support (Anthropic + Ollama). Live market data via CCXT WebSocket. Social feeds via Bluesky + Reddit. Web research via Brave Search + Playwright + Firecrawl. Borg collective sync. Plugin SDK for community brains. Advocatus Diaboli principle challenges. RAG vector search across all knowledge. Knowledge Graph with transitive inference and automatic contradiction resolution. Semantic compression. RLHF feedback learning. Proactive suggestions. Inter-brain teaching. Multi-brain consensus voting. Active learning with gap detection. Code assimilation from GitHub repos with feature extraction and self-capability awareness. Generic retry and batch-queue utilities. 424+ MCP tools. 3,316 tests. The brain literally thinks about itself, gets curious, runs experiments, absorbs code from other repos, and writes code to improve itself.
 
 ## Packages
 
@@ -77,6 +77,15 @@ Most AI tools forget everything between sessions. Brain doesn't. It builds a per
 - **Contradiction Resolver** — Classifies knowledge graph contradictions (confidence gap, temporal, contextual, trade-off) and auto-resolves them with audit trail
 - **Self-Capability Awareness** — FeatureRecommender recognizes Brain's existing abilities (rate limiter, cache, streaming, monitoring, middleware) and only wishes for features it truly lacks
 - **Generic Utilities** — `retryWithBackoff<T>()` with exponential backoff + jitter, `BatchQueue<T,R>` for efficient batch processing
+- **Workflow Checkpointing** — Save/load/resume/fork workflow state with crash recovery (LangGraph-inspired)
+- **Structured LLM Output** — ContentBlock types (Text, Reasoning, ToolCall, Citation, JSON) + composable middleware pipeline
+- **Observability & Tracing** — Hierarchical traces with spans, P50/P99 latency, token/cost tracking (LangSmith-inspired)
+- **Messaging Input** — Bidirectional Telegram + Discord bots: receive commands, respond with brain status
+- **Agent Training CLI** — Benchmark suites, performance grading, scenario-based training (CrewAI-inspired)
+- **Dynamic Tool Scoping** — Context-aware tool filtering: only relevant tools for each task (LangGraph-inspired)
+- **Plugin Marketplace** — Discovery, rating, installation of community brain plugins (OpenClaw-inspired)
+- **Code Sandbox** — Docker-isolated code execution for safe experimentation (AutoGen-inspired)
+- **SelfMod Pipeline** — Feature-aware self-modification: absorbed repo code as reference for code generation
 
 ## What It Does
 
@@ -176,6 +185,14 @@ Brain Core provides the building blocks all brains share:
 | **FeatureExtractor** | Extract reusable functions/patterns from absorbed repos (TS, Go, Py, Rust) |
 | **ContradictionResolver** | Classify and resolve knowledge graph contradictions with audit trail |
 | **Retry & BatchQueue** | Generic exponential backoff with jitter + batch processing utilities |
+| **Checkpointing** | Save/load/resume/fork workflow state for crash recovery |
+| **Structured Output** | ContentBlock types + composable LLM middleware pipeline |
+| **Tracing** | Hierarchical spans with P50/P99 latency, token/cost tracking |
+| **Messaging** | Bidirectional Telegram + Discord bots for remote control |
+| **Agent Training** | Benchmark suites, scenario training, performance grading |
+| **Tool Scoping** | Context-aware dynamic tool filtering per task |
+| **Marketplace** | Plugin discovery, rating, and installation |
+| **Code Sandbox** | Docker-isolated code execution for safe experimentation |
 
 ## Architecture
 
@@ -199,9 +216,9 @@ Brain Core provides the building blocks all brains share:
 |  Brain |    |  Trading   |   |  Marketing   |
 | :7777  |<-->|  Brain     |<->|  Brain       |
 | :7778  |    |  :7779     |   |  :7781       |
-| :7788  |    |  :7780     |   |  :7782       |
-| :7790  |    +-----+------+   |  :7783       |
-+---+----+         |           +---+----------+
+| :7790  |    |  :7780     |   |  :7782       |
++---+----+    +-----+------+   |  :7783       |
+    |              |           +---+----------+
     |              |                |
     v              v                v
 +--------+    +------------+   +--------------+
@@ -397,7 +414,7 @@ git clone https://github.com/timmeck/brain-ecosystem.git
 cd brain-ecosystem
 npm install          # installs all workspace dependencies
 npm run build        # builds all packages (brain-core first)
-npm test             # runs all 3,108 tests
+npm test             # runs all 3,316 tests
 ```
 
 ### Package Dependencies
@@ -423,7 +440,7 @@ brain-core          (no internal deps)
 - **Playwright** — Headless browser for web research
 - **Commander** — CLI framework
 - **Winston** — Structured logging with file rotation
-- **Vitest** — 3,108 tests across 236 test files
+- **Vitest** — 3,316 tests across 246 test files
 
 ## Docker (Optional)
 

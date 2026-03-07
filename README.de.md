@@ -12,7 +12,7 @@
 
 ![Command Center](docs/assets/command-center.png)
 
-Brain Ecosystem ist ein System aus drei spezialisierten "Brains", verbunden durch ein Hebbsches Synapsen-Netzwerk. 72+ autonome Engines laufen in Feedback-Loops — beobachten, erkennen Anomalien, bilden Hypothesen, testen sie statistisch, destillieren Prinzipien, träumen, debattieren, denken in Ketten, fühlen Emotionen, entwickeln Strategien genetisch weiter und modifizieren ihren eigenen Quellcode. Multi-Provider LLM-Support (Anthropic + Ollama). Live-Marktdaten via CCXT WebSocket. Social Feeds via Bluesky + Reddit. Web-Recherche via Brave Search + Playwright + Firecrawl. Borg Collective Sync. Plugin SDK für Community Brains. Advocatus Diaboli Prinzip-Challenges. RAG-Vektorsuche über alles Wissen. Knowledge Graph mit transitiver Inferenz. Semantische Kompression. RLHF Feedback-Lernen. Proaktive Vorschläge. Inter-Brain Teaching. Multi-Brain Konsens-Abstimmung. Aktives Lernen mit Wissenslücken-Erkennung. Automatische Widerspruchs-Auflösung im Knowledge Graph. Selbsterkenntnis eigener Fähigkeiten. 424+ MCP Tools. 3.108 Tests. Das Brain denkt buchstäblich über sich selbst nach, wird neugierig, führt Experimente durch und schreibt Code um sich zu verbessern.
+Brain Ecosystem ist ein System aus drei spezialisierten "Brains", verbunden durch ein Hebbsches Synapsen-Netzwerk. 72+ autonome Engines laufen in Feedback-Loops — beobachten, erkennen Anomalien, bilden Hypothesen, testen sie statistisch, destillieren Prinzipien, träumen, debattieren, denken in Ketten, fühlen Emotionen, entwickeln Strategien genetisch weiter und modifizieren ihren eigenen Quellcode. Multi-Provider LLM-Support (Anthropic + Ollama). Live-Marktdaten via CCXT WebSocket. Social Feeds via Bluesky + Reddit. Web-Recherche via Brave Search + Playwright + Firecrawl. Borg Collective Sync. Plugin SDK für Community Brains. Advocatus Diaboli Prinzip-Challenges. RAG-Vektorsuche über alles Wissen. Knowledge Graph mit transitiver Inferenz. Semantische Kompression. RLHF Feedback-Lernen. Proaktive Vorschläge. Inter-Brain Teaching. Multi-Brain Konsens-Abstimmung. Aktives Lernen mit Wissenslücken-Erkennung. Automatische Widerspruchs-Auflösung im Knowledge Graph. Selbsterkenntnis eigener Fähigkeiten. 424+ MCP Tools. 3.316 Tests. Das Brain denkt buchstäblich über sich selbst nach, wird neugierig, führt Experimente durch und schreibt Code um sich zu verbessern.
 
 ## Pakete
 
@@ -74,6 +74,15 @@ Die meisten KI-Tools vergessen alles zwischen den Sessions. Brain nicht. Es baut
 - **Widerspruchs-Auflösung** — Klassifiziert Knowledge-Graph-Widersprüche (Konfidenz-Gap, temporal, kontextual, Trade-Off) und löst sie automatisch mit Audit-Trail
 - **Selbsterkenntnis** — FeatureRecommender erkennt Brains eigene Fähigkeiten und wünscht sich nur Features die wirklich fehlen
 - **Generische Utilities** — `retryWithBackoff<T>()` mit exponentiellem Backoff + Jitter, `BatchQueue<T,R>` für effiziente Batch-Verarbeitung
+- **Workflow Checkpointing** — Workflow-Zustand speichern/laden/fortsetzen/forken mit Crash-Recovery (LangGraph-inspiriert)
+- **Strukturierte LLM-Ausgabe** — ContentBlock-Typen (Text, Reasoning, ToolCall, Citation, JSON) + komponierbare Middleware-Pipeline
+- **Observability & Tracing** — Hierarchische Traces mit Spans, P50/P99-Latenz, Token/Kosten-Tracking (LangSmith-inspiriert)
+- **Messaging-Eingabe** — Bidirektionale Telegram- + Discord-Bots: Befehle empfangen, mit Brain-Status antworten
+- **Agent Training CLI** — Benchmark-Suites, Performance-Bewertung, Szenario-Training (CrewAI-inspiriert)
+- **Dynamisches Tool Scoping** — Kontextbewusstes Tool-Filtering: nur relevante Tools pro Aufgabe (LangGraph-inspiriert)
+- **Plugin Marketplace** — Entdeckung, Bewertung, Installation von Community Brain-Plugins (OpenClaw-inspiriert)
+- **Code Sandbox** — Docker-isolierte Code-Ausführung für sicheres Experimentieren (AutoGen-inspiriert)
+- **SelfMod Pipeline** — Feature-bewusste Selbstmodifikation: absorbierter Repo-Code als Referenz für Code-Generierung
 
 ## Was es kann
 
@@ -233,7 +242,7 @@ git clone https://github.com/timmeck/brain-ecosystem.git
 cd brain-ecosystem
 npm install          # installiert alle Workspace-Abhängigkeiten
 npm run build        # baut alle Pakete (brain-core zuerst)
-npm test             # führt alle 3.108 Tests aus
+npm test             # führt alle 3.316 Tests aus
 ```
 
 ## Support
