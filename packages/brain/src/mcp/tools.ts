@@ -36,6 +36,7 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
       task_context: z.string().optional().describe('What was the user trying to accomplish'),
       working_directory: z.string().optional().describe('Working directory when error occurred'),
       project: z.string().optional().describe('Project name'),
+      solution: z.string().optional().describe('If you already found or applied a fix, describe it here. Brain will store it as a solution for future similar errors.'),
     },
     async (params) => {
       const result: AnyResult = await call('error.report', {
@@ -45,8 +46,12 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
         taskContext: params.task_context,
         workingDirectory: params.working_directory,
         command: params.command,
+        solution: params.solution,
       });
       let response = `Error #${result.errorId} recorded (${result.isNew ? 'new' : 'seen before'}).`;
+      if (result.solutionId) {
+        response += `\nSolution #${result.solutionId} auto-created from your description.`;
+      }
       if (result.matches?.length > 0) {
         const best = result.matches[0];
         response += `\nSimilar error found (#${best.errorId}, ${Math.round(best.score * 100)}% match).`;

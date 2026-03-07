@@ -164,7 +164,7 @@ describe('EcosystemService', () => {
       const analytics = await service.getAggregatedAnalytics();
 
       expect(analytics.brain).toEqual({ errors: 10, solutions: 5, modules: 3 });
-      expect(analytics.trading).toEqual({ trades: 20, winRate: 0.75, signals: 8, rules: 3, equity: 10000, positions: 5, pnl: 200 });
+      expect(analytics.trading).toEqual({ trades: 20, winRate: 0.75, signals: 8, rules: 3, equity: 10000, positions: 5, pnl: 200, history: [], openPositionsList: [] });
       expect(analytics.marketing).toEqual({ posts: 15, campaigns: 4, engagement: 0, strategies: 2, rules: 1, templates: 0 });
     });
 
@@ -200,7 +200,7 @@ describe('EcosystemService', () => {
 
       const analytics = await service.getAggregatedAnalytics();
 
-      expect(analytics.trading).toEqual({ trades: 42, winRate: 0.6, signals: 15, rules: 5, equity: 8000, positions: 3, pnl: -100 });
+      expect(analytics.trading).toEqual({ trades: 42, winRate: 0.6, signals: 15, rules: 5, equity: 8000, positions: 3, pnl: -100, history: [], openPositionsList: [] });
       expect(analytics.brain).toBeUndefined();
       expect(analytics.marketing).toBeUndefined();
     });

@@ -20,7 +20,7 @@ export interface EcosystemStatus {
 
 export interface AggregatedAnalytics {
   brain?: { errors: number; solutions: number; modules: number };
-  trading?: { trades: number; winRate: number; signals: number; equity?: number; positions?: number; pnl?: number; rules?: number; history?: Array<{ symbol: string; side: string; entryPrice: number; exitPrice: number; pnlUsdt: number; pnlPct: number; exitReason: string; closedAt: string }> };
+  trading?: { trades: number; winRate: number; signals: number; equity?: number; positions?: number; pnl?: number; rules?: number; history?: Array<{ symbol: string; side: string; entryPrice: number; exitPrice: number; pnlUsdt: number; pnlPct: number; exitReason: string; closedAt: string }>; openPositionsList?: Array<{ symbol: string; side: string; entryPrice: number; currentPrice: number; pnlPct: number; usdtAmount: number; openedAt: string }> };
   marketing?: { posts: number; campaigns: number; engagement: number; strategies?: number; rules?: number; templates?: number };
 }
 
@@ -94,12 +94,13 @@ export class EcosystemService {
   async getAggregatedAnalytics(): Promise<AggregatedAnalytics> {
     const analytics: AggregatedAnalytics = {};
 
-    const [brainResult, tradingResult, marketingResult, paperResult, historyResult] = await Promise.all([
+    const [brainResult, tradingResult, marketingResult, paperResult, historyResult, portfolioResult] = await Promise.all([
       this.crossBrain.query('brain', 'analytics.summary'),
       this.crossBrain.query('trading-brain', 'analytics.summary'),
       this.crossBrain.query('marketing-brain', 'analytics.summary'),
       this.crossBrain.query('trading-brain', 'paper.status'),
       this.crossBrain.query('trading-brain', 'paper.history', { limit: 10 }),
+      this.crossBrain.query('trading-brain', 'paper.portfolio'),
     ]);
 
     if (brainResult != null) {
@@ -118,14 +119,16 @@ export class EcosystemService {
       const network = data.network as Record<string, number> | undefined;
       const paper = paperResult as Record<string, unknown> | null;
       const historyArr = Array.isArray(historyResult) ? historyResult as Array<Record<string, unknown>> : [];
+      const portfolio = portfolioResult as Record<string, unknown> | null;
+      const positionsArr = Array.isArray(portfolio?.positions) ? portfolio.positions as Array<Record<string, unknown>> : [];
       analytics.trading = {
         trades: typeof trades === 'object' ? trades?.total ?? 0 : Number(trades) || 0,
-        winRate: typeof trades === 'object' ? (trades?.recentWinRate ?? 0) / 100 : 0,
+        winRate: Number(paper?.winRate) > 0 ? Number(paper?.winRate) / 100 : (typeof trades === 'object' ? (trades?.recentWinRate ?? 0) / 100 : 0),
         signals: network?.synapses ?? 0,
         rules: typeof rules === 'object' ? rules?.total ?? 0 : 0,
         equity: Number(paper?.equity) || 0,
         positions: Number(paper?.openPositions) || 0,
-        pnl: Number(paper?.totalPnL) || 0,
+        pnl: Number(paper?.totalPnl ?? paper?.totalPnL) || 0,
         history: historyArr.map(h => ({
           symbol: String(h.symbol ?? ''),
           side: String(h.side ?? ''),
@@ -135,6 +138,15 @@ export class EcosystemService {
           pnlPct: Number(h.pnlPct) || 0,
           exitReason: String(h.exitReason ?? ''),
           closedAt: String(h.closedAt ?? ''),
+        })),
+        openPositionsList: positionsArr.map(p => ({
+          symbol: String(p.symbol ?? ''),
+          side: String(p.side ?? 'long'),
+          entryPrice: Number(p.entryPrice) || 0,
+          currentPrice: Number(p.currentPrice) || 0,
+          pnlPct: Number(p.pnlPct) || 0,
+          usdtAmount: Number(p.usdtAmount) || 0,
+          openedAt: String(p.openedAt ?? ''),
         })),
       };
     }

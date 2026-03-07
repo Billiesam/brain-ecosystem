@@ -81,7 +81,7 @@ export class AnalyticsService {
         unresolved: unresolvedErrors.length,
         last7d: last7dCount,
       },
-      solutions: { total: 0 }, // solutions are global, not per-project
+      solutions: { total: this.solutionRepo.getAll().length },
       rules: { active: rules.length },
       antipatterns: { total: antipatterns.length },
       modules: { total: moduleCount },

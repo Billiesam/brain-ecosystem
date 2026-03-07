@@ -456,6 +456,10 @@ canvas{display:block;width:100%;height:100%}
           <div class="card"><div class="card-title" data-t="Offene Positionen">Offene Positionen</div><div class="card-value" id="tradingPositions" style="color:var(--green)">--</div><div class="card-sub" data-t="Aktive Trades gerade">Aktive Trades gerade</div></div>
         </div>
         <div class="section" style="margin-top:16px">
+          <div class="section-title"><span class="icon">&#x1F4B0;</span> <span data-t="Offene Positionen">Offene Positionen</span></div>
+          <div id="openPositionsTable"><div class="empty" data-t="Keine offenen Positionen">Keine offenen Positionen</div></div>
+        </div>
+        <div class="section" style="margin-top:16px">
           <div class="section-title"><span class="icon">&#x1F4DC;</span> <span data-t="Letzte Trades">Letzte Trades</span></div>
           <div id="tradeHistoryTable"><div class="empty" data-t="Keine Trades bisher">Keine Trades bisher</div></div>
         </div>
@@ -759,7 +763,7 @@ const translations = { en: {
   'So tradet Trading-Brain':'How Trading Brain Trades',
   'Signale kommen rein, werden analysiert, als Paper Trade getestet und das Ergebnis fließt zurück ins Lernen.':'Signals come in, get analyzed, tested as paper trades, and results feed back into learning.',
   'Signale':'Signals','Analyse':'Analysis','Ergebnis':'Result','Lernen':'Learn',
-  'Paper Trading Guthaben':'Paper Trading Balance','Gewinnrate aller Trades':'Win Rate All Trades','Offene Positionen':'Open Positions','Aktive Trades gerade':'Active Trades Now',
+  'Paper Trading Guthaben':'Paper Trading Balance','Gewinnrate aller Trades':'Win Rate All Trades','Offene Positionen':'Open Positions','Aktive Trades gerade':'Active Trades Now','Keine offenen Positionen':'No open positions','Aktuell':'Current','Betrag':'Amount','Ge\u00f6ffnet':'Opened','Letzte Trades':'Recent Trades','Keine Trades bisher':'No trades yet','Grund':'Reason','Datum':'Date',
   'So lernt Marketing-Brain':'How Marketing Brain Learns',
   'Posts werden veröffentlicht, das Engagement wird gemessen, Muster erkannt und die Strategie angepasst.':'Posts are published, engagement is measured, patterns detected, and strategy adjusted.',
   'Muster':'Patterns','Strategie':'Strategy','Bester Post':'Best Post','Kampagnen':'Campaigns','Aktive Kampagnen':'Active Campaigns','Zielgruppe':'Audience',
@@ -1422,6 +1426,32 @@ function renderAnalytics() {
     setText('tradingWinRate', t.winRate ? (Number(t.winRate)*100).toFixed(1)+'%' : '--');
     setText('tradingEquity', t.equity ? '$'+Number(t.equity).toLocaleString() : '--');
     setText('tradingPositions', num(t.positions));
+    // Open Positions Table
+    const opEl = document.getElementById('openPositionsTable');
+    if (opEl && Array.isArray(t.openPositionsList) && t.openPositionsList.length > 0) {
+      opEl.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<tr style="color:var(--text-dim);text-align:left;border-bottom:1px solid var(--border)">'
+        + '<th style="padding:6px 8px">Symbol</th><th style="padding:6px 8px">Side</th>'
+        + '<th style="padding:6px 8px">Entry</th><th style="padding:6px 8px" data-t="Aktuell">Aktuell</th>'
+        + '<th style="padding:6px 8px">PnL</th><th style="padding:6px 8px" data-t="Betrag">Betrag</th>'
+        + '<th style="padding:6px 8px" data-t="Geöffnet">Ge\u00f6ffnet</th></tr>'
+        + t.openPositionsList.map(pos => {
+          const win = pos.pnlPct > 0;
+          const pnlColor = win ? 'var(--green)' : 'var(--red)';
+          const sign = win ? '+' : '';
+          return '<tr style="border-bottom:1px solid var(--border)">'
+            + `<td style="padding:6px 8px;font-weight:600;color:var(--cyan)">${pos.symbol}</td>`
+            + `<td style="padding:6px 8px">${pos.side}</td>`
+            + `<td style="padding:6px 8px">$${Number(pos.entryPrice).toFixed(4)}</td>`
+            + `<td style="padding:6px 8px">$${Number(pos.currentPrice).toFixed(4)}</td>`
+            + `<td style="padding:6px 8px;color:${pnlColor};font-weight:600">${sign}${Number(pos.pnlPct).toFixed(2)}%</td>`
+            + `<td style="padding:6px 8px">$${Number(pos.usdtAmount).toFixed(2)}</td>`
+            + `<td style="padding:6px 8px;color:var(--text-dim)">${pos.openedAt ? pos.openedAt.slice(0, 16).replace('T', ' ') : ''}</td>`
+            + '</tr>';
+        }).join('') + '</table>';
+    } else if (opEl) {
+      opEl.innerHTML = `<div class="empty" data-t="Keine offenen Positionen">${t('Keine offenen Positionen')}</div>`;
+    }
     // Trade History Table
     const hEl = document.getElementById('tradeHistoryTable');
     if (hEl && Array.isArray(t.history) && t.history.length > 0) {

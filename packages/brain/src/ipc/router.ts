@@ -261,7 +261,19 @@ export class IpcRouter {
       ['terminal.disconnect',     (params) => s.terminal.disconnect(p(params).uuid)],
 
       // Error Brain
-      ['error.report',            (params) => s.error.report(p(params))],
+      ['error.report',            (params) => {
+        const args = p(params);
+        const result = s.error.report(args);
+        if (args.solution && typeof args.solution === 'string' && args.solution.trim()) {
+          const solutionId = s.solution.report({
+            errorId: result.errorId,
+            description: args.solution,
+            source: 'auto_report',
+          });
+          return { ...result, solutionId };
+        }
+        return result;
+      }],
       ['error.query',             (params) => s.error.query(p(params))],
       ['error.match',             (params) => s.error.matchSimilar(p(params).error_id ?? p(params).errorId)],
       ['error.resolve',           (params) => s.error.resolve(p(params).error_id ?? p(params).errorId, p(params).solution_id ?? p(params).solutionId)],
