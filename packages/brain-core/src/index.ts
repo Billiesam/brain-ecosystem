@@ -221,6 +221,8 @@ export type {
   GenerationRequest, GenerationResult, GenerationRecord, CodeGeneratorSummary,
 } from './codegen/index.js';
 export type { SelfImprovementProposal } from './codegen/index.js';
+export { RepoAbsorber } from './codegen/index.js';
+export type { AbsorbResult, RepoAbsorberStatus } from './codegen/index.js';
 
 // ── Attention Engine ──────────────────────────────────
 export { AttentionEngine } from './attention/index.js';

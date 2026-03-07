@@ -54,6 +54,7 @@ import type { RAGIndexer } from '../rag/rag-indexer.js';
 import type { TeachingProtocol } from '../teaching/teaching-protocol.js';
 import type { CodeHealthMonitor } from '../code-health/health-monitor.js';
 import type { KnowledgeGraphEngine } from '../knowledge-graph/graph-engine.js';
+import type { RepoAbsorber } from '../codegen/repo-absorber.js';
 import { AutoResponder } from './auto-responder.js';
 
 // ── Types ───────────────────────────────────────────────
@@ -125,6 +126,7 @@ export class ResearchOrchestrator {
   private teachingProtocol: TeachingProtocol | null = null;
   private codeHealthMonitor: CodeHealthMonitor | null = null;
   private knowledgeGraph: KnowledgeGraphEngine | null = null;
+  private repoAbsorber: RepoAbsorber | null = null;
   private lastAutoMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
 
@@ -334,6 +336,9 @@ export class ResearchOrchestrator {
 
   /** Set the KnowledgeGraphEngine — typed fact storage and inference. */
   setKnowledgeGraph(graph: KnowledgeGraphEngine): void { this.knowledgeGraph = graph; }
+
+  /** Set the RepoAbsorber — autonomous code learning from discovered repos. */
+  setRepoAbsorber(absorber: RepoAbsorber): void { this.repoAbsorber = absorber; }
 
   /** Set the LLMService — propagates to all engines that can use LLM. */
   setLLMService(llm: LLMService): void {
@@ -1884,27 +1889,52 @@ export class ResearchOrchestrator {
         ts?.emit('fact_extractor', 'analyzing', 'Step 42: Extracting facts from insights...', 'routine');
         let factsAdded = 0;
         // Extract from recent insights
+        // Extract from insights NOT yet in knowledge_facts
         try {
-          const recentInsights = this.db.prepare(
-            `SELECT id, description FROM insights WHERE created_at > datetime('now', '-1 day') AND description IS NOT NULL ORDER BY id DESC LIMIT 20`
+          const unprocessed = this.db.prepare(
+            `SELECT i.id, i.description FROM insights i
+             WHERE i.description IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM knowledge_facts kf WHERE kf.source_type = 'insight' AND kf.source_id = i.id)
+             ORDER BY i.id DESC LIMIT 30`
           ).all() as Array<{ id: number; description: string }>;
-          for (const ins of recentInsights) {
+          for (const ins of unprocessed) {
             const facts = this.factExtractor.extractFromInsight(ins.description, `insight:${ins.id}`);
             for (const f of facts) {
-              this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence);
+              this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence, 'insight', String(ins.id));
               factsAdded++;
             }
           }
         } catch { /* table may not exist */ }
-        // Extract from rules
+        // Extract from error-solution pairs NOT yet processed
         try {
-          const recentRules = this.db.prepare(
-            `SELECT id, pattern, action FROM rules WHERE created_at > datetime('now', '-1 day') AND pattern IS NOT NULL ORDER BY id DESC LIMIT 10`
+          const pairs = this.db.prepare(
+            `SELECT e.id, e.type, e.message, s.description as solution, e.context
+             FROM errors e JOIN solutions s ON s.error_id = e.id
+             WHERE NOT EXISTS (SELECT 1 FROM knowledge_facts kf WHERE kf.source_type = 'error' AND kf.source_id = e.id)
+             LIMIT 20`
+          ).all() as Array<{ id: number; type: string; message: string; solution: string; context: string }>;
+          for (const p of pairs) {
+            const facts = this.factExtractor.extractFromErrorSolution(
+              `${p.type}: ${p.message}`, p.solution, p.context ?? '', String(p.id),
+            );
+            for (const f of facts) {
+              this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence, 'error', String(p.id));
+              factsAdded++;
+            }
+          }
+        } catch { /* table may not exist */ }
+        // Extract from rules NOT yet processed
+        try {
+          const rules = this.db.prepare(
+            `SELECT id, pattern, action FROM rules
+             WHERE pattern IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM knowledge_facts kf WHERE kf.source_type = 'rule' AND kf.source_id = rules.id)
+             LIMIT 10`
           ).all() as Array<{ id: number; pattern: string; action: string }>;
-          for (const rule of recentRules) {
+          for (const rule of rules) {
             const facts = this.factExtractor.extractFromRule(rule.pattern, rule.action, `rule:${rule.id}`);
             for (const f of facts) {
-              this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence);
+              this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence, 'rule', String(rule.id));
               factsAdded++;
             }
           }
@@ -2026,6 +2056,23 @@ export class ResearchOrchestrator {
         }
         if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('code_health', this.cycleCount, { insights: result.techDebtScore > 0 ? 1 : 0 });
       } catch (err) { this.log.warn(`[orchestrator] Step 48 error: ${(err as Error).message}`); }
+    }
+
+    // Step 49: RepoAbsorber — absorb one discovered repo per cycle (every 10 cycles)
+    if (this.repoAbsorber && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('repo_absorber', 'perceiving', 'Step 49: Absorbing next discovered repo...', 'routine');
+        const result = await this.repoAbsorber.absorbNext();
+        if (result) {
+          this.journal.write({
+            title: `Repo Absorbed: ${result.repo}`,
+            type: 'insight', content: `Files: ${result.filesScanned}, Patterns: ${result.patternsFound}, Facts: ${result.factsExtracted}, RAG vectors: ${result.ragVectorsAdded} (${result.durationMs}ms)`,
+            tags: [this.brainName, 'repo-absorber', 'code-learning'],
+            references: [], significance: result.ragVectorsAdded > 10 ? 'notable' : 'routine', data: { ...result } as Record<string, unknown>,
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('repo_absorber', this.cycleCount, { insights: result ? 1 : 0 });
+      } catch (err) { this.log.warn(`[orchestrator] Step 49 error: ${(err as Error).message}`); }
     }
 
     const duration = Date.now() - start;

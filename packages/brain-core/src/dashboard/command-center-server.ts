@@ -37,6 +37,8 @@ export interface CommandCenterOptions {
   getDebateList?: (limit?: number) => unknown;
   getChallengeHistory?: (limit?: number) => unknown;
   getChallengeVulnerable?: (limit?: number) => unknown;
+  getRepoAbsorberStatus?: () => unknown;
+  getRepoAbsorberHistory?: (limit?: number) => unknown;
   triggerAction?: (action: string, params?: unknown) => Promise<unknown>;
 }
 
@@ -233,6 +235,18 @@ export class CommandCenterServer {
       } catch { /* ignore */ }
     }, 30_000));
 
+    // Repo Absorber (30s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getRepoAbsorberStatus) return;
+      try {
+        this.broadcast('repoAbsorber', {
+          status: this.options.getRepoAbsorberStatus(),
+          history: this.options.getRepoAbsorberHistory?.(10) ?? [],
+        });
+      } catch { /* ignore */ }
+    }, 30_000));
+
     // Heartbeat (30s)
     this.timers.push(setInterval(() => {
       if (this.clients.size > 0) {
@@ -325,7 +339,12 @@ export class CommandCenterServer {
         vulnerable: this.options.getChallengeVulnerable?.(5) ?? [],
       } : null;
 
-      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge, debates });
+      const repoAbsorber = this.options.getRepoAbsorberStatus ? {
+        status: this.options.getRepoAbsorberStatus(),
+        history: this.options.getRepoAbsorberHistory?.(10) ?? [],
+      } : null;
+
+      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge, debates, repoAbsorber });
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
     }

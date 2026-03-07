@@ -536,6 +536,18 @@ canvas{display:block;width:100%;height:100%}
           </div>
           <div id="missionList" style="margin-top:12px"><div class="empty">Keine aktiven Missionen</div></div>
         </div>
+
+        <!-- Repo Absorber -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F9EC;</span> <span data-t="Code-Assimilierung">Code-Assimilierung</span></div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px" data-t="Brain klont Open-Source-Repos, extrahiert Patterns und Wissen, indexiert alles in RAG + Knowledge Graph, und löscht den Clone wieder.">Brain klont Open-Source-Repos, extrahiert Patterns und Wissen, indexiert alles in RAG + Knowledge Graph, und löscht den Clone wieder.</p>
+          <div class="grid grid-3" id="absorberStats">
+            <div class="card" style="text-align:center"><div class="card-value" id="ra-total" style="color:var(--cyan)">0</div><div class="card-sub" data-t="Repos assimiliert">Repos assimiliert</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="ra-queue" style="color:var(--yellow)">0</div><div class="card-sub" data-t="In der Warteschlange">In der Warteschlange</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="ra-last" style="color:var(--green);font-size:14px">—</div><div class="card-sub" data-t="Zuletzt assimiliert">Zuletzt assimiliert</div></div>
+          </div>
+          <div id="absorberHistory" style="margin-top:12px"><div class="empty" data-t="Noch keine Repos assimiliert">Noch keine Repos assimiliert</div></div>
+        </div>
       </div>
 
       <!-- ════ Page 7: Debates & Challenges ═════════════════ -->
@@ -644,6 +656,10 @@ const translations = { en: {
   'Aktive Recherche-Missionen':'Active Research Missions',
   'Brain forscht eigenständig zu Themen. Jede Mission durchläuft 5 Phasen: Aufteilen, Sammeln, Hypothesen bilden, Analysieren, Zusammenfassen.':'Brain researches topics autonomously. Each mission goes through 5 phases: decompose, gather, hypothesize, analyze, synthesize.',
   'Aktive Missionen':'Active Missions','Abgeschlossen':'Completed','Quellen gesammelt':'Sources Gathered',
+  'Code-Assimilierung':'Code Assimilation',
+  'Brain klont Open-Source-Repos, extrahiert Patterns und Wissen, indexiert alles in RAG + Knowledge Graph, und löscht den Clone wieder.':'Brain clones open-source repos, extracts patterns and knowledge, indexes everything into RAG + Knowledge Graph, then deletes the clone.',
+  'Repos assimiliert':'Repos Assimilated','In der Warteschlange':'In Queue','Zuletzt assimiliert':'Last Assimilated',
+  'Noch keine Repos assimiliert':'No repos assimilated yet','Dateien':'Files',
   'Multi-Perspektiven-Debatten zu Schlüsselfragen. Jeder Brain liefert seine Sichtweise basierend auf Prinzipien, Hypothesen und Vorhersagen.':'Multi-perspective debates on key questions. Each brain provides its viewpoint based on principles, hypotheses, and predictions.',
   'Debatten gesamt':'Total Debates','Offen':'Open','Synthesiert':'Synthesized','Letzte Debatten':'Recent Debates',
   'Advocatus Diaboli — Prinzip-Challenges':'Advocatus Diaboli — Principle Challenges',
@@ -748,6 +764,7 @@ function connectSSE() {
   es.addEventListener('errors', e => { state.errors = JSON.parse(e.data); renderErrors(); });
   es.addEventListener('selfmod', e => { state.selfmod = JSON.parse(e.data); renderSelfMod(); });
   es.addEventListener('missions', e => { state.missions = JSON.parse(e.data); renderMissions(); });
+  es.addEventListener('repoAbsorber', e => { state.repoAbsorber = JSON.parse(e.data); renderRepoAbsorber(); });
   es.addEventListener('knowledge', e => { state.knowledge = JSON.parse(e.data); renderKnowledge(); });
   es.addEventListener('debates', e => { state.debates = JSON.parse(e.data); renderDebates(); });
   es.onerror = () => { state.connected = false; updateConnection(); };
@@ -767,12 +784,12 @@ async function loadInitial() {
     state.watchdog = data.watchdog || []; state.plugins = data.plugins || [];
     state.borg = data.borg; state.analytics = data.analytics; state.llm = data.llm;
     state.errors = data.errors; state.selfmod = data.selfmod;
-    state.missions = data.missions; state.knowledge = data.knowledge;
+    state.missions = data.missions; state.knowledge = data.knowledge; state.repoAbsorber = data.repoAbsorber;
     state.debates = data.debates;
     if (data.thoughts) { state.thoughts = data.thoughts; renderThoughts(); }
     renderEcosystem(); renderEngines(); renderWatchdog(); renderPlugins();
     renderBorg(); renderAnalytics(); renderLLM(); renderErrors();
-    renderSelfMod(); renderMissions(); renderKnowledge(); renderDebates();
+    renderSelfMod(); renderMissions(); renderRepoAbsorber(); renderKnowledge(); renderDebates();
   } catch {}
 }
 
@@ -953,6 +970,30 @@ function renderMissions() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Repo Absorber ────────────────────────────────────────
+function renderRepoAbsorber() {
+  const d = state.repoAbsorber;
+  if (!d || !d.status) {
+    setText('ra-total', 0); setText('ra-queue', 0); setText('ra-last', '—');
+    document.getElementById('absorberHistory').innerHTML = `<div class="empty">${t('Noch keine Repos assimiliert')}</div>`;
+    return;
+  }
+  setText('ra-total', d.status.totalAbsorbed || 0);
+  setText('ra-queue', d.status.queueSize || 0);
+  setText('ra-last', d.status.lastAbsorbed || '—');
+
+  const list = d.history || [];
+  const el = document.getElementById('absorberHistory');
+  if (!list.length) { el.innerHTML = `<div class="empty">${t('Noch keine Repos assimiliert')}</div>`; return; }
+  el.innerHTML = list.map(r => `<div class="card" style="padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-weight:600;color:var(--cyan)">${escHtml(r.name)}</div>
+      <div style="font-size:11px;color:var(--text-dim)">${r.filesScanned} ${t('Dateien')} · ${r.ragVectors} RAG · ${r.factsExtracted} Facts · ${(r.durationMs/1000).toFixed(1)}s</div>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim)">${r.absorbedAt ? new Date(r.absorbedAt).toLocaleString(getLocale(), {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+  </div>`).join('');
 }
 
 // ── Knowledge Growth ──────────────────────────────────────

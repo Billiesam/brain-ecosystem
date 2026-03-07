@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -844,6 +844,13 @@ export class BrainCore {
     activeLearner.setThoughtStream(thoughtStream);
     services.activeLearner = activeLearner;
 
+    // 66. RepoAbsorber — autonomous code learning from discovered repos
+    const repoAbsorber = new RepoAbsorber(this.db!);
+    repoAbsorber.setThoughtStream(thoughtStream);
+    repoAbsorber.setRAGEngine(ragEngine);
+    repoAbsorber.setKnowledgeGraph(knowledgeGraph);
+    services.repoAbsorber = repoAbsorber;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -853,8 +860,9 @@ export class BrainCore {
     this.orchestrator.setRAGIndexer(ragIndexer);
     this.orchestrator.setTeachingProtocol(teachingProtocol);
     this.orchestrator.setCodeHealthMonitor(codeHealthMonitor);
+    this.orchestrator.setRepoAbsorber(repoAbsorber);
 
-    logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning — all wired into orchestrator)');
+    logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber — all wired into orchestrator)');
 
     logger.info('Research orchestrator started (48+ steps, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 
@@ -1161,6 +1169,8 @@ export class BrainCore {
           timeSeries,
         };
       },
+      getRepoAbsorberStatus: () => services.repoAbsorber?.getStatus() ?? null,
+      getRepoAbsorberHistory: (limit = 10) => services.repoAbsorber?.getHistory(limit) ?? [],
       getDebateStatus: () => this.debateEngine?.getStatus() ?? null,
       getDebateList: (limit = 10) => this.debateEngine?.listDebates(limit) ?? [],
       getChallengeHistory: (limit = 20) => this.debateEngine?.getChallengeHistory(limit) ?? [],

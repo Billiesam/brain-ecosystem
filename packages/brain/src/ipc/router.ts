@@ -143,6 +143,7 @@ export interface Services {
   curriculum?: import('@timmeck/brain-core').Curriculum;
   consensusEngine?: import('@timmeck/brain-core').ConsensusEngine;
   activeLearner?: import('@timmeck/brain-core').ActiveLearner;
+  repoAbsorber?: import('@timmeck/brain-core').RepoAbsorber;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -994,6 +995,11 @@ export class IpcRouter {
       ['activeLearning.plan',     (params) => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.planLearning(p(params).gapId); }],
       ['activeLearning.close',    (params) => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.closeGap(p(params).gapId, p(params).outcome); }],
       ['activeLearning.status',   () => { if (!s.activeLearner) throw new Error('ActiveLearner not available'); return s.activeLearner.getStatus(); }],
+
+      // ─── Repo Absorber ────────────────────────────────────────
+      ['repoAbsorber.status',    () => { if (!s.repoAbsorber) throw new Error('RepoAbsorber not available'); return s.repoAbsorber.getStatus(); }],
+      ['repoAbsorber.absorb',    async () => { if (!s.repoAbsorber) throw new Error('RepoAbsorber not available'); return s.repoAbsorber.absorbNext(); }],
+      ['repoAbsorber.candidate', () => { if (!s.repoAbsorber) throw new Error('RepoAbsorber not available'); return s.repoAbsorber.getNextCandidate(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({
