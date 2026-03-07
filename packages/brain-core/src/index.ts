@@ -520,3 +520,10 @@ export { ToolScopeManager, runToolScopingMigration } from './tool-scoping/index.
 export type {
   ToolScope, WorkflowContext, ScopeCheckResult, ToolScopeManagerStatus,
 } from './tool-scoping/index.js';
+
+// ── Code Sandbox ────────────────────────────────────────────
+export { CodeSandbox, runSandboxMigration } from './sandbox/index.js';
+export type {
+  SandboxLanguage, ExecutionRequest, ExecutionResult,
+  CodeSandboxConfig, CodeSandboxStatus,
+} from './sandbox/index.js';

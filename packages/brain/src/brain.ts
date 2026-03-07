@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot, BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot, BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace, CodeSandbox } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -907,6 +907,10 @@ export class BrainCore {
     const pluginMarketplace = new PluginMarketplace(this.db!, { brainVersion: getCurrentVersion() });
     services.pluginMarketplace = pluginMarketplace;
 
+    // 76. Code Sandbox — isolated code execution with Docker/local fallback (AutoGen-inspired)
+    const codeSandbox = new CodeSandbox(this.db!);
+    services.codeSandbox = codeSandbox;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -1112,6 +1116,7 @@ export class BrainCore {
         trainer: services.agentTrainer?.getStatus() ?? null,
         toolScoping: services.toolScopeManager?.getStatus() ?? null,
         marketplace: services.pluginMarketplace?.getStatus() ?? null,
+        sandbox: services.codeSandbox?.getStatus() ?? null,
       }),
       getEmotionalStatus: () => {
         const mood = (services.emotionalModel as EmotionalModel)?.getMood?.();

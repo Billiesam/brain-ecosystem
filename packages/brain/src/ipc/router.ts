@@ -156,6 +156,7 @@ export interface Services {
   agentTrainer?: import('@timmeck/brain-core').AgentTrainer;
   toolScopeManager?: import('@timmeck/brain-core').ToolScopeManager;
   pluginMarketplace?: import('@timmeck/brain-core').PluginMarketplace;
+  codeSandbox?: import('@timmeck/brain-core').CodeSandbox;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1101,6 +1102,14 @@ export class IpcRouter {
       ['marketplace.compat',     (params) => { if (!s.pluginMarketplace) throw new Error('Marketplace not available'); const info = s.pluginMarketplace.getPluginInfo(p(params).name); if (!info) throw new Error('Plugin not found'); return s.pluginMarketplace.checkCompatibility(info); }],
       ['marketplace.deps',       (params) => { if (!s.pluginMarketplace) throw new Error('Marketplace not available'); return s.pluginMarketplace.resolveDependencies(p(params).name); }],
       ['marketplace.status',     () => { if (!s.pluginMarketplace) throw new Error('Marketplace not available'); return s.pluginMarketplace.getStatus(); }],
+
+      // Code Sandbox (76)
+      ['sandbox.execute',   async (params) => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.execute(p(params) as import('@timmeck/brain-core').ExecutionRequest); }],
+      ['sandbox.validate',  (params) => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.validate(p(params).code, p(params).language); }],
+      ['sandbox.history',   (params) => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.getHistory(p(params).limit); }],
+      ['sandbox.langStats', () => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.getLanguageStats(); }],
+      ['sandbox.docker',    async () => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return { available: await s.codeSandbox.isDockerAvailable() }; }],
+      ['sandbox.status',    () => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.getStatus(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({
