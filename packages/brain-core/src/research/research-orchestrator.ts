@@ -1886,10 +1886,10 @@ export class ResearchOrchestrator {
         // Extract from recent insights
         try {
           const recentInsights = this.db.prepare(
-            `SELECT id, content FROM research_insights WHERE created_at > datetime('now', '-1 day') ORDER BY id DESC LIMIT 20`
-          ).all() as Array<{ id: number; content: string }>;
+            `SELECT id, description FROM insights WHERE created_at > datetime('now', '-1 day') AND description IS NOT NULL ORDER BY id DESC LIMIT 20`
+          ).all() as Array<{ id: number; description: string }>;
           for (const ins of recentInsights) {
-            const facts = this.factExtractor.extractFromInsight(ins.content, `insight:${ins.id}`);
+            const facts = this.factExtractor.extractFromInsight(ins.description, `insight:${ins.id}`);
             for (const f of facts) {
               this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence);
               factsAdded++;
@@ -1899,10 +1899,10 @@ export class ResearchOrchestrator {
         // Extract from rules
         try {
           const recentRules = this.db.prepare(
-            `SELECT id, condition_pattern, action FROM rules WHERE created_at > datetime('now', '-1 day') ORDER BY id DESC LIMIT 10`
-          ).all() as Array<{ id: number; condition_pattern: string; action: string }>;
+            `SELECT id, pattern, action FROM rules WHERE created_at > datetime('now', '-1 day') AND pattern IS NOT NULL ORDER BY id DESC LIMIT 10`
+          ).all() as Array<{ id: number; pattern: string; action: string }>;
           for (const rule of recentRules) {
-            const facts = this.factExtractor.extractFromRule(rule.condition_pattern, rule.action, `rule:${rule.id}`);
+            const facts = this.factExtractor.extractFromRule(rule.pattern, rule.action, `rule:${rule.id}`);
             for (const f of facts) {
               this.knowledgeGraph.addFact(f.subject, f.predicate, f.object, f.context, f.confidence);
               factsAdded++;

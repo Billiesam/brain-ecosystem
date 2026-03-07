@@ -30,8 +30,8 @@ export interface IndexerStatus {
 const DEFAULT_SOURCES: IndexSource[] = [
   {
     collection: 'insights',
-    query: `SELECT id, content, category, created_at FROM research_insights WHERE content IS NOT NULL`,
-    textColumns: ['content'],
+    query: `SELECT id, title, description, created_at FROM insights WHERE description IS NOT NULL`,
+    textColumns: ['title', 'description'],
     timestampColumn: 'created_at',
   },
   {
@@ -42,14 +42,14 @@ const DEFAULT_SOURCES: IndexSource[] = [
   },
   {
     collection: 'principles',
-    query: `SELECT id, name, description, evidence_count FROM distilled_principles WHERE description IS NOT NULL`,
-    textColumns: ['name', 'description'],
+    query: `SELECT id, domain, statement, source FROM knowledge_principles WHERE statement IS NOT NULL`,
+    textColumns: ['domain', 'statement'],
     timestampColumn: undefined,
   },
   {
     collection: 'errors',
-    query: `SELECT id, error_type, message, context FROM errors WHERE message IS NOT NULL`,
-    textColumns: ['error_type', 'message'],
+    query: `SELECT id, type, message, context FROM errors WHERE message IS NOT NULL`,
+    textColumns: ['type', 'message'],
     timestampColumn: undefined,
   },
   {
@@ -60,8 +60,8 @@ const DEFAULT_SOURCES: IndexSource[] = [
   },
   {
     collection: 'rules',
-    query: `SELECT id, condition_pattern, action, domain FROM rules WHERE condition_pattern IS NOT NULL`,
-    textColumns: ['condition_pattern', 'action'],
+    query: `SELECT id, pattern, action, description FROM rules WHERE pattern IS NOT NULL`,
+    textColumns: ['pattern', 'action'],
     timestampColumn: undefined,
   },
 ];
