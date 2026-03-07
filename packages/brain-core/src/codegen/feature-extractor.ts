@@ -703,10 +703,10 @@ ${f.codeSnippet.slice(0, 1000)}
 
 Respond with ONLY the JSON object, no markdown.`;
 
-        const response = await this.llmService.complete(prompt, {
-          template: 'custom',
+        const response = await this.llmService.call('custom', prompt, {
           maxTokens: 200,
         });
+        if (!response) continue;
 
         const parsed = JSON.parse(response.text);
         if (parsed.description && parsed.applicability) {
