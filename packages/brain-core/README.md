@@ -126,8 +126,7 @@ Brain Core is the nervous system that powers all three Brain MCP servers ([Brain
 
 | Dashboard | Port | Description |
 |-----------|------|-------------|
-| **Mission Control** | 7788 | 7-tab dashboard: Overview, Consciousness Entity, Thoughts, CodeGen, Self-Mod, Engines, Intelligence |
-| **Command Center** | 7790 | 8-page ecosystem dashboard with live visualizations, debates, challenges, error log, self-mod feed, missions, knowledge growth |
+| **Command Center** | 7790 | 9-page ecosystem dashboard: Overview, Learning Cycle, Trading Flow, Code Intelligence, Research, Entity, Cross-Brain & Borg, Debates, Infrastructure |
 
 ### Cross-Brain & Ecosystem
 
@@ -197,7 +196,7 @@ dashboard.start();
 
 | Brain | Purpose | Ports |
 |-------|---------|-------|
-| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777/7778/7788/7790 |
+| [Brain](../brain) | Error memory, code intelligence, full autonomy & self-modification | 7777/7778/7790 |
 | [Trading Brain](../trading-brain) | Adaptive trading intelligence with signal learning & paper trading | 7779/7780 |
 | [Marketing Brain](../marketing-brain) | Content strategy, social engagement & cross-platform optimization | 7781/7782/7783 |
 | **Brain Core** (this) | Shared infrastructure — 72+ engines | — |
