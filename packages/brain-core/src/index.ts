@@ -494,3 +494,10 @@ export type { Checkpoint, CheckpointSummary, CheckpointManagerStatus } from './c
 // ── Observability / Tracing ─────────────────────────────────
 export { TraceCollector, runTraceMigration } from './observability/index.js';
 export type { Trace, Span, TraceTree, TraceStats, TraceListOptions, TraceCollectorStatus } from './observability/index.js';
+
+// ── Messaging (Bidirectional Bots) ──────────────────────────
+export { MessageRouter, TelegramBot, DiscordBot } from './messaging/index.js';
+export type {
+  IncomingMessage, OutgoingResponse, MessageRouterConfig, MessageRouterStatus,
+  TelegramBotConfig, TelegramBotStatus, DiscordBotConfig, DiscordBotStatus,
+} from './messaging/index.js';

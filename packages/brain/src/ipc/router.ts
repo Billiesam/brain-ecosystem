@@ -149,6 +149,9 @@ export interface Services {
   contradictionResolver?: import('@timmeck/brain-core').ContradictionResolver;
   checkpointManager?: import('@timmeck/brain-core').CheckpointManager;
   traceCollector?: import('@timmeck/brain-core').TraceCollector;
+  messageRouter?: import('@timmeck/brain-core').MessageRouter;
+  telegramBot?: import('@timmeck/brain-core').TelegramBot;
+  discordBot?: import('@timmeck/brain-core').DiscordBot;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1045,6 +1048,11 @@ export class IpcRouter {
       ['trace.stats',            () => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return s.traceCollector.getStats(); }],
       ['trace.prune',            (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return { pruned: s.traceCollector.prune(p(params).maxAgeDays) }; }],
       ['trace.status',           () => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return s.traceCollector.getStatus(); }],
+
+      // Messaging Bots
+      ['bot.telegram.status',    () => s.telegramBot?.getStatus() ?? { running: false }],
+      ['bot.discord.status',     () => s.discordBot?.getStatus() ?? { running: false }],
+      ['bot.router.status',      () => s.messageRouter?.getStatus() ?? { messagesReceived: 0, messagesRouted: 0, errors: 0, lastMessageAt: null, uptime: 0 }],
 
       // Status (cross-brain)
       ['status',                  () => ({

@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -98,6 +98,8 @@ export class BrainCore {
   private peerNetwork: PeerNetwork | null = null;
   private pluginRegistry: PluginRegistry | null = null;
   private borgSync: BorgSyncEngine | null = null;
+  private telegramBot: TelegramBot | null = null;
+  private discordBot: DiscordBot | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private retentionTimer: ReturnType<typeof setInterval> | null = null;
   private config: BrainConfig | null = null;
@@ -879,6 +881,16 @@ export class BrainCore {
     const traceCollector = new TraceCollector(this.db!);
     services.traceCollector = traceCollector;
 
+    // 72. Messaging Bots — bidirectional Telegram/Discord (optional, if tokens configured)
+    const messageRouter = new MessageRouter({ brainName: 'brain' });
+    services.messageRouter = messageRouter;
+    this.telegramBot = new TelegramBot();
+    this.telegramBot.setRouter(messageRouter);
+    services.telegramBot = this.telegramBot;
+    this.discordBot = new DiscordBot();
+    this.discordBot.setRouter(messageRouter);
+    services.discordBot = this.discordBot;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -1141,7 +1153,21 @@ export class BrainCore {
       logger.error(`Plugin loading failed: ${(err as Error).message}`);
     });
 
-    // 12d. Start Borg Sync (after IPC/cross-brain ready, respects config.enabled)
+    // 12d. Wire messaging bots to local IPC + start (optional)
+    if (services.messageRouter) {
+      // Use local router.handle as IPC dispatch (no need for external client)
+      services.messageRouter.setIpcClient({
+        request: (method: string, params?: unknown) => router.handle(method, params) as Promise<unknown>,
+      });
+    }
+    if (services.telegramBot?.isConfigured()) {
+      services.telegramBot.start().catch(e => logger.warn(`[TelegramBot] Start failed: ${(e as Error).message}`));
+    }
+    if (services.discordBot?.isConfigured()) {
+      services.discordBot.start().catch(e => logger.warn(`[DiscordBot] Start failed: ${(e as Error).message}`));
+    }
+
+    // 12e. Start Borg Sync (after IPC/cross-brain ready, respects config.enabled)
     this.borgSync?.start();
 
     // 12e. PeerNetwork — UDP multicast auto-discovery
@@ -1321,6 +1347,9 @@ export class BrainCore {
     }
 
     this.borgSync?.stop();
+    // Stop messaging bots
+    this.telegramBot?.stop().catch(() => {});
+    this.discordBot?.stop().catch(() => {});
     this.peerNetwork?.stopDiscovery();
     // Unload all plugins gracefully
     if (this.pluginRegistry?.size) {
