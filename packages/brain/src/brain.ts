@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -871,6 +871,10 @@ export class BrainCore {
     contradictionResolver.setKnowledgeGraph(knowledgeGraph);
     services.contradictionResolver = contradictionResolver;
 
+    // 70. CheckpointManager — workflow state persistence for crash recovery & time-travel
+    const checkpointManager = new CheckpointManager(this.db!);
+    services.checkpointManager = checkpointManager;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -883,6 +887,7 @@ export class BrainCore {
     this.orchestrator.setRepoAbsorber(repoAbsorber);
     this.orchestrator.setFeatureRecommender(featureRecommender);
     this.orchestrator.setContradictionResolver(contradictionResolver);
+    this.orchestrator.setCheckpointManager(checkpointManager);
 
     logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber — all wired into orchestrator)');
 
@@ -1069,6 +1074,7 @@ export class BrainCore {
           wishlist: services.featureRecommender.getWishlist(),
           connections: services.featureRecommender.getConnections(),
         } : null,
+        checkpoints: services.checkpointManager?.getStatus() ?? null,
       }),
       getEmotionalStatus: () => {
         const mood = (services.emotionalModel as EmotionalModel)?.getMood?.();

@@ -471,3 +471,7 @@ export type { ConsensusConfig, Proposal, Vote, ConsensusResult, ConsensusStatus 
 // ── Active Learning ──────────────────────────────────────────
 export { ActiveLearner, runActiveLearningMigration } from './active-learning/index.js';
 export type { ActiveLearnerConfig, LearningGap, LearningStrategy, ActiveLearnerStatus } from './active-learning/index.js';
+
+// ── Checkpoint Manager ──────────────────────────────────────
+export { CheckpointManager, runCheckpointMigration } from './checkpoint/index.js';
+export type { Checkpoint, CheckpointSummary, CheckpointManagerStatus } from './checkpoint/index.js';

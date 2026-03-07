@@ -147,6 +147,7 @@ export interface Services {
   featureExtractor?: import('@timmeck/brain-core').FeatureExtractor;
   featureRecommender?: import('@timmeck/brain-core').FeatureRecommender;
   contradictionResolver?: import('@timmeck/brain-core').ContradictionResolver;
+  checkpointManager?: import('@timmeck/brain-core').CheckpointManager;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1024,6 +1025,14 @@ export class IpcRouter {
       // Contradiction Resolver
       ['kg.resolve',             () => { if (!s.contradictionResolver) throw new Error('ContradictionResolver not available'); return { resolved: s.contradictionResolver.resolve() }; }],
       ['kg.resolveStatus',       () => { if (!s.contradictionResolver) throw new Error('ContradictionResolver not available'); return s.contradictionResolver.getStatus(); }],
+
+      // Checkpoint Manager
+      ['checkpoint.list',        (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return s.checkpointManager.listWorkflows(p(params).limit ?? 50); }],
+      ['checkpoint.history',     (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return s.checkpointManager.history(p(params).workflowId); }],
+      ['checkpoint.load',        (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return s.checkpointManager.load(p(params).workflowId); }],
+      ['checkpoint.fork',        (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return { forked: s.checkpointManager.fork(p(params).sourceId, p(params).newId) }; }],
+      ['checkpoint.prune',       (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return { pruned: s.checkpointManager.prune(p(params)) }; }],
+      ['checkpoint.status',      () => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return s.checkpointManager.getStatus(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({

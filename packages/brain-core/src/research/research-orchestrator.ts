@@ -129,6 +129,7 @@ export class ResearchOrchestrator {
   private repoAbsorber: RepoAbsorber | null = null;
   private featureRecommender: import('../codegen/feature-recommender.js').FeatureRecommender | null = null;
   private contradictionResolver: import('../knowledge-graph/contradiction-resolver.js').ContradictionResolver | null = null;
+  private checkpointManager: import('../checkpoint/checkpoint-manager.js').CheckpointManager | null = null;
   private lastAutoMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
 
@@ -343,6 +344,7 @@ export class ResearchOrchestrator {
   setRepoAbsorber(absorber: RepoAbsorber): void { this.repoAbsorber = absorber; }
   setFeatureRecommender(recommender: import('../codegen/feature-recommender.js').FeatureRecommender): void { this.featureRecommender = recommender; }
   setContradictionResolver(resolver: import('../knowledge-graph/contradiction-resolver.js').ContradictionResolver): void { this.contradictionResolver = resolver; }
+  setCheckpointManager(cm: import('../checkpoint/checkpoint-manager.js').CheckpointManager): void { this.checkpointManager = cm; }
 
   /** Set the LLMService — propagates to all engines that can use LLM. */
   setLLMService(llm: LLMService): void {
@@ -2119,6 +2121,17 @@ export class ResearchOrchestrator {
         anomalies: anomalies.length,
         duration_ms: duration,
       });
+    }
+
+    // Checkpoint: persist cycle state for crash recovery / time-travel
+    if (this.checkpointManager) {
+      try {
+        this.checkpointManager.save(
+          `orchestrator-${this.brainName}`, this.cycleCount,
+          { cycleCount: this.cycleCount, insights: insights.length, anomalies: anomalies.length, durationMs: duration },
+          { workflowType: 'orchestrator', metadata: { brainName: this.brainName } },
+        );
+      } catch { /* checkpoint save should never break the cycle */ }
     }
   }
 

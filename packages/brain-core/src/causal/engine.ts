@@ -309,7 +309,7 @@ export class CausalGraph {
   }
 
   /** Get event type statistics. */
-  getEventStats(): Array<{ type: string; count: number; first_seen: number; last_seen: number }> {
+  getEventStats(): Array<{ type: string; count: number; first_seen: string; last_seen: string }> {
     return this.db.prepare(`
       SELECT type, COUNT(*) as count,
              MIN(timestamp) as first_seen,
