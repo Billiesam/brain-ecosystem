@@ -148,6 +148,7 @@ export interface Services {
   featureRecommender?: import('@timmeck/brain-core').FeatureRecommender;
   contradictionResolver?: import('@timmeck/brain-core').ContradictionResolver;
   checkpointManager?: import('@timmeck/brain-core').CheckpointManager;
+  traceCollector?: import('@timmeck/brain-core').TraceCollector;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1033,6 +1034,17 @@ export class IpcRouter {
       ['checkpoint.fork',        (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return { forked: s.checkpointManager.fork(p(params).sourceId, p(params).newId) }; }],
       ['checkpoint.prune',       (params) => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return { pruned: s.checkpointManager.prune(p(params)) }; }],
       ['checkpoint.status',      () => { if (!s.checkpointManager) throw new Error('CheckpointManager not available'); return s.checkpointManager.getStatus(); }],
+
+      // Trace Collector (Observability)
+      ['trace.start',            (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return { traceId: s.traceCollector.startTrace(p(params).name, p(params).metadata) }; }],
+      ['trace.end',              (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); s.traceCollector.endTrace(p(params).traceId, p(params).error); return { ok: true }; }],
+      ['trace.startSpan',        (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return { spanId: s.traceCollector.startSpan(p(params).traceId, p(params).name, { parentSpanId: p(params).parentSpanId, metadata: p(params).metadata }) }; }],
+      ['trace.endSpan',          (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); s.traceCollector.endSpan(p(params).spanId, { tokens: p(params).tokens, cost: p(params).cost, error: p(params).error }); return { ok: true }; }],
+      ['trace.get',              (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return s.traceCollector.getTrace(p(params).traceId); }],
+      ['trace.list',             (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return s.traceCollector.listTraces(p(params)); }],
+      ['trace.stats',            () => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return s.traceCollector.getStats(); }],
+      ['trace.prune',            (params) => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return { pruned: s.traceCollector.prune(p(params).maxAgeDays) }; }],
+      ['trace.status',           () => { if (!s.traceCollector) throw new Error('TraceCollector not available'); return s.traceCollector.getStatus(); }],
 
       // Status (cross-brain)
       ['status',                  () => ({

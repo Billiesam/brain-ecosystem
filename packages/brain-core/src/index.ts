@@ -490,3 +490,7 @@ export type { ActiveLearnerConfig, LearningGap, LearningStrategy, ActiveLearnerS
 // ── Checkpoint Manager ──────────────────────────────────────
 export { CheckpointManager, runCheckpointMigration } from './checkpoint/index.js';
 export type { Checkpoint, CheckpointSummary, CheckpointManagerStatus } from './checkpoint/index.js';
+
+// ── Observability / Tracing ─────────────────────────────────
+export { TraceCollector, runTraceMigration } from './observability/index.js';
+export type { Trace, Span, TraceTree, TraceStats, TraceListOptions, TraceCollectorStatus } from './observability/index.js';

@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -875,6 +875,10 @@ export class BrainCore {
     const checkpointManager = new CheckpointManager(this.db!);
     services.checkpointManager = checkpointManager;
 
+    // 71. TraceCollector — observability & tracing for all workflows
+    const traceCollector = new TraceCollector(this.db!);
+    services.traceCollector = traceCollector;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -1075,6 +1079,7 @@ export class BrainCore {
           connections: services.featureRecommender.getConnections(),
         } : null,
         checkpoints: services.checkpointManager?.getStatus() ?? null,
+        traces: services.traceCollector?.getStatus() ?? null,
       }),
       getEmotionalStatus: () => {
         const mood = (services.emotionalModel as EmotionalModel)?.getMood?.();
