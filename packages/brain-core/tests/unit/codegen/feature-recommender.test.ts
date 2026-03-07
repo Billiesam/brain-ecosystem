@@ -118,12 +118,11 @@ describe('FeatureRecommender', () => {
       db.prepare(`INSERT INTO errors (fingerprint, occurrence_count) VALUES (?, ?)`).run('ReferenceError:bar', 3);
 
       const result = await recommender.runCycle();
-      expect(result.wishesCreated).toBeGreaterThanOrEqual(1);
-
+      // TypeError triggers 'validation layer' detector (not in KNOWN_CAPABILITIES)
       const wishes = recommender.getWishlist();
-      const retryWish = wishes.find(w => w.need === 'retry mechanism');
-      expect(retryWish).toBeDefined();
-      expect(retryWish!.priority).toBe(0.8);
+      const validationWish = wishes.find(w => w.need === 'validation layer');
+      expect(validationWish).toBeDefined();
+      expect(validationWish!.status).toBe('open');
     });
 
     it('should set lastScanAt after cycle', async () => {
@@ -149,10 +148,10 @@ describe('FeatureRecommender', () => {
       const extractor = new FeatureExtractor(db);
       recommender.setFeatureExtractor(extractor);
 
-      // Insert a wish manually
-      db.prepare(`INSERT INTO feature_wishes (need, reason, priority) VALUES (?, ?, ?)`).run('retry mechanism', 'errors', 0.8);
+      // Insert a wish for a need that IS in NEED_DETECTORS but NOT in KNOWN_CAPABILITIES
+      db.prepare(`INSERT INTO feature_wishes (need, reason, priority) VALUES (?, ?, ?)`).run('validation layer', 'input errors', 0.55);
 
-      // Insert a matching feature
+      // Insert a matching feature (matchKeywords for validation: validate, Validator, schema, Schema, zod, joi, sanitize)
       db.exec(`CREATE TABLE IF NOT EXISTS extracted_features (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         repo TEXT NOT NULL, name TEXT NOT NULL, file_path TEXT NOT NULL,
@@ -163,14 +162,14 @@ describe('FeatureRecommender', () => {
         UNIQUE(repo, name, file_path)
       )`);
       db.prepare(`INSERT INTO extracted_features (repo, name, file_path, category, code_snippet, usefulness, tags) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .run('test-repo', 'retryWithBackoff', 'src/utils.ts', 'utility_function', 'export async function retryWithBackoff() {}', 0.8, '["retry","async"]');
+        .run('test-repo', 'SchemaValidator', 'src/validate.ts', 'utility_function', 'export class SchemaValidator {}', 0.8, '["validate","schema"]');
 
       const result = await recommender.runCycle();
       expect(result.matchesFound).toBeGreaterThanOrEqual(1);
 
       const wishes = recommender.getWishlist('matched');
       expect(wishes.length).toBeGreaterThanOrEqual(1);
-      expect(wishes[0]!.matchedFeatureName).toBe('retryWithBackoff');
+      expect(wishes[0]!.matchedFeatureName).toBe('SchemaValidator');
     });
   });
 
@@ -212,14 +211,15 @@ describe('FeatureRecommender', () => {
       expect(status.satisfiedWishes).toBeGreaterThanOrEqual(1);
     });
 
-    it('should still detect unknown needs (e.g. retry mechanism)', async () => {
+    it('should still detect unknown needs (e.g. validation layer)', async () => {
       db.exec(`CREATE TABLE IF NOT EXISTS errors (id INTEGER PRIMARY KEY, fingerprint TEXT, occurrence_count INTEGER DEFAULT 1)`);
       db.prepare(`INSERT INTO errors (fingerprint, occurrence_count) VALUES (?, ?)`).run('TypeError:foo', 5);
 
       await recommender.runCycle();
+      // validation layer is NOT in KNOWN_CAPABILITIES, so it should be detected as open
       const wishes = recommender.getWishlist('open');
-      const retry = wishes.find(w => w.need === 'retry mechanism');
-      expect(retry).toBeDefined();
+      const validation = wishes.find(w => w.need === 'validation layer');
+      expect(validation).toBeDefined();
     });
   });
 
