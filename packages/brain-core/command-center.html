@@ -456,6 +456,10 @@ canvas{display:block;width:100%;height:100%}
           <div class="card"><div class="card-title" data-t="Offene Positionen">Offene Positionen</div><div class="card-value" id="tradingPositions" style="color:var(--green)">--</div><div class="card-sub" data-t="Aktive Trades gerade">Aktive Trades gerade</div></div>
         </div>
         <div class="section" style="margin-top:16px">
+          <div class="section-title"><span class="icon">&#x1F4DC;</span> <span data-t="Letzte Trades">Letzte Trades</span></div>
+          <div id="tradeHistoryTable"><div class="empty" data-t="Keine Trades bisher">Keine Trades bisher</div></div>
+        </div>
+        <div class="section" style="margin-top:16px">
           <div class="section-title"><span class="icon">&#x1F3ED;</span> Trading Engines</div>
           <div class="engine-grid" id="tradingEngineGrid"><div class="empty">Loading...</div></div>
         </div>
@@ -1418,6 +1422,32 @@ function renderAnalytics() {
     setText('tradingWinRate', t.winRate ? (Number(t.winRate)*100).toFixed(1)+'%' : '--');
     setText('tradingEquity', t.equity ? '$'+Number(t.equity).toLocaleString() : '--');
     setText('tradingPositions', num(t.positions));
+    // Trade History Table
+    const hEl = document.getElementById('tradeHistoryTable');
+    if (hEl && Array.isArray(t.history) && t.history.length > 0) {
+      hEl.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<tr style="color:var(--text-dim);text-align:left;border-bottom:1px solid var(--border)">'
+        + '<th style="padding:6px 8px">Symbol</th><th style="padding:6px 8px">Side</th>'
+        + '<th style="padding:6px 8px">Entry</th><th style="padding:6px 8px">Exit</th>'
+        + '<th style="padding:6px 8px">PnL</th><th style="padding:6px 8px" data-t="Grund">Grund</th>'
+        + '<th style="padding:6px 8px" data-t="Datum">Datum</th></tr>'
+        + t.history.map(h => {
+          const win = h.pnlPct > 0;
+          const pnlColor = win ? 'var(--green)' : 'var(--red)';
+          const sign = win ? '+' : '';
+          return '<tr style="border-bottom:1px solid var(--border)">'
+            + `<td style="padding:6px 8px;font-weight:600;color:var(--cyan)">${h.symbol}</td>`
+            + `<td style="padding:6px 8px">${h.side}</td>`
+            + `<td style="padding:6px 8px">$${Number(h.entryPrice).toFixed(4)}</td>`
+            + `<td style="padding:6px 8px">$${Number(h.exitPrice).toFixed(4)}</td>`
+            + `<td style="padding:6px 8px;color:${pnlColor};font-weight:600">${sign}${Number(h.pnlPct).toFixed(2)}% (${sign}$${Number(h.pnlUsdt).toFixed(2)})</td>`
+            + `<td style="padding:6px 8px">${h.exitReason}</td>`
+            + `<td style="padding:6px 8px;color:var(--text-dim)">${h.closedAt ? h.closedAt.slice(0, 16).replace('T', ' ') : ''}</td>`
+            + '</tr>';
+        }).join('') + '</table>';
+    } else if (hEl) {
+      hEl.innerHTML = `<div class="empty" data-t="Keine Trades bisher">${t('Keine Trades bisher')}</div>`;
+    }
   }
   if (a.marketing) {
     const m = a.marketing;

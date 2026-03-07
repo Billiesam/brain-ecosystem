@@ -20,7 +20,7 @@ export interface EcosystemStatus {
 
 export interface AggregatedAnalytics {
   brain?: { errors: number; solutions: number; modules: number };
-  trading?: { trades: number; winRate: number; signals: number; equity?: number; positions?: number; pnl?: number; rules?: number };
+  trading?: { trades: number; winRate: number; signals: number; equity?: number; positions?: number; pnl?: number; rules?: number; history?: Array<{ symbol: string; side: string; entryPrice: number; exitPrice: number; pnlUsdt: number; pnlPct: number; exitReason: string; closedAt: string }> };
   marketing?: { posts: number; campaigns: number; engagement: number; strategies?: number; rules?: number; templates?: number };
 }
 
@@ -94,11 +94,12 @@ export class EcosystemService {
   async getAggregatedAnalytics(): Promise<AggregatedAnalytics> {
     const analytics: AggregatedAnalytics = {};
 
-    const [brainResult, tradingResult, marketingResult, paperResult] = await Promise.all([
+    const [brainResult, tradingResult, marketingResult, paperResult, historyResult] = await Promise.all([
       this.crossBrain.query('brain', 'analytics.summary'),
       this.crossBrain.query('trading-brain', 'analytics.summary'),
       this.crossBrain.query('marketing-brain', 'analytics.summary'),
       this.crossBrain.query('trading-brain', 'paper.status'),
+      this.crossBrain.query('trading-brain', 'paper.history', { limit: 10 }),
     ]);
 
     if (brainResult != null) {
@@ -116,6 +117,7 @@ export class EcosystemService {
       const rules = data.rules as Record<string, number> | undefined;
       const network = data.network as Record<string, number> | undefined;
       const paper = paperResult as Record<string, unknown> | null;
+      const historyArr = Array.isArray(historyResult) ? historyResult as Array<Record<string, unknown>> : [];
       analytics.trading = {
         trades: typeof trades === 'object' ? trades?.total ?? 0 : Number(trades) || 0,
         winRate: typeof trades === 'object' ? (trades?.recentWinRate ?? 0) / 100 : 0,
@@ -124,6 +126,16 @@ export class EcosystemService {
         equity: Number(paper?.equity) || 0,
         positions: Number(paper?.openPositions) || 0,
         pnl: Number(paper?.totalPnL) || 0,
+        history: historyArr.map(h => ({
+          symbol: String(h.symbol ?? ''),
+          side: String(h.side ?? ''),
+          entryPrice: Number(h.entryPrice) || 0,
+          exitPrice: Number(h.exitPrice) || 0,
+          pnlUsdt: Number(h.pnlUsdt) || 0,
+          pnlPct: Number(h.pnlPct) || 0,
+          exitReason: String(h.exitReason ?? ''),
+          closedAt: String(h.closedAt ?? ''),
+        })),
       };
     }
 

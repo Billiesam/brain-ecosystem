@@ -1110,7 +1110,8 @@ export class BrainCore {
         userProfile: services.userModel?.getProfile() ?? null,
         recommender: services.featureRecommender ? {
           ...services.featureRecommender.getStatus(),
-          wishlist: services.featureRecommender.getWishlist(),
+          wishlist: services.featureRecommender.getWishlist()
+            .filter(w => w.status !== 'satisfied' && w.status !== 'dismissed'),
           connections: services.featureRecommender.getConnections(),
         } : null,
         checkpoints: services.checkpointManager?.getStatus() ?? null,
