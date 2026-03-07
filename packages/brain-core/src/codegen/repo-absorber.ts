@@ -169,7 +169,7 @@ export class RepoAbsorber {
       `Absorbing repo: ${candidate.name}...`, 'notable');
 
     const tmpDir = path.join(os.tmpdir(), `brain-absorb-${Date.now()}`);
-    let result: AbsorbResult = {
+    const result: AbsorbResult = {
       repo: candidate.name,
       filesScanned: 0,
       patternsFound: 0,
