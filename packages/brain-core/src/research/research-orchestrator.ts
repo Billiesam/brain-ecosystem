@@ -137,6 +137,7 @@ export class ResearchOrchestrator {
   private consensusEngine: import('../consensus/consensus-engine.js').ConsensusEngine | null = null;
   private traceCollector: import('../observability/trace-collector.js').TraceCollector | null = null;
   private lastAutoMissionTime = 0;
+  private lastGoalMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
 
   private db: Database.Database;
@@ -1779,6 +1780,24 @@ export class ResearchOrchestrator {
     if (this.goalEngine && this.cycleCount % this.reflectEvery === 0) {
       try {
         ts?.emit('orchestrator', 'reflecting', 'Step 35: Checking goals and suggesting new ones...', 'routine');
+
+        // 35a — Bootstrap default goals on first reflect cycle
+        if (this.cycleCount <= this.reflectEvery) {
+          const bootstrapped = this.goalEngine.bootstrapDefaults(this.cycleCount);
+          if (bootstrapped.length > 0) {
+            this.journal.write({
+              type: 'discovery',
+              title: `Bootstrapped ${bootstrapped.length} default goals`,
+              content: bootstrapped.map(g => `"${g.title}" (${g.metricName}→${g.targetValue})`).join(', '),
+              tags: [this.brainName, 'goal', 'bootstrap'],
+              references: [],
+              significance: 'notable',
+              data: { goals: bootstrapped },
+            });
+          }
+        }
+
+        // 35b — Check goals for achievement/failure
         const { achieved, failed } = this.goalEngine.checkGoals(this.cycleCount);
         for (const g of achieved) {
           this.journal.write({
@@ -1790,6 +1809,20 @@ export class ResearchOrchestrator {
             significance: 'notable',
             data: { goal: g },
           });
+
+          // 35c — Ratchet: create harder successor goal
+          const successor = this.goalEngine.ratchetGoal(g, this.cycleCount);
+          if (successor) {
+            this.journal.write({
+              type: 'discovery',
+              title: `Goal ratcheted: "${successor.title}"`,
+              content: `New target: ${successor.metricName}=${successor.targetValue} (baseline=${successor.baselineValue})`,
+              tags: [this.brainName, 'goal', 'ratchet'],
+              references: [],
+              significance: 'routine',
+              data: { goal: successor },
+            });
+          }
         }
         for (const g of failed) {
           this.journal.write({
@@ -1802,6 +1835,25 @@ export class ResearchOrchestrator {
             data: { goal: g },
           });
         }
+
+        // 35d — Goal-driven missions for struggling goals (2h cooldown)
+        if (this.missionEngine && (Date.now() - this.lastGoalMissionTime) > 7_200_000) {
+          const activeGoals = this.goalEngine.listGoals('active');
+          for (const g of activeGoals) {
+            const progress = this.goalEngine.getProgress(g.id!);
+            if (progress && progress.trend !== 'improving' && progress.dataPoints >= 5) {
+              try {
+                this.missionEngine.createMission(
+                  `Research: improve ${g.metricName} for goal "${g.title}" (current=${g.currentValue}, target=${g.targetValue})`,
+                );
+                this.lastGoalMissionTime = Date.now();
+                this.log.info(`[orchestrator] Goal-driven mission created for "${g.title}"`);
+              } catch { /* mission engine full or error */ }
+              break; // max 1 mission per check
+            }
+          }
+        }
+
         // Suggest new goals
         const suggestions = this.goalEngine.suggestGoals(this.cycleCount);
         for (const s of suggestions.slice(0, 2)) {

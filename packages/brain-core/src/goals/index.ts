@@ -4,6 +4,7 @@ export type {
   GoalEngineDataSources,
   GoalType,
   GoalStatus,
+  GoalDirection,
   Goal,
   GoalProgress,
   GoalProgressReport,

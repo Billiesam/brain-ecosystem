@@ -14,6 +14,7 @@ export interface GoalEngineConfig {
 
 export type GoalType = 'metric_target' | 'discovery' | 'quality' | 'custom';
 export type GoalStatus = 'active' | 'achieved' | 'failed' | 'paused';
+export type GoalDirection = 'higher_is_better' | 'lower_is_better';
 
 export interface Goal {
   id?: number;
@@ -28,6 +29,7 @@ export interface Goal {
   startedCycle: number;
   status: GoalStatus;
   priority: number;
+  direction: GoalDirection;
   createdAt: string;
   achievedAt: string | null;
 }
@@ -128,6 +130,11 @@ export function runGoalEngineMigration(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_goal_progress_goal ON goal_progress(goal_id);
     CREATE INDEX IF NOT EXISTS idx_goal_progress_cycle ON goal_progress(cycle);
   `);
+
+  // Add direction column (idempotent)
+  try {
+    db.exec(`ALTER TABLE goals ADD COLUMN direction TEXT NOT NULL DEFAULT 'higher_is_better'`);
+  } catch { /* column already exists */ }
 }
 
 // ── Engine ──────────────────────────────────────────────
@@ -164,8 +171,8 @@ export class GoalEngine {
     runGoalEngineMigration(db);
 
     this.stmtCreateGoal = db.prepare(`
-      INSERT INTO goals (title, description, type, metric_name, target_value, current_value, baseline_value, deadline_cycles, started_cycle, status, priority)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+      INSERT INTO goals (title, description, type, metric_name, target_value, current_value, baseline_value, deadline_cycles, started_cycle, status, priority, direction)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
     `);
 
     this.stmtGetGoal = db.prepare('SELECT * FROM goals WHERE id = ?');
@@ -191,6 +198,7 @@ export class GoalEngine {
     baselineValue?: number;
     currentCycle?: number;
     priority?: number;
+    direction?: GoalDirection;
   }): Goal {
     const activeCount = (this.stmtListGoalsByStatus.all('active', 999) as DbGoal[]).length;
     if (activeCount >= this.config.maxActiveGoals) {
@@ -209,6 +217,7 @@ export class GoalEngine {
       deadlineCycles,
       opts?.currentCycle ?? 0,
       opts?.priority ?? 0.5,
+      opts?.direction ?? 'higher_is_better',
     );
 
     const goal = this.getGoal(Number(result.lastInsertRowid))!;
@@ -246,13 +255,16 @@ export class GoalEngine {
     const failed: Goal[] = [];
 
     for (const goal of active) {
-      // Check if achieved
-      if (goal.current_value >= goal.target_value) {
+      // Check if achieved (respecting direction)
+      const isAchieved = goal.direction === 'lower_is_better'
+        ? goal.current_value <= goal.target_value
+        : goal.current_value >= goal.target_value;
+      if (isAchieved) {
         const now = new Date().toISOString();
         this.stmtUpdateStatus.run('achieved', now, goal.id);
         const updated = this.getGoal(goal.id)!;
         achieved.push(updated);
-        this.ts?.emit('goals', 'discovering', `Goal achieved: "${goal.title}" — ${goal.metric_name}=${goal.current_value} >= ${goal.target_value}`, 'notable');
+        this.ts?.emit('goals', 'discovering', `Goal achieved: "${goal.title}" — ${goal.metric_name}=${goal.current_value} ${goal.direction === 'lower_is_better' ? '<=' : '>='} ${goal.target_value}`, 'notable');
         this.log.info(`[goals] Goal achieved: "${goal.title}"`);
         continue;
       }
@@ -278,17 +290,30 @@ export class GoalEngine {
     if (!goal) return null;
 
     const rows = this.stmtGetProgress.all(goalId) as DbProgress[];
-    const range = goal.targetValue - goal.baselineValue;
-    const current = goal.currentValue - goal.baselineValue;
-    const progressPercent = range > 0 ? Math.min(100, (current / range) * 100) : 0;
+    const isLower = goal.direction === 'lower_is_better';
+    let progressPercent: number;
+    if (isLower) {
+      const range = goal.baselineValue - goal.targetValue;
+      const current = goal.baselineValue - goal.currentValue;
+      progressPercent = range > 0 ? Math.min(100, (current / range) * 100) : 0;
+    } else {
+      const range = goal.targetValue - goal.baselineValue;
+      const current = goal.currentValue - goal.baselineValue;
+      progressPercent = range > 0 ? Math.min(100, (current / range) * 100) : 0;
+    }
 
-    // Determine trend
+    // Determine trend (respecting direction)
     let trend: 'improving' | 'declining' | 'stagnant' = 'stagnant';
     if (rows.length >= 2) {
       const recent = rows.slice(-3);
       const avgDelta = recent.reduce((sum, r) => sum + r.delta, 0) / recent.length;
-      if (avgDelta > 0.01) trend = 'improving';
-      else if (avgDelta < -0.01) trend = 'declining';
+      if (isLower) {
+        if (avgDelta < -0.01) trend = 'improving';
+        else if (avgDelta > 0.01) trend = 'declining';
+      } else {
+        if (avgDelta > 0.01) trend = 'improving';
+        else if (avgDelta < -0.01) trend = 'declining';
+      }
     }
 
     // Estimate cycles to completion
@@ -339,11 +364,12 @@ export class GoalEngine {
     const slope = (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
 
-    // Predict when target will be reached
+    // Predict when target will be reached (respecting direction)
     let estimatedCycle: number | null = null;
     let willComplete = false;
+    const isLower = goal.direction === 'lower_is_better';
 
-    if (slope > 0) {
+    if (isLower ? slope < 0 : slope > 0) {
       estimatedCycle = Math.ceil((goal.targetValue - intercept) / slope);
       willComplete = estimatedCycle <= goal.startedCycle + goal.deadlineCycles;
     }
@@ -505,6 +531,77 @@ export class GoalEngine {
     };
   }
 
+  // ── Bootstrap default goals ──────────────────────────
+
+  bootstrapDefaults(currentCycle: number): Goal[] {
+    const count = (this.db.prepare('SELECT COUNT(*) as c FROM goals').get() as { c: number }).c;
+    if (count > 0) return [];
+
+    const defaults: Array<{ title: string; metric: string; target: number; deadline: number; direction: GoalDirection; type: GoalType }> = [
+      { title: 'Wissens-Fundament aufbauen', metric: 'principleCount', target: 15, deadline: 100, direction: 'higher_is_better', type: 'discovery' },
+      { title: 'Vorhersagen zuverlässig machen', metric: 'predictionAccuracy', target: 0.5, deadline: 150, direction: 'higher_is_better', type: 'quality' },
+      { title: 'Hypothesen durch Experimente validieren', metric: 'experimentCount', target: 20, deadline: 120, direction: 'higher_is_better', type: 'metric_target' },
+      { title: 'Wissensqualität verbessern', metric: 'knowledgeQuality', target: 0.6, deadline: 200, direction: 'higher_is_better', type: 'quality' },
+      { title: 'Wissenslücken schließen', metric: 'activeGaps', target: 5, deadline: 80, direction: 'lower_is_better', type: 'discovery' },
+      { title: 'Hypothesen bestätigen', metric: 'confirmationRate', target: 0.3, deadline: 150, direction: 'higher_is_better', type: 'quality' },
+    ];
+
+    const created: Goal[] = [];
+    for (const d of defaults) {
+      const goal = this.createGoal(d.title, d.metric, d.target, d.deadline, {
+        type: d.type,
+        currentCycle: currentCycle,
+        direction: d.direction,
+        priority: 0.6,
+      });
+      created.push(goal);
+    }
+
+    this.log.info(`[goals] Bootstrapped ${created.length} default goals`);
+    return created;
+  }
+
+  // ── Ratchet achieved goals ──────────────────────────
+
+  ratchetGoal(achieved: Goal, currentCycle: number): Goal | null {
+    const activeCount = (this.stmtListGoalsByStatus.all('active', 999) as DbGoal[]).length;
+    if (activeCount >= this.config.maxActiveGoals) return null;
+
+    const isLower = achieved.direction === 'lower_is_better';
+
+    // Calculate harder target
+    let newTarget: number;
+    if (isLower) {
+      const improvement = achieved.baselineValue - achieved.currentValue;
+      newTarget = Math.max(1, achieved.currentValue - improvement * 0.5);
+    } else {
+      const improvement = achieved.currentValue - achieved.baselineValue;
+      newTarget = achieved.currentValue + improvement * 0.5;
+    }
+
+    // Determine level from title
+    const levelMatch = achieved.title.match(/\(Level (\d+)\)$/);
+    const nextLevel = levelMatch ? parseInt(levelMatch[1]) + 1 : 2;
+    const baseTitle = achieved.title.replace(/\s*\(Level \d+\)$/, '');
+
+    const successor = this.createGoal(
+      `${baseTitle} (Level ${nextLevel})`,
+      achieved.metricName,
+      newTarget,
+      achieved.deadlineCycles,
+      {
+        type: achieved.type,
+        baselineValue: achieved.currentValue,
+        currentCycle: currentCycle,
+        direction: achieved.direction,
+        priority: achieved.priority,
+      },
+    );
+
+    this.log.info(`[goals] Ratcheted "${achieved.title}" → "${successor.title}" (target=${newTarget})`);
+    return successor;
+  }
+
   // ── Private helpers ───────────────────────────────────
 
   private toGoal(row: DbGoal): Goal {
@@ -521,6 +618,7 @@ export class GoalEngine {
       startedCycle: row.started_cycle,
       status: row.status as GoalStatus,
       priority: row.priority,
+      direction: (row.direction as GoalDirection) ?? 'higher_is_better',
       createdAt: row.created_at,
       achievedAt: row.achieved_at,
     };
@@ -542,6 +640,7 @@ interface DbGoal {
   started_cycle: number;
   status: string;
   priority: number;
+  direction: string;
   created_at: string;
   achieved_at: string | null;
 }

@@ -563,7 +563,7 @@ export class BrainCore {
       getConfirmationRate: () => {
         try {
           const summary = this.orchestrator!.hypothesisEngine.getSummary();
-          return (summary as { confirmation_rate?: number }).confirmation_rate ?? 0;
+          return summary.total > 0 ? summary.confirmed / summary.total : 0;
         } catch { return 0; }
       },
     });
