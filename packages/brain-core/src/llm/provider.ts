@@ -35,12 +35,15 @@
  */
 
 import type { PromptTemplate } from './llm-service.js';
+import type { ImageBlock } from './structured-output.js';
 
 // ── Messages ─────────────────────────────────────────────
 
+export type LLMContentPart = string | ImageBlock;
+
 export interface LLMMessage {
   role: 'user' | 'assistant' | 'system';
-  content: string;
+  content: string | LLMContentPart[];
 }
 
 export interface LLMCallOptions {

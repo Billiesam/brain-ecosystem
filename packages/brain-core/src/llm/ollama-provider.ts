@@ -25,13 +25,15 @@
  */
 
 import { getLogger } from '../utils/logger.js';
-import type { LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse } from './provider.js';
+import type { LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse, LLMContentPart } from './provider.js';
 
 export interface OllamaProviderConfig {
   /** Ollama server URL. Default: http://localhost:11434 */
   host?: string;
   /** Chat model. Default: qwen3:14b */
   model?: string;
+  /** Vision model for image analysis. Default: llava:7b */
+  visionModel?: string;
   /** Embedding model. Default: qwen3-embedding:8b */
   embedModel?: string;
   /** Connection timeout in ms. Default: 5000 */
@@ -50,6 +52,7 @@ export class OllamaProvider implements LLMProvider {
 
   private readonly host: string;
   private readonly model: string;
+  private readonly visionModel: string;
   private readonly embedModel: string;
   private readonly timeoutMs: number;
   private readonly log = getLogger();
@@ -60,6 +63,7 @@ export class OllamaProvider implements LLMProvider {
   constructor(config: OllamaProviderConfig = {}) {
     this.host = (config.host ?? process.env.OLLAMA_HOST ?? 'http://localhost:11434').replace(/\/$/, '');
     this.model = config.model ?? process.env.OLLAMA_MODEL ?? 'qwen3:14b';
+    this.visionModel = config.visionModel ?? process.env.OLLAMA_VISION_MODEL ?? 'llava:7b';
     this.embedModel = config.embedModel ?? process.env.OLLAMA_EMBED_MODEL ?? 'qwen3-embedding:8b';
     this.timeoutMs = config.timeoutMs ?? 5000;
   }
@@ -91,17 +95,39 @@ export class OllamaProvider implements LLMProvider {
   async chat(messages: LLMMessage[], options?: LLMCallOptions): Promise<LLMProviderResponse> {
     const start = Date.now();
 
-    // Convert system messages to Ollama format
-    const ollamaMessages = messages.map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
+    // Detect if any message contains images → use vision model
+    const hasImages = messages.some(m =>
+      Array.isArray(m.content) && m.content.some(p => typeof p !== 'string' && p.type === 'image'),
+    );
+    const modelToUse = hasImages ? this.visionModel : this.model;
+
+    // Convert messages to Ollama format (with optional images)
+    const ollamaMessages = messages.map(m => {
+      if (typeof m.content === 'string') {
+        return { role: m.role, content: m.content };
+      }
+      // Polymorphic content — extract text + images
+      const textParts: string[] = [];
+      const images: string[] = [];
+      for (const part of m.content) {
+        if (typeof part === 'string') {
+          textParts.push(part);
+        } else if (part.type === 'image') {
+          images.push(part.data);
+        }
+      }
+      return {
+        role: m.role,
+        content: textParts.join('\n'),
+        ...(images.length > 0 ? { images } : {}),
+      };
+    });
 
     const response = await fetch(`${this.host}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: this.model,
+        model: modelToUse,
         messages: ollamaMessages,
         stream: false,
         options: {

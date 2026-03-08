@@ -35,7 +35,13 @@ export interface JsonBlock {
   data: unknown;
 }
 
-export type ContentBlock = TextBlock | ReasoningBlock | ToolCallBlock | CitationBlock | JsonBlock;
+export interface ImageBlock {
+  type: 'image';
+  data: string;       // base64
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+}
+
+export type ContentBlock = TextBlock | ReasoningBlock | ToolCallBlock | CitationBlock | JsonBlock | ImageBlock;
 
 // ── Structured Response ─────────────────────────────────
 

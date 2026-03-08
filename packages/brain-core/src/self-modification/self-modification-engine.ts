@@ -97,10 +97,22 @@ const PATH_BLACKLIST = [
   '.d.ts',
 ];
 
+/** Core-module paths protected from self-modification (GuardrailEngine). */
+const PROTECTED_CORE_PATHS = [
+  'src/ipc/',
+  'src/llm/provider.ts',
+  'src/llm/middleware.ts',
+  'src/guardrails/',
+  'src/db/',
+];
+
 function isPathAllowed(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
   if (!PATH_WHITELIST.test(normalized)) return false;
-  return !PATH_BLACKLIST.some(b => normalized.includes(b));
+  if (PATH_BLACKLIST.some(b => normalized.includes(b))) return false;
+  // Reject core-module paths (guardrail protection)
+  if (PROTECTED_CORE_PATHS.some(p => normalized.includes(p))) return false;
+  return true;
 }
 
 // ── Migration ────────────────────────────────────────────

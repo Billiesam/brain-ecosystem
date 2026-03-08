@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot, BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace, CodeSandbox } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot, BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace, CodeSandbox, GuardrailEngine, CausalPlanner, ResearchRoadmap, runRoadmapMigration, CreativeEngine, runCreativeMigration } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -98,6 +98,10 @@ export class BrainCore {
   private peerNetwork: PeerNetwork | null = null;
   private pluginRegistry: PluginRegistry | null = null;
   private borgSync: BorgSyncEngine | null = null;
+  private guardrailEngine: GuardrailEngine | null = null;
+  private causalPlanner: CausalPlanner | null = null;
+  private researchRoadmap: ResearchRoadmap | null = null;
+  private creativeEngine: CreativeEngine | null = null;
   private telegramBot: TelegramBot | null = null;
   private discordBot: DiscordBot | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -911,6 +915,37 @@ export class BrainCore {
     const codeSandbox = new CodeSandbox(this.db!);
     services.codeSandbox = codeSandbox;
 
+    // 89. GuardrailEngine — self-protection: parameter bounds, circuit breaker, health checks
+    const guardrailEngine = new GuardrailEngine(this.db!, { brainName: 'brain' });
+    guardrailEngine.setParameterRegistry(parameterRegistry);
+    if (goalEngine) guardrailEngine.setGoalEngine(goalEngine);
+    guardrailEngine.setThoughtStream(thoughtStream);
+    this.guardrailEngine = guardrailEngine;
+    services.guardrailEngine = guardrailEngine;
+
+    // 86. CausalPlanner — root-cause diagnosis + intervention planning
+    const causalPlanner = new CausalPlanner(researchScheduler.causalGraph);
+    causalPlanner.setGoalEngine(goalEngine);
+    this.causalPlanner = causalPlanner;
+    services.causalPlanner = causalPlanner;
+
+    // 87. ResearchRoadmap — goal dependencies + multi-step research plans
+    runRoadmapMigration(this.db!);
+    const researchRoadmap = new ResearchRoadmap(this.db!, goalEngine);
+    researchRoadmap.setThoughtStream(thoughtStream);
+    this.researchRoadmap = researchRoadmap;
+    services.researchRoadmap = researchRoadmap;
+
+    // 88. CreativeEngine — cross-domain idea generation
+    runCreativeMigration(this.db!);
+    const creativeEngine = new CreativeEngine(this.db!, { brainName: 'brain' });
+    creativeEngine.setKnowledgeDistiller(this.orchestrator.knowledgeDistiller);
+    creativeEngine.setHypothesisEngine(researchScheduler.hypothesisEngine);
+    if (llmService) creativeEngine.setLLMService(llmService);
+    creativeEngine.setThoughtStream(thoughtStream);
+    this.creativeEngine = creativeEngine;
+    services.creativeEngine = creativeEngine;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -929,8 +964,12 @@ export class BrainCore {
     this.orchestrator.setUserModel(userModel);
     this.orchestrator.setConsensusEngine(consensusEngine);
     this.orchestrator.setTraceCollector(traceCollector);
+    this.orchestrator.setGuardrailEngine(guardrailEngine);
+    this.orchestrator.setCausalPlanner(causalPlanner);
+    this.orchestrator.setResearchRoadmap(researchRoadmap);
+    this.orchestrator.setCreativeEngine(creativeEngine);
 
-    logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber — all wired into orchestrator)');
+    logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber, Guardrails, CausalPlanner, Roadmap, Creative — all wired into orchestrator)');
 
     logger.info('Research orchestrator started (48+ steps, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 
@@ -1424,6 +1463,10 @@ export class BrainCore {
     this.narrativeEngine = null;
     this.curiosityEngine = null;
     this.emergenceEngine = null;
+    this.guardrailEngine = null;
+    this.causalPlanner = null;
+    this.researchRoadmap = null;
+    this.creativeEngine = null;
     this.subscriptionManager = null;
     this.correlator = null;
     this.ecosystemService = null;

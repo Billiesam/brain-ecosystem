@@ -10,7 +10,8 @@
  */
 
 import { getLogger } from '../utils/logger.js';
-import type { LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse } from './provider.js';
+import type { LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse, LLMContentPart } from './provider.js';
+import type { ImageBlock } from './structured-output.js';
 
 export interface AnthropicProviderConfig {
   /** API key. Falls back to ANTHROPIC_API_KEY env var. */
@@ -58,7 +59,9 @@ export class AnthropicProvider implements LLMProvider {
     // Separate system message from conversation
     const systemMessages = messages.filter(m => m.role === 'system');
     const conversationMessages = messages.filter(m => m.role !== 'system');
-    const systemPrompt = systemMessages.map(m => m.content).join('\n') || undefined;
+    const systemPrompt = systemMessages.map(m =>
+      typeof m.content === 'string' ? m.content : m.content.filter((p): p is string => typeof p === 'string').join('\n'),
+    ).join('\n') || undefined;
 
     const start = Date.now();
 
@@ -74,7 +77,10 @@ export class AnthropicProvider implements LLMProvider {
         max_tokens: options?.maxTokens ?? this.maxTokens,
         ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
         ...(systemPrompt ? { system: systemPrompt } : {}),
-        messages: conversationMessages.map(m => ({ role: m.role, content: m.content })),
+        messages: conversationMessages.map(m => ({
+          role: m.role,
+          content: this.formatContent(m.content),
+        })),
       }),
     });
 
@@ -115,5 +121,27 @@ export class AnthropicProvider implements LLMProvider {
   async embed(_text: string): Promise<number[]> {
     // Anthropic doesn't provide embeddings
     return [];
+  }
+
+  /** Convert polymorphic content to Anthropic API format. */
+  private formatContent(content: string | LLMContentPart[]): string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> {
+    if (typeof content === 'string') return content;
+
+    const parts: Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> = [];
+    for (const part of content) {
+      if (typeof part === 'string') {
+        parts.push({ type: 'text', text: part });
+      } else if (part.type === 'image') {
+        parts.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: part.mediaType,
+            data: part.data,
+          },
+        });
+      }
+    }
+    return parts.length === 1 && parts[0].type === 'text' ? parts[0].text! : parts;
   }
 }

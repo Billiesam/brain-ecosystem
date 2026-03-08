@@ -4,7 +4,7 @@ export type {
 } from './llm-service.js';
 
 export type {
-  LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse, RoutingTier,
+  LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse, LLMContentPart, RoutingTier,
 } from './provider.js';
 export { TaskRouter } from './provider.js';
 
@@ -20,7 +20,7 @@ export type { OllamaEmbeddingConfig } from './ollama-embedding.js';
 // ── Structured Output ───────────────────────────────────
 export { parseStructuredOutput, extractJson, validateJsonSchema, getBlocks, getTextContent, getToolCalls, hasReasoning } from './structured-output.js';
 export type {
-  ContentBlock, TextBlock, ReasoningBlock, ToolCallBlock, CitationBlock, JsonBlock,
+  ContentBlock, TextBlock, ReasoningBlock, ToolCallBlock, CitationBlock, JsonBlock, ImageBlock,
   StructuredLLMResponse,
 } from './structured-output.js';
 

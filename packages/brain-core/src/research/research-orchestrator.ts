@@ -136,6 +136,10 @@ export class ResearchOrchestrator {
   private userModelEngine: import('../user-model/user-model.js').UserModel | null = null;
   private consensusEngine: import('../consensus/consensus-engine.js').ConsensusEngine | null = null;
   private traceCollector: import('../observability/trace-collector.js').TraceCollector | null = null;
+  private guardrailEngine: import('../guardrails/guardrail-engine.js').GuardrailEngine | null = null;
+  private causalPlanner: import('../causal/causal-planner.js').CausalPlanner | null = null;
+  private researchRoadmap: import('../goals/research-roadmap.js').ResearchRoadmap | null = null;
+  private creativeEngine: import('../creative/creative-engine.js').CreativeEngine | null = null;
   private lastAutoMissionTime = 0;
   private lastGoalMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
@@ -365,6 +369,18 @@ export class ResearchOrchestrator {
 
   /** Set the TraceCollector — auto-instrumentation of research cycles. */
   setTraceCollector(collector: import('../observability/trace-collector.js').TraceCollector): void { this.traceCollector = collector; }
+
+  /** Set the GuardrailEngine — safety checks for parameter changes. */
+  setGuardrailEngine(engine: import('../guardrails/guardrail-engine.js').GuardrailEngine): void { this.guardrailEngine = engine; }
+
+  /** Set the CausalPlanner — diagnose stagnant goals via causal analysis. */
+  setCausalPlanner(planner: import('../causal/causal-planner.js').CausalPlanner): void { this.causalPlanner = planner; }
+
+  /** Set the ResearchRoadmap — multi-step goal decomposition. */
+  setResearchRoadmap(roadmap: import('../goals/research-roadmap.js').ResearchRoadmap): void { this.researchRoadmap = roadmap; }
+
+  /** Set the CreativeEngine — cross-domain idea generation. */
+  setCreativeEngine(engine: import('../creative/creative-engine.js').CreativeEngine): void { this.creativeEngine = engine; }
 
   /** Set the LLMService — propagates to all engines that can use LLM. */
   setLLMService(llm: LLMService): void {
@@ -1877,7 +1893,9 @@ export class ResearchOrchestrator {
     }
 
     // Step 36: EvolutionEngine — evolve parameter configurations (every generationEvery cycles, default 20)
-    if (this.evolutionEngine && this.cycleCount % this.evolutionEngine.generationEvery === 0) {
+    // Skip if circuit breaker tripped (guardrails)
+    if (this.evolutionEngine && this.cycleCount % this.evolutionEngine.generationEvery === 0
+      && !(this.guardrailEngine?.isCircuitBreakerTripped())) {
       try {
         ts?.emit('evolution', 'reflecting', 'Step 36: Running evolution generation...', 'routine');
         const gen = this.evolutionEngine.runGeneration();
@@ -1998,7 +2016,9 @@ export class ResearchOrchestrator {
     }
 
     // Step 40: SelfModification — propose and test code changes (every 20 cycles)
-    if (this.selfModificationEngine && this.cycleCount % 20 === 0) {
+    // Skip if circuit breaker tripped (guardrails)
+    if (this.selfModificationEngine && this.cycleCount % 20 === 0
+      && !(this.guardrailEngine?.isCircuitBreakerTripped())) {
       try {
         // Skip if there are already pending modifications
         const pending = this.selfModificationEngine.getPending();
@@ -2436,6 +2456,91 @@ export class ResearchOrchestrator {
           ts?.emit('consensus', 'reflecting', `Consensus: ${cStatus.totalProposals} proposals, ${cStatus.resolvedCount} resolved`, 'routine');
         }
       } catch { /* not critical */ }
+    }
+
+    // Step 55: GuardrailEngine — health check (every 50 cycles)
+    if (this.guardrailEngine && this.cycleCount % 50 === 0) {
+      try {
+        ts?.emit('guardrails', 'analyzing', 'Step 55: Running health check...', 'routine');
+        const health = this.guardrailEngine.checkHealth();
+        if (health.warnings.length > 0) {
+          this.journal.write({
+            title: `Health Check: ${health.warnings.length} warnings`,
+            content: `Score: ${health.score.toFixed(2)} | ${health.warnings.map(w => `[${w.severity}] ${w.message}`).join('; ')}`,
+            type: 'insight',
+            significance: health.circuitBreakerTripped ? 'breakthrough' : 'notable',
+            tags: [this.brainName, 'guardrails', 'health'],
+            references: [],
+            data: { score: health.score, warningCount: health.warnings.length, circuitBreaker: health.circuitBreakerTripped },
+          });
+        }
+        // Check for auto-rollback
+        this.guardrailEngine.checkAutoRollback();
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 55 (guardrails) error: ${(err as Error).message}`);
+      }
+    }
+
+    // Step 56: CausalPlanner — diagnose stagnant goals (every 20 cycles)
+    if (this.causalPlanner && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('causal_planner', 'analyzing', 'Step 56: Diagnosing stagnant goals...', 'routine');
+        const diagnoses = this.causalPlanner.diagnoseStagnantGoals();
+        for (const { goal, diagnosis } of diagnoses.slice(0, 3)) {
+          const topCause = diagnosis.rootCauses[0];
+          if (topCause) {
+            this.journal.write({
+              title: `Causal Diagnosis: ${goal.title}`,
+              content: `Root cause: ${topCause.event} (strength: ${topCause.strength.toFixed(2)}, confidence: ${topCause.confidence.toFixed(2)})` +
+                (diagnosis.suggestedInterventions[0] ? ` | Intervention: ${diagnosis.suggestedInterventions[0].action}` : ''),
+              type: 'discovery',
+              significance: 'notable',
+              tags: [this.brainName, 'causal', 'diagnosis'],
+              references: [],
+              data: { goalId: goal.id, rootCause: topCause.event, strength: topCause.strength },
+            });
+          }
+        }
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 56 (causal planner) error: ${(err as Error).message}`);
+      }
+    }
+
+    // Step 57: ResearchRoadmap — check roadmap progress (every 10 cycles)
+    if (this.researchRoadmap && this.goalEngine && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('roadmap', 'analyzing', 'Step 57: Checking roadmap progress...', 'routine');
+        // Check blocked goals — only evaluate goals that can start
+        const readyGoals = this.researchRoadmap.getReadyGoals();
+        if (readyGoals.length > 0) {
+          ts?.emit('roadmap', 'reflecting', `${readyGoals.length} goals ready to start`, 'routine');
+        }
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 57 (roadmap) error: ${(err as Error).message}`);
+      }
+    }
+
+    // Step 58: CreativeEngine — cross-pollination (every 20 cycles)
+    if (this.creativeEngine && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('creative', 'discovering', 'Step 58: Cross-pollinating ideas...', 'routine');
+        const insights = this.creativeEngine.crossPollinate();
+        if (insights.length > 0) {
+          // Convert top insights to hypotheses
+          const converted = this.creativeEngine.convertTopInsights(0.5);
+          this.journal.write({
+            title: `Creative Cross-Pollination: ${insights.length} insights`,
+            content: `Generated ${insights.length} cross-domain insights, ${converted} converted to hypotheses`,
+            type: 'discovery',
+            significance: insights.length > 3 ? 'notable' : 'routine',
+            tags: [this.brainName, 'creative', 'cross-pollination'],
+            references: [],
+            data: { insightCount: insights.length, converted },
+          });
+        }
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 58 (creative) error: ${(err as Error).message}`);
+      }
     }
 
     const duration = Date.now() - start;

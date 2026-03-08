@@ -384,7 +384,7 @@ export { LLMService, runLLMServiceMigration } from './llm/index.js';
 export { TaskRouter, AnthropicProvider, OllamaProvider, OllamaEmbeddingProvider } from './llm/index.js';
 export type {
   LLMServiceConfig, LLMResponse, LLMUsageStats, PromptTemplate, ProviderInfo,
-  LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse, RoutingTier,
+  LLMProvider, LLMMessage, LLMCallOptions, LLMProviderResponse, LLMContentPart, RoutingTier,
   AnthropicProviderConfig, OllamaProviderConfig, OllamaStatus, OllamaModelInfo, OllamaRunningModel,
   OllamaEmbeddingConfig,
 } from './llm/index.js';
@@ -392,7 +392,7 @@ export type {
 // ── Structured Output ──────────────────────────────────────
 export { parseStructuredOutput, extractJson, validateJsonSchema, getBlocks, getTextContent, getToolCalls, hasReasoning } from './llm/index.js';
 export type {
-  ContentBlock, TextBlock, ReasoningBlock, ToolCallBlock, CitationBlock, JsonBlock,
+  ContentBlock, TextBlock, ReasoningBlock, ToolCallBlock, CitationBlock, JsonBlock, ImageBlock,
   StructuredLLMResponse,
 } from './llm/index.js';
 
@@ -527,3 +527,31 @@ export type {
   SandboxLanguage, ExecutionRequest, ExecutionResult,
   CodeSandboxConfig, CodeSandboxStatus,
 } from './sandbox/index.js';
+
+// ── Guardrails ──────────────────────────────────────────────
+export { GuardrailEngine, runGuardrailMigration } from './guardrails/index.js';
+export type {
+  GuardrailConfig, ValidationResult, RollbackResult,
+  HealthWarning, HealthReport, GuardrailStatus,
+} from './guardrails/index.js';
+
+// ── Vision Tools ────────────────────────────────────────────
+export { imageBlockFromFile, imageBlockFromBuffer, getVisionToolDefinitions, handleVisionTool } from './mcp/vision-tools.js';
+export type { VisionToolDeps } from './mcp/vision-tools.js';
+
+// ── Causal Planner ──────────────────────────────────────────
+export { CausalPlanner } from './causal/causal-planner.js';
+export type { CausalDiagnosis, Intervention, PredictedOutcome } from './causal/causal-planner.js';
+
+// ── Research Roadmap ────────────────────────────────────────
+export { ResearchRoadmap, runRoadmapMigration } from './goals/research-roadmap.js';
+export type {
+  Roadmap, GoalNode, GoalEdge, RoadmapDAG, RoadmapProgress,
+} from './goals/research-roadmap.js';
+
+// ── Creative Engine ─────────────────────────────────────────
+export { CreativeEngine, runCreativeMigration } from './creative/index.js';
+export type {
+  CreativeInsight, Analogy as CreativeAnalogy, SpeculativeHypothesis,
+  CreativeEngineConfig, CreativeEngineStatus,
+} from './creative/index.js';
