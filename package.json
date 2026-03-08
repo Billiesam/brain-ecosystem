@@ -10,7 +10,7 @@
     "packages/marketing-brain"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build -w packages/brain-core && npm run build -w packages/brain && npm run build -w packages/trading-brain && npm run build -w packages/marketing-brain",
     "test": "npm run test --workspaces",
     "lint": "npm run lint --workspaces",
     "build:core": "npm run build -w packages/brain-core",
