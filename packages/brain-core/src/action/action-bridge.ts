@@ -5,7 +5,7 @@ import { getLogger } from '../utils/logger.js';
 
 export interface ProposedAction {
   id: number;
-  source: 'proactive' | 'creative' | 'mission' | 'selfmod' | 'codegen' | 'research' | 'feedback-router';
+  source: 'proactive' | 'creative' | 'mission' | 'selfmod' | 'codegen' | 'research' | 'feedback-router' | 'desire';
   type: 'publish_content' | 'apply_code' | 'execute_trade' | 'adjust_parameter' | 'create_goal' | 'start_mission' | 'creative_seed';
   title: string;
   description: string;
@@ -89,6 +89,9 @@ export class ActionBridgeEngine {
   // Execution handlers keyed by action type
   private handlers = new Map<ActionType, (payload: Record<string, unknown>) => Promise<unknown> | unknown>();
 
+  // Outcome callbacks — notified after action execution
+  private outcomeCallbacks: Array<(action: ProposedAction, outcome: ActionOutcome) => void> = [];
+
   // Prepared statements
   private readonly stmtInsert;
   private readonly stmtGetById;
@@ -130,6 +133,11 @@ export class ActionBridgeEngine {
   /** Register an execution handler for an action type */
   registerHandler(type: ActionType, handler: (payload: Record<string, unknown>) => Promise<unknown> | unknown): void {
     this.handlers.set(type, handler);
+  }
+
+  /** Register an outcome callback — called after each action execution */
+  onOutcome(cb: (action: ProposedAction, outcome: ActionOutcome) => void): void {
+    this.outcomeCallbacks.push(cb);
   }
 
   /** Propose a new action — returns the action ID */
@@ -202,11 +210,13 @@ export class ActionBridgeEngine {
       const outcome: ActionOutcome = { success: true, result };
       this.stmtSetOutcome.run('completed', JSON.stringify(outcome), actionId);
       this.log.info(`[action-bridge] Executed #${actionId}: ${action.title} → success`);
+      this.fireOutcomeCallbacks(action, outcome);
       return { success: true, result };
     } catch (err) {
       const outcome: ActionOutcome = { success: false, result: (err as Error).message };
       this.stmtSetOutcome.run('failed', JSON.stringify(outcome), actionId);
       this.log.warn(`[action-bridge] Executed #${actionId}: ${action.title} → failed: ${(err as Error).message}`);
+      this.fireOutcomeCallbacks(action, outcome);
       return { success: false, result: (err as Error).message };
     }
   }
@@ -302,6 +312,14 @@ export class ActionBridgeEngine {
       topSources,
       autoExecuteEnabled: this.config.autoExecuteEnabled,
     };
+  }
+
+  private fireOutcomeCallbacks(action: ProposedAction, outcome: ActionOutcome): void {
+    for (const cb of this.outcomeCallbacks) {
+      try { cb(action, outcome); } catch (e) {
+        this.log.warn(`[action-bridge] Outcome callback error: ${(e as Error).message}`);
+      }
+    }
   }
 }
 

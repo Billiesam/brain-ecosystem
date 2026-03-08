@@ -189,6 +189,57 @@ describe('TeachingProtocol', () => {
     dbB.close();
   });
 
+  it('learn() sends feedback to source brain when notifier set', async () => {
+    const mockNotifier = { notifyPeer: vi.fn().mockResolvedValue(undefined) };
+    protocol.setNotifier(mockNotifier);
+
+    protocol.learn({
+      sourceBrain: 'trading-brain',
+      domain: 'code patterns',
+      principle: 'Error handling reduces code bugs significantly',
+      applicability: 0.9,
+    });
+
+    // Feedback is async — give it a tick
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    expect(mockNotifier.notifyPeer).toHaveBeenCalledWith(
+      'trading-brain',
+      'teaching.feedback',
+      expect.objectContaining({
+        targetBrain: 'brain',
+        accepted: expect.any(Boolean),
+        relevanceScore: expect.any(Number),
+        domain: 'code patterns',
+      }),
+    );
+  });
+
+  it('feedback contains accepted status and relevanceScore', async () => {
+    const mockNotifier = { notifyPeer: vi.fn().mockResolvedValue(undefined) };
+    protocol.setNotifier(mockNotifier);
+
+    // Learn a relevant lesson (should be accepted)
+    protocol.learn({
+      sourceBrain: 'trading-brain',
+      domain: 'debugging',
+      principle: 'Error debugging with code analysis improves bug resolution',
+      applicability: 0.8,
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const feedbackCall = mockNotifier.notifyPeer.mock.calls.find(
+      (c: unknown[]) => c[1] === 'teaching.feedback',
+    );
+    expect(feedbackCall).toBeDefined();
+    const feedbackData = feedbackCall![2] as any;
+    expect(typeof feedbackData.accepted).toBe('boolean');
+    expect(typeof feedbackData.relevanceScore).toBe('number');
+    expect(feedbackData.relevanceScore).toBeGreaterThanOrEqual(0);
+    expect(feedbackData.relevanceScore).toBeLessThanOrEqual(1);
+  });
+
   it('migration is idempotent (teaching)', () => {
     runTeachingMigration(db);
     runTeachingMigration(db);

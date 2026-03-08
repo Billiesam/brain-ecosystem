@@ -212,6 +212,10 @@ export class IpcRouter {
         this.services.teachingProtocol.learn(data);
         logger.info(`[cross-brain] Learned lesson from ${source}`);
       }
+      // Route teaching feedback
+      if (event === 'teaching.feedback') {
+        logger.info(`[cross-brain] Teaching feedback from ${source}: accepted=${data?.accepted}, relevance=${data?.relevanceScore}`);
+      }
       manager.handleIncomingEvent(source, event, data);
       return { received: true, source, event };
     });
@@ -1179,6 +1183,7 @@ export class IpcRouter {
       ['creative.insights',        (params) => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return s.creativeEngine.getInsights(p(params)?.limit ?? 20, p(params)?.status); }],
       ['creative.convert',         (params) => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return { converted: s.creativeEngine.convertTopInsights(p(params)?.minNovelty ?? 0.5) }; }],
       ['creative.status',          () => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return s.creativeEngine.getStatus(); }],
+      ['creative.debug',           () => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return s.creativeEngine.getDebugInfo(); }],
 
       // ─── Action Bridge ───────────────────────────────────
       ['action.propose',    (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return { id: s.actionBridge.propose(p(params)) }; }],
@@ -1247,6 +1252,17 @@ export class IpcRouter {
         if (!s.orchestrator) throw new Error('Orchestrator not available');
         const desires = s.orchestrator.getDesires();
         return { count: desires.length, topPriority: desires[0]?.priority ?? 0, top: desires[0]?.suggestion ?? 'none' };
+      }],
+      ['desires.actuate',         () => {
+        if (!s.orchestrator || !s.actionBridge) throw new Error('Orchestrator/ActionBridge not available');
+        const desires = s.orchestrator.getDesires();
+        const top = desires.find(d => d.priority >= 5);
+        if (!top) return { actuated: false, reason: 'No desire with priority >= 5' };
+        let actionType: 'create_goal' | 'start_mission' | 'adjust_parameter' = 'create_goal';
+        if (top.key.startsWith('contradiction_')) actionType = 'start_mission';
+        else if (top.key.startsWith('no_predictions') || top.key.startsWith('low_accuracy')) actionType = 'adjust_parameter';
+        const actionId = s.actionBridge.propose({ source: 'desire' as any, type: actionType, title: `Desire: ${top.suggestion.substring(0, 80)}`, description: top.suggestion, confidence: Math.min(top.priority / 10, 0.9), payload: { desireKey: top.key, priority: top.priority } });
+        return { actuated: true, actionId, actionType, desireKey: top.key };
       }],
 
       // Status (cross-brain)

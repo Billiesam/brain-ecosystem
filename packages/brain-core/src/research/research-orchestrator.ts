@@ -69,6 +69,8 @@ export interface ResearchOrchestratorConfig {
   agendaEvery?: number;
   /** Journal reflection every N cycles. Default: 10 */
   reflectEvery?: number;
+  /** Minimum cycle duration in ms. Prevents tight-looping. Default: 5000 */
+  minCycleDurationMs?: number;
 }
 
 // ── Orchestrator ────────────────────────────────────────
@@ -154,9 +156,11 @@ export class ResearchOrchestrator {
   private brainName: string;
   private feedbackTimer: ReturnType<typeof setInterval> | null = null;
   private cycleCount = 0;
+  private lastDesireActuationCycle = 0;
   private distillEvery: number;
   private agendaEvery: number;
   private reflectEvery: number;
+  private minCycleDurationMs: number;
   private log = getLogger();
 
   /** Tracks how many times each suggestion key has been emitted without being resolved. */
@@ -176,6 +180,7 @@ export class ResearchOrchestrator {
     this.distillEvery = config.distillEvery ?? 5;
     this.agendaEvery = config.agendaEvery ?? 3;
     this.reflectEvery = config.reflectEvery ?? 10;
+    this.minCycleDurationMs = config.minCycleDurationMs ?? 5000;
     this.causalGraph = causalGraph ?? null;
 
     this.selfObserver = new SelfObserver(db, { brainName: config.brainName });
@@ -391,6 +396,13 @@ export class ResearchOrchestrator {
   /** Set the ActionBridgeEngine — risk-assessed action execution. */
   setActionBridge(bridge: import('../action/action-bridge.js').ActionBridgeEngine): void { this.actionBridge = bridge; }
 
+  /** Register outcome handler — called when actions complete/fail. */
+  setActionOutcomeHandler(handler: (action: { source: string; type: string; title: string }, outcome: { success: boolean; result: unknown }) => void): void {
+    if (this.actionBridge) {
+      this.actionBridge.onOutcome((action, outcome) => handler(action, outcome));
+    }
+  }
+
   /** Set the CrossBrainSignalRouter — bidirectional signal routing. */
   setSignalRouter(router: import('../cross-brain/signal-router.js').CrossBrainSignalRouter): void { this.signalRouter = router; }
 
@@ -510,6 +522,16 @@ export class ResearchOrchestrator {
     this.cycleCount++;
     const start = Date.now();
     const ts = this.thoughtStream;
+    const stepTimings: Array<{ step: string; ms: number }> = [];
+    const profileStep = (name: string, fn: () => void) => {
+      const t0 = Date.now();
+      fn();
+      const elapsed = Date.now() - t0;
+      if (elapsed > 1000) {
+        stepTimings.push({ step: name, ms: elapsed });
+        this.log.warn(`[orchestrator] Slow step: ${name} took ${elapsed}ms`);
+      }
+    };
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} ───`);
 
     // Fix 6: Auto-instrument research cycles with TraceCollector
@@ -2574,6 +2596,8 @@ export class ResearchOrchestrator {
     // Step 58: CreativeEngine — cross-pollination (every 20 cycles)
     if (this.creativeEngine && this.cycleCount % 20 === 0) {
       try {
+        const debugInfo = this.creativeEngine.getDebugInfo();
+        this.log.debug(`[orchestrator] Step 58: ${debugInfo.principlesCount} principles, domains: ${JSON.stringify(debugInfo.domains)}`);
         ts?.emit('creative', 'discovering', 'Step 58: Cross-pollinating ideas...', 'routine');
         const insights = this.creativeEngine.crossPollinate();
         if (insights.length > 0) {
@@ -2588,6 +2612,8 @@ export class ResearchOrchestrator {
             references: [],
             data: { insightCount: insights.length, converted },
           });
+        } else {
+          ts?.emit('creative', 'reflecting', `Step 58: 0 insights (${debugInfo.principlesCount} principles, ${Object.keys(debugInfo.domains).length} domains)`, 'notable');
         }
       } catch (err) {
         this.log.warn(`[orchestrator] Step 58 (creative) error: ${(err as Error).message}`);
@@ -2726,6 +2752,99 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 63 (signal emission) error: ${(err as Error).message}`); }
     }
 
+    // Step 64: DesireActuator — convert top desire to action (every 15 cycles)
+    if (this.actionBridge && this.cycleCount - this.lastDesireActuationCycle >= 15) {
+      try {
+        const desires = this.getDesires();
+        const topDesire = desires.find(d => d.priority >= 5);
+        if (topDesire) {
+          ts?.emit('desire', 'analyzing', `Step 64: Actuating desire "${topDesire.key}" (P${topDesire.priority})...`, 'notable');
+
+          // Map desire key → action type
+          let actionType: 'create_goal' | 'start_mission' | 'adjust_parameter' = 'create_goal';
+          if (topDesire.key.startsWith('contradiction_')) {
+            actionType = 'start_mission';
+          } else if (topDesire.key.startsWith('no_predictions') || topDesire.key.startsWith('low_accuracy')) {
+            actionType = 'adjust_parameter';
+          }
+
+          const actionId = this.actionBridge.propose({
+            source: 'desire',
+            type: actionType,
+            title: `Desire: ${topDesire.suggestion.substring(0, 80)}`,
+            description: topDesire.suggestion,
+            confidence: Math.min(topDesire.priority / 10, 0.9),
+            payload: { desireKey: topDesire.key, priority: topDesire.priority, alternatives: topDesire.alternatives },
+          });
+
+          if (actionId > 0) {
+            this.log.info(`[orchestrator] Step 64: Desire "${topDesire.key}" → Action #${actionId} (${actionType})`);
+            this.journal.write({
+              title: `Desire Actuation: ${topDesire.key}`,
+              content: `Converted desire (P${topDesire.priority}) to ${actionType} action #${actionId}: ${topDesire.suggestion}`,
+              type: 'insight',
+              significance: 'notable',
+              tags: [this.brainName, 'desire', 'actuation'],
+              references: [],
+              data: { desireKey: topDesire.key, actionId, actionType },
+            });
+          }
+
+          this.lastDesireActuationCycle = this.cycleCount;
+        }
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 64 (desire actuation) error: ${(err as Error).message}`);
+      }
+    }
+
+    // Step 65: Action-Outcome Review (every 20 cycles)
+    if (this.actionBridge && this.cycleCount % 20 === 0) {
+      try {
+        const history = this.actionBridge.getHistory(10);
+        const recentCompleted = history.filter(a => a.status === 'completed' && a.outcome?.success);
+        const recentFailed = history.filter(a => a.status === 'failed' || (a.outcome && !a.outcome.success));
+
+        if (recentCompleted.length > 0 || recentFailed.length > 0) {
+          ts?.emit('orchestrator', 'reflecting', `Step 65: Reviewing ${recentCompleted.length} successes, ${recentFailed.length} failures`, 'routine');
+
+          // Success → journal lesson learned
+          for (const action of recentCompleted.slice(0, 3)) {
+            const lesson = action.outcome?.learnedLesson ?? `Action "${action.title}" succeeded`;
+            this.journal.write({
+              title: `Action Outcome: ${action.title}`,
+              content: `${action.type} from ${action.source} succeeded. Lesson: ${lesson}`,
+              type: 'insight',
+              significance: 'routine',
+              tags: [this.brainName, 'action-outcome', 'success'],
+              references: [],
+              data: { actionId: action.id, type: action.type, source: action.source },
+            });
+          }
+
+          // Failure → journal + hypothesis rejection
+          for (const action of recentFailed.slice(0, 3)) {
+            this.journal.write({
+              title: `Action Failed: ${action.title}`,
+              content: `${action.type} from ${action.source} failed: ${action.outcome?.result ?? 'unknown'}`,
+              type: 'anomaly',
+              significance: 'notable',
+              tags: [this.brainName, 'action-outcome', 'failure'],
+              references: [],
+              data: { actionId: action.id, type: action.type, source: action.source },
+            });
+          }
+
+          if (this.metaCognitionLayer) {
+            this.metaCognitionLayer.recordStep('action_outcome_review', this.cycleCount, {
+              insights: recentCompleted.length + recentFailed.length,
+            });
+          }
+        }
+      } catch (err) {
+        this.log.warn(`[orchestrator] Step 65 (outcome review) error: ${(err as Error).message}`);
+      }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
@@ -2754,6 +2873,17 @@ export class ResearchOrchestrator {
           { workflowType: 'orchestrator', metadata: { brainName: this.brainName } },
         );
       } catch { /* checkpoint save should never break the cycle */ }
+    }
+
+    // Step-profiling summary: log slow steps if any
+    if (stepTimings.length > 0) {
+      this.log.warn(`[orchestrator] Cycle #${this.cycleCount} slow steps: ${stepTimings.map(s => `${s.step}(${s.ms}ms)`).join(', ')}`);
+    }
+
+    // Cycle-pacing: ensure minimum cycle duration to prevent tight-looping
+    const remaining = this.minCycleDurationMs - duration;
+    if (remaining > 0) {
+      await new Promise(resolve => setTimeout(resolve, remaining));
     }
   }
 

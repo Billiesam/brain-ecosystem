@@ -19,6 +19,8 @@ import {
   StrategyForge, runStrategyForgeMigration,
   CrossBrainSignalRouter, runSignalRouterMigration,
   FeedbackRouter, runFeedbackRouterMigration,
+  TeachingProtocol, runTeachingMigration,
+  Curriculum, runCurriculumMigration,
 } from '@timmeck/brain-core';
 import type { CrossBrainNotifier } from '@timmeck/brain-core';
 
@@ -72,9 +74,19 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): void {
     const userModel = new UserModel(db, { brainName: 'marketing-brain' });
     services.userModel = userModel;
 
-    logger.info('Intelligence Group 2 active (Feedback, ToolTracker, Proactive, UserModel)');
+    // Teaching Protocol + Curriculum
+    runTeachingMigration(db);
+    const teachingProtocol = new TeachingProtocol(db, { brainName: 'marketing-brain' });
+    if (notifier) teachingProtocol.setNotifier(notifier);
+    services.teachingProtocol = teachingProtocol;
+
+    runCurriculumMigration(db);
+    const curriculum = new Curriculum(db);
+    services.curriculum = curriculum;
+
+    logger.info('Intelligence Group 2 active (Feedback, ToolTracker, Proactive, UserModel, Teaching)');
   } catch (err) {
-    logger.warn(`Intelligence Group 2 failed (Feedback/Tools/UserModel): ${(err as Error).message}`);
+    logger.warn(`Intelligence Group 2 failed (Feedback/Tools/UserModel/Teaching): ${(err as Error).message}`);
   }
 
   // Group 3: Guardrails + Causal + Goals + Roadmap + Creative

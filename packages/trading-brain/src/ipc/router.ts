@@ -177,6 +177,10 @@ export class IpcRouter {
         this.services.teachingProtocol.learn(data);
         logger.info(`[cross-brain] Learned lesson from ${source}`);
       }
+      // Route teaching feedback
+      if (event === 'teaching.feedback') {
+        logger.info(`[cross-brain] Teaching feedback from ${source}: accepted=${data?.accepted}, relevance=${data?.relevanceScore}`);
+      }
       manager.handleIncomingEvent(source, event, data);
       return { received: true, source, event };
     });

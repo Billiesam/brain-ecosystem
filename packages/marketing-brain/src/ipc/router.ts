@@ -130,6 +130,8 @@ export interface Services {
   strategyForge?: import('@timmeck/brain-core').StrategyForge;
   signalRouter?: import('@timmeck/brain-core').CrossBrainSignalRouter;
   feedbackRouter?: import('@timmeck/brain-core').FeedbackRouter;
+  teachingProtocol?: import('@timmeck/brain-core').TeachingProtocol;
+  curriculum?: import('@timmeck/brain-core').Curriculum;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -169,6 +171,15 @@ export class IpcRouter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { source, event, data } = params as any;
       logger.info(`Cross-brain event from ${source}: ${event}`);
+      // Route teaching lessons to TeachingProtocol
+      if (event === 'teaching.learn' && this.services.teachingProtocol) {
+        this.services.teachingProtocol.learn(data);
+        logger.info(`[cross-brain] Learned lesson from ${source}`);
+      }
+      // Route teaching feedback
+      if (event === 'teaching.feedback') {
+        logger.info(`[cross-brain] Teaching feedback from ${source}: accepted=${data?.accepted}, relevance=${data?.relevanceScore}`);
+      }
       manager.handleIncomingEvent(source, event, data);
       return { received: true, source, event };
     });
@@ -828,6 +839,15 @@ export class IpcRouter {
       ['action.rollback',     (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.rollback(p(params).id); }],
       ['action.stats',        (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.getSuccessRate(p(params).type, p(params).source); }],
       ['action.status',       () => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.getStatus(); }],
+
+      // ─── Teaching ──────────────────────────────────────────────────
+      ['teaching.teach',          (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.teach(p(params).targetBrain, { domain: p(params).domain, principle: p(params).principle, evidence: p(params).evidence, applicability: p(params).applicability }); }],
+      ['teaching.learn',          (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.learn(p(params)); }],
+      ['teaching.requestLesson',  (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.requestLesson(p(params).fromBrain, p(params).topic); }],
+      ['teaching.history',        (params) => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.getHistory(p(params).direction, p(params).limit); }],
+      ['teaching.status',         () => { if (!s.teachingProtocol) throw new Error('TeachingProtocol not available'); return s.teachingProtocol.getStatus(); }],
+      ['curriculum.status',       () => { if (!s.curriculum) throw new Error('Curriculum not available'); return s.curriculum.getStatus(); }],
+      ['curriculum.teachable',    (params) => { if (!s.curriculum) throw new Error('Curriculum not available'); return s.curriculum.getTeachable(p(params).brainName ?? 'marketing-brain'); }],
 
       // ─── ContentForge ─────────────────────────────────────────────
       ['content.generate',    async (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return await s.contentForge.generateFromInsight({ insight: p(params).insight ?? 'Generated via IPC', noveltyScore: p(params).noveltyScore ?? 0.5 }, p(params).platform); }],

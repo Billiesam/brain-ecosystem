@@ -108,6 +108,13 @@ export class CreativeEngine {
     const insights: CreativeInsight[] = [];
     const principles = this.loadPrinciples();
 
+    this.log.debug(`[creative] loadPrinciples: ${principles.length} principles`);
+
+    if (principles.length < 2) {
+      this.log.debug('[creative] Not enough principles for cross-pollination (< 2)');
+      return insights;
+    }
+
     // Group by domain
     const byDomain = new Map<string, Array<{ text: string; domain: string }>>();
     for (const p of principles) {
@@ -117,31 +124,43 @@ export class CreativeEngine {
     }
 
     let domains = [...byDomain.keys()];
+    this.log.debug(`[creative] Domain distribution: ${domains.map(d => `${d}(${byDomain.get(d)!.length})`).join(', ')}`);
 
-    // Fallback: if only 1 domain, split principles into keyword-based sub-groups
-    if (domains.length < 2 && principles.length >= 4) {
+    // Fallback: if only 1 domain, split principles into sub-groups (threshold lowered to 2)
+    if (domains.length < 2 && principles.length >= 2) {
       const singleDomain = domains[0];
       const all = byDomain.get(singleDomain)!;
       byDomain.clear();
 
-      // Split by first significant keyword (5+ chars) for diversity
-      for (const p of all) {
-        const keywords = this.tokenize(p.text).filter(w => w.length >= 5);
-        const groupKey = keywords[0] ?? 'general';
-        const subDomain = `${singleDomain}/${groupKey}`;
-        const list = byDomain.get(subDomain) ?? [];
-        list.push({ text: p.text, domain: subDomain });
-        byDomain.set(subDomain, list);
-      }
-
-      domains = [...byDomain.keys()];
-      // If we still can't get 2 groups, split in half
-      if (domains.length < 2 && all.length >= 2) {
-        byDomain.clear();
-        const half = Math.ceil(all.length / 2);
-        byDomain.set(`${singleDomain}/A`, all.slice(0, half).map(p => ({ text: p.text, domain: `${singleDomain}/A` })));
-        byDomain.set(`${singleDomain}/B`, all.slice(half).map(p => ({ text: p.text, domain: `${singleDomain}/B` })));
+      // With 2-3 principles: direct pair-building (skip keyword grouping)
+      if (all.length <= 3) {
+        for (let idx = 0; idx < all.length; idx++) {
+          const subDomain = `${singleDomain}/${String.fromCharCode(65 + idx)}`;
+          byDomain.set(subDomain, [{ text: all[idx].text, domain: subDomain }]);
+        }
         domains = [...byDomain.keys()];
+        this.log.debug(`[creative] Fallback: direct pair-building → ${domains.length} sub-domains`);
+      } else {
+        // Split by first significant keyword (5+ chars) for diversity
+        for (const p of all) {
+          const keywords = this.tokenize(p.text).filter(w => w.length >= 5);
+          const groupKey = keywords[0] ?? 'general';
+          const subDomain = `${singleDomain}/${groupKey}`;
+          const list = byDomain.get(subDomain) ?? [];
+          list.push({ text: p.text, domain: subDomain });
+          byDomain.set(subDomain, list);
+        }
+
+        domains = [...byDomain.keys()];
+        // If we still can't get 2 groups, split in half
+        if (domains.length < 2 && all.length >= 2) {
+          byDomain.clear();
+          const half = Math.ceil(all.length / 2);
+          byDomain.set(`${singleDomain}/A`, all.slice(0, half).map(p => ({ text: p.text, domain: `${singleDomain}/A` })));
+          byDomain.set(`${singleDomain}/B`, all.slice(half).map(p => ({ text: p.text, domain: `${singleDomain}/B` })));
+          domains = [...byDomain.keys()];
+        }
+        this.log.debug(`[creative] Fallback: keyword grouping → ${domains.length} sub-domains`);
       }
     }
 
@@ -349,6 +368,20 @@ export class CreativeEngine {
 
   // ── Private Helpers ────────────────────────────────────
 
+  /** Debug info: principles count, domain distribution, fallback status. */
+  getDebugInfo(): { principlesCount: number; domains: Record<string, number>; distillerAvailable: boolean } {
+    const principles = this.loadPrinciples();
+    const domains: Record<string, number> = {};
+    for (const p of principles) {
+      domains[p.domain] = (domains[p.domain] ?? 0) + 1;
+    }
+    return {
+      principlesCount: principles.length,
+      domains,
+      distillerAvailable: this.distiller !== null,
+    };
+  }
+
   private loadPrinciples(): Array<{ text: string; domain: string }> {
     if (!this.distiller) return [];
     try {
@@ -357,8 +390,10 @@ export class CreativeEngine {
       for (const p of pkg.principles) {
         principles.push({ text: p.statement, domain: p.domain ?? this.config.brainName });
       }
+      this.log.debug(`[creative] Distiller returned ${pkg.principles.length} principles`);
       return principles;
-    } catch {
+    } catch (e) {
+      this.log.warn(`[creative] loadPrinciples failed: ${e}`);
       return [];
     }
   }

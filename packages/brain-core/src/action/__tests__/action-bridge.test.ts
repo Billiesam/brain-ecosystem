@@ -171,6 +171,48 @@ describe('ActionBridgeEngine', () => {
     expect(status.topSources[0].source).toBe('proactive');
   });
 
+  it('onOutcome callback fires on success', async () => {
+    const engine = new ActionBridgeEngine(db, { brainName: 'test' });
+    engine.registerHandler('adjust_parameter', vi.fn().mockResolvedValue({ adjusted: true }));
+
+    const cb = vi.fn();
+    engine.onOutcome(cb);
+
+    const id = engine.propose({ source: 'research', type: 'adjust_parameter', title: 'Callback test', confidence: 0.9 });
+    await engine.executeAction(id);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb.mock.calls[0][0].title).toBe('Callback test');
+    expect(cb.mock.calls[0][1].success).toBe(true);
+  });
+
+  it('onOutcome callback fires on failure', async () => {
+    const engine = new ActionBridgeEngine(db, { brainName: 'test' });
+    engine.registerHandler('create_goal', vi.fn().mockRejectedValue(new Error('goal fail')));
+
+    const cb = vi.fn();
+    engine.onOutcome(cb);
+
+    const id = engine.propose({ source: 'desire', type: 'create_goal', title: 'Fail callback', confidence: 0.9 });
+    await engine.executeAction(id);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb.mock.calls[0][1].success).toBe(false);
+  });
+
+  it('onOutcome callback fires during processQueue auto-execution', async () => {
+    const engine = new ActionBridgeEngine(db, { brainName: 'test' });
+    engine.registerHandler('adjust_parameter', vi.fn().mockResolvedValue({}));
+
+    const cb = vi.fn();
+    engine.onOutcome(cb);
+
+    engine.propose({ source: 'proactive', type: 'adjust_parameter', title: 'Auto cb', confidence: 0.8 });
+    await engine.processQueue();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
   it('migration is idempotent', () => {
     const engine = new ActionBridgeEngine(db, { brainName: 'test' });
     engine.propose({ source: 'proactive', type: 'start_mission', title: 'Survives', confidence: 0.5 });

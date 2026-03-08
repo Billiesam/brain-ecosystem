@@ -243,6 +243,20 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): IntelligenceR
   // 91. ActionBridgeEngine — risk-assessed auto-execution of proposed actions
   runActionBridgeMigration(db);
   const actionBridge = new ActionBridgeEngine(db, { brainName: 'brain' });
+  // Outcome callback: log results + inform orchestrator
+  actionBridge.onOutcome((action, outcome) => {
+    const status = outcome.success ? 'SUCCESS' : 'FAILED';
+    logger.info(`[action-outcome] #${action.id} ${action.title} → ${status} (source=${action.source})`);
+    if (action.source === 'creative' && outcome.success && creativeEngine) {
+      // Mark creative insight as tested
+      try {
+        const insightId = action.payload?.insightId as number | undefined;
+        if (insightId) {
+          db.prepare("UPDATE creative_insights SET status = 'tested' WHERE id = ?").run(insightId);
+        }
+      } catch { /* best effort */ }
+    }
+  });
   services.actionBridge = actionBridge;
 
   // 92. ContentForge — autonomous content generation + publishing

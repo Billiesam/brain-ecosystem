@@ -48,6 +48,10 @@ export interface CommandCenterOptions {
   getContentForgeStatus?: () => unknown;
   getStrategyForgeStatus?: () => unknown;
   getSignalRouterStatus?: () => unknown;
+  getDesires?: () => unknown;
+  getTeachingStatus?: () => unknown;
+  getTeachingHistory?: (limit?: number) => unknown;
+  getCalibrationStatus?: () => unknown;
   chatMessage?: (sessionId: string, content: string) => Promise<unknown>;
   chatHistory?: (sessionId: string) => unknown;
   chatStatus?: () => unknown;
@@ -316,6 +320,32 @@ export class CommandCenterServer {
       } catch { /* ignore */ }
     }, 15_000));
 
+    // Desires (30s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getDesires) return;
+      try { this.broadcast('desires', this.options.getDesires()); } catch { /* ignore */ }
+    }, 30_000));
+
+    // Teaching (30s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getTeachingStatus) return;
+      try {
+        this.broadcast('teaching', {
+          status: this.options.getTeachingStatus(),
+          history: this.options.getTeachingHistory?.(20) ?? [],
+        });
+      } catch { /* ignore */ }
+    }, 30_000));
+
+    // Calibration (30s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getCalibrationStatus) return;
+      try { this.broadcast('calibration', this.options.getCalibrationStatus()); } catch { /* ignore */ }
+    }, 30_000));
+
     // Heartbeat (30s)
     this.timers.push(setInterval(() => {
       if (this.clients.size > 0) {
@@ -417,8 +447,14 @@ export class CommandCenterServer {
       const guardrailHealth = this.options.getGuardrailHealth?.() ?? null;
       const roadmaps = this.options.getRoadmaps?.() ?? [];
       const creativeInsights = this.options.getCreativeInsights?.() ?? [];
+      const desires = this.options.getDesires?.() ?? [];
+      const teaching = this.options.getTeachingStatus ? {
+        status: this.options.getTeachingStatus(),
+        history: this.options.getTeachingHistory?.(20) ?? [],
+      } : null;
+      const calibration = this.options.getCalibrationStatus?.() ?? null;
 
-      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge, debates, intelligence, repoAbsorber, emotional, guardrailHealth, roadmaps, creativeInsights });
+      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge, debates, intelligence, repoAbsorber, emotional, guardrailHealth, roadmaps, creativeInsights, desires, teaching, calibration });
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
     }

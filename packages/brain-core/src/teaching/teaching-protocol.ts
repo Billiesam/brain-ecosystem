@@ -230,6 +230,18 @@ export class TeachingProtocol {
       `[TeachingProtocol] Learn from ${lesson.sourceBrain}: ${accepted ? 'accepted' : 'rejected'} (${relevanceScore.toFixed(2)})`,
     );
 
+    // Send feedback to source brain so it knows whether the lesson was accepted
+    if (this.notifier && lesson.sourceBrain) {
+      this.notifier.notifyPeer(lesson.sourceBrain, 'teaching.feedback', {
+        targetBrain: this.config.brainName,
+        accepted,
+        relevanceScore,
+        domain: lesson.domain,
+      }).catch((err) => {
+        this.log.warn(`[TeachingProtocol] Failed to send feedback to ${lesson.sourceBrain}: ${(err as Error).message}`);
+      });
+    }
+
     return { accepted, relevanceScore };
   }
 

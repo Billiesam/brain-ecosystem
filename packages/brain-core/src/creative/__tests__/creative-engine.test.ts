@@ -112,6 +112,41 @@ describe('CreativeEngine', () => {
     expect(Array.isArray(insights)).toBe(true);
   });
 
+  it('crossPollinate with < 4 single-domain principles still generates insights', () => {
+    const engine = new CreativeEngine(db, { brainName: 'test', overlapThreshold: 1.0 });
+    engine.setKnowledgeDistiller({
+      distill: () => ({
+        principles: [
+          { statement: 'caching dramatically improves latency', domain: 'brain' },
+          { statement: 'monitoring catches failures early', domain: 'brain' },
+        ],
+      }),
+    } as any);
+
+    const insights = engine.crossPollinate();
+    // With only 2 same-domain principles, direct pair-building should kick in
+    expect(insights.length).toBeGreaterThan(0);
+    expect(insights[0].type).toBe('cross_pollination');
+  });
+
+  it('getDebugInfo returns principles count and domain distribution', () => {
+    const engine = new CreativeEngine(db, { brainName: 'test' });
+    engine.setKnowledgeDistiller({
+      distill: () => ({
+        principles: [
+          { statement: 'principle A', domain: 'domA' },
+          { statement: 'principle B', domain: 'domA' },
+          { statement: 'principle C', domain: 'domB' },
+        ],
+      }),
+    } as any);
+
+    const debug = engine.getDebugInfo();
+    expect(debug.principlesCount).toBe(3);
+    expect(debug.domains).toEqual({ domA: 2, domB: 1 });
+    expect(debug.distillerAvailable).toBe(true);
+  });
+
   it('findAnalogies returns empty array without distiller', () => {
     const engine = new CreativeEngine(db, { brainName: 'test' });
     const result = engine.findAnalogies('some concept');

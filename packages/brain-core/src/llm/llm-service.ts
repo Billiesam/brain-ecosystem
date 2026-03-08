@@ -63,6 +63,12 @@ export interface LLMUsageStats {
   model: string;
   /** Active providers and their status */
   providers: ProviderInfo[];
+  /** Paid-only token counts (excludes free providers like Ollama) */
+  paidTokensThisHour: number;
+  paidTokensToday: number;
+  /** Local/free token counts (Ollama etc.) */
+  localTokensThisHour: number;
+  localTokensToday: number;
 }
 
 export interface ProviderInfo {
@@ -449,9 +455,18 @@ export class LLMService {
 
     this.pruneCallHistory();
 
-    const callsThisHour = this.callHistory.filter(c => c.timestamp > oneHourAgo).length;
-    const tokensThisHour = this.callHistory.filter(c => c.timestamp > oneHourAgo).reduce((s, c) => s + c.tokens, 0);
-    const tokensToday = this.callHistory.filter(c => c.timestamp > oneDayAgo).reduce((s, c) => s + c.tokens, 0);
+    const recentHour = this.callHistory.filter(c => c.timestamp > oneHourAgo);
+    const recentDay = this.callHistory.filter(c => c.timestamp > oneDayAgo);
+
+    const callsThisHour = recentHour.length;
+    const tokensThisHour = recentHour.reduce((s, c) => s + c.tokens, 0);
+    const tokensToday = recentDay.reduce((s, c) => s + c.tokens, 0);
+
+    // Separate paid vs local (free) token counts
+    const paidTokensThisHour = recentHour.filter(c => c.provider !== 'ollama').reduce((s, c) => s + c.tokens, 0);
+    const paidTokensToday = recentDay.filter(c => c.provider !== 'ollama').reduce((s, c) => s + c.tokens, 0);
+    const localTokensThisHour = recentHour.filter(c => c.provider === 'ollama').reduce((s, c) => s + c.tokens, 0);
+    const localTokensToday = recentDay.filter(c => c.provider === 'ollama').reduce((s, c) => s + c.tokens, 0);
 
     // Build provider info (sync — use cached availability)
     const providers: ProviderInfo[] = this.providers.map(p => ({
@@ -472,14 +487,18 @@ export class LLMService {
       callsThisHour,
       tokensThisHour,
       tokensToday,
-      budgetRemainingHour: Math.max(0, this.tokenBudgetPerHour - tokensThisHour),
-      budgetRemainingDay: Math.max(0, this.tokenBudgetPerDay - tokensToday),
+      budgetRemainingHour: Math.max(0, this.tokenBudgetPerHour - paidTokensThisHour),
+      budgetRemainingDay: Math.max(0, this.tokenBudgetPerDay - paidTokensToday),
       averageLatencyMs: this.stats.totalCalls > 0 ? this.stats.totalLatencyMs / this.stats.totalCalls : 0,
       rateLimitHits: this.stats.rateLimitHits,
       errors: this.stats.errors,
       lastCallAt: this.stats.lastCallAt,
       model: this.model,
       providers,
+      paidTokensThisHour,
+      paidTokensToday,
+      localTokensThisHour,
+      localTokensToday,
     };
   }
 
@@ -570,8 +589,8 @@ export class LLMService {
   private checkRateLimit(): boolean {
     const oneHourAgo = Date.now() - 3_600_000;
     this.pruneCallHistory();
-    // Only count paid provider calls for rate limiting
-    const recentCalls = this.callHistory.filter(c => c.timestamp > oneHourAgo).length;
+    // Only count paid provider calls for rate limiting (exclude free providers like Ollama)
+    const recentCalls = this.callHistory.filter(c => c.timestamp > oneHourAgo && c.provider !== 'ollama').length;
     return recentCalls < this.maxCallsPerHour;
   }
 
@@ -580,10 +599,12 @@ export class LLMService {
     const oneHourAgo = now - 3_600_000;
     const oneDayAgo = now - 86_400_000;
 
-    const tokensThisHour = this.callHistory.filter(c => c.timestamp > oneHourAgo).reduce((s, c) => s + c.tokens, 0);
+    // Only count paid provider tokens (exclude free providers like Ollama)
+    const paidCalls = this.callHistory.filter(c => c.provider !== 'ollama');
+    const tokensThisHour = paidCalls.filter(c => c.timestamp > oneHourAgo).reduce((s, c) => s + c.tokens, 0);
     if (tokensThisHour >= this.tokenBudgetPerHour) return false;
 
-    const tokensToday = this.callHistory.filter(c => c.timestamp > oneDayAgo).reduce((s, c) => s + c.tokens, 0);
+    const tokensToday = paidCalls.filter(c => c.timestamp > oneDayAgo).reduce((s, c) => s + c.tokens, 0);
     if (tokensToday >= this.tokenBudgetPerDay) return false;
 
     return true;

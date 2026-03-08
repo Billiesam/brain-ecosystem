@@ -254,6 +254,7 @@ canvas{display:block;width:100%;height:100%}
     <div class="nav-section">System</div>
     <div class="nav-item" data-page="crossbrain"><span class="nav-icon">&#x1F517;</span><span class="nav-label">Cross-Brain</span></div>
     <div class="nav-item" data-page="debates"><span class="nav-icon">&#x2696;</span><span class="nav-label">Debates</span></div>
+    <div class="nav-item" data-page="desires"><span class="nav-icon">&#x1F525;</span><span class="nav-label">Desires</span></div>
     <div class="nav-item" data-page="forge"><span class="nav-icon">&#x2692;</span><span class="nav-label">Forge</span></div>
     <div class="nav-item" data-page="activity"><span class="nav-icon">&#x26A1;</span><span class="nav-label" data-t="Aktivität">Aktivität</span></div>
     <div class="nav-item" data-page="infra"><span class="nav-icon">&#x2699;</span><span class="nav-label" data-t="Infrastruktur">Infrastruktur</span></div>
@@ -463,6 +464,12 @@ canvas{display:block;width:100%;height:100%}
               <span><span style="color:var(--red)">&#x2B24;</span> <span data-t="Fehler">Fehler</span></span>
             </div>
           </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F3AF;</span> Calibration</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Offset-Anzeige und per-Domain Accuracy</p>
+          <div id="calibrationWidget"><div class="empty">Keine Calibration-Daten</div></div>
         </div>
 
         <div class="section">
@@ -692,6 +699,18 @@ canvas{display:block;width:100%;height:100%}
           <div class="section-title"><span class="icon">&#x1F4C3;</span> <span data-t="Sync Verlauf">Sync Verlauf</span></div>
           <div class="card"><div id="borgHistory"><div class="empty">Noch kein Sync passiert</div></div></div>
         </div>
+        <div class="grid grid-2">
+          <div class="section">
+            <div class="section-title"><span class="icon">&#x1F4E1;</span> Signal-Flow</div>
+            <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Signal-Typen und Counts zwischen Brains</p>
+            <div id="signalFlowWidget"><div class="empty">Keine Signale</div></div>
+          </div>
+          <div class="section">
+            <div class="section-title"><span class="icon">&#x1F393;</span> Teaching-Delivery</div>
+            <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Sent vs Received vs Accepted Lektionen</p>
+            <div id="teachingWidget"><div class="empty">Kein Teaching-Daten</div></div>
+          </div>
+        </div>
       </div>
 
       <!-- ════ Page 6: Activity (Self-Mod + Missions) ═════ -->
@@ -772,6 +791,15 @@ canvas{display:block;width:100%;height:100%}
       </div>
 
       <!-- ════ Page: Forge & Autonomie ══════════════════════ -->
+      <!-- ════ Page: Desires ═══════════════════════════════ -->
+      <div class="page" id="page-desires">
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F525;</span> Brain Desires — Was Brain will</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Brain erkennt eigene Bedürfnisse und priorisiert sie. Hohe Priorität (8+) = dringend, mittlere (5-7) = wichtig, niedrige (&lt;5) = Wunsch.</p>
+          <div id="desiresGrid"><div class="empty">Noch keine Desires erkannt</div></div>
+        </div>
+      </div>
+
       <div class="page" id="page-forge">
         <div class="grid grid-2">
           <div class="section">
@@ -796,6 +824,11 @@ canvas{display:block;width:100%;height:100%}
             <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Signal-Flow zwischen Brains</p>
             <div id="forgeSignalRouter"><div class="empty">Loading...</div></div>
           </div>
+        </div>
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F3ED;</span> Action-Pipeline</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Queue &#x2192; Execution &#x2192; Outcome Flow</p>
+          <div id="actionPipelineWidget"><div class="empty">Loading...</div></div>
         </div>
       </div>
 
@@ -836,7 +869,8 @@ const state = {
   ecosystem:null, engines:[], watchdog:[], plugins:[], borg:null, analytics:null,
   llm:null, thoughts:[], connected:false, lastThoughtTime:0,
   errors:null, selfmod:null, missions:null, knowledge:null, debates:null,
-  emotional:null, attention:null
+  emotional:null, attention:null,
+  desires:null, teaching:null, calibration:null
 };
 
 // ── i18n ──────────────────────────────────────────────────
@@ -986,6 +1020,7 @@ const titles = {
   crossbrain:'Cross-Brain & Borg',
   activity:'Aktivität & Missionen',
   debates:'Debates & Challenges',
+  desires:'Brain Desires',
   forge:'Forge & Autonomie',
   infra:'Infrastruktur'
 };
@@ -1022,6 +1057,9 @@ function connectSSE() {
   es.addEventListener('roadmaps', e => { state.roadmaps = JSON.parse(e.data); renderRoadmaps(); });
   es.addEventListener('creative-insights', e => { state.creativeInsights = JSON.parse(e.data); renderCreativeInsights(); });
   es.addEventListener('forge-status', e => { state.forgeStatus = JSON.parse(e.data); renderForgeWidgets(); });
+  es.addEventListener('desires', e => { state.desires = JSON.parse(e.data); renderDesires(); });
+  es.addEventListener('teaching', e => { state.teaching = JSON.parse(e.data); renderTeaching(); });
+  es.addEventListener('calibration', e => { state.calibration = JSON.parse(e.data); renderCalibration(); });
   es.onerror = () => { state.connected = false; updateConnection(); };
 }
 
@@ -1045,11 +1083,15 @@ async function loadInitial() {
     state.guardrailHealth = data.guardrailHealth;
     state.roadmaps = data.roadmaps;
     state.creativeInsights = data.creativeInsights;
+    state.desires = data.desires;
+    state.teaching = data.teaching;
+    state.calibration = data.calibration;
     if (data.thoughts) { state.thoughts = data.thoughts; renderThoughts(); }
     renderEcosystem(); renderEngines(); renderWatchdog(); renderPlugins();
     renderBorg(); renderAnalytics(); renderLLM(); renderErrors();
     renderSelfMod(); renderMissions(); renderRepoAbsorber(); renderIntelligence(); renderKnowledge(); renderDebates();
     renderGuardrails(); renderRoadmaps(); renderCreativeInsights(); renderForgeWidgets();
+    renderDesires(); renderTeaching(); renderCalibration();
   } catch {}
 }
 
@@ -2157,6 +2199,135 @@ function renderForgeWidgets() {
       <div class="card"><div class="stat-value">${sr.handlerCount ?? 0}</div><div class="stat-label">Handlers</div></div>
     </div><div style="margin-top:8px">${types || '<span class="empty">No signals yet</span>'}</div>`;
   }
+  renderActionPipeline();
+  renderSignalFlow();
+}
+
+// ── Desires Widget ────────────────────────────────────────
+function renderDesires() {
+  const el = document.getElementById('desiresGrid');
+  if (!el) return;
+  const desires = state.desires;
+  if (!desires || !Array.isArray(desires) || desires.length === 0) {
+    el.innerHTML = '<div class="empty">Noch keine Desires erkannt</div>';
+    return;
+  }
+  const sorted = [...desires].sort((a,b) => (b.priority||0) - (a.priority||0)).slice(0, 10);
+  el.innerHTML = sorted.map(d => {
+    const p = d.priority || 0;
+    const color = p >= 8 ? 'var(--red)' : p >= 5 ? 'var(--yellow)' : 'var(--text-dim)';
+    const bar = Math.min(p * 10, 100);
+    return `<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div class="stat-value" style="color:${color};font-size:20px;min-width:30px">P${p}</div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text)">${d.key || 'unknown'}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${d.suggestion || ''}</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:6px;overflow:hidden">
+        <div style="width:${bar}%;height:100%;background:${color};border-radius:4px"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Signal-Flow Widget ───────────────────────────────────
+function renderSignalFlow() {
+  const el = document.getElementById('signalFlowWidget');
+  if (!el) return;
+  const f = state.forgeStatus || {};
+  const sr = f.signalRouter;
+  if (!sr) { el.innerHTML = '<div class="empty">Keine Signale</div>'; return; }
+  const types = (sr.byType || []);
+  el.innerHTML = `<div class="card">
+    <div class="grid grid-2" style="gap:8px;margin-bottom:8px">
+      <div style="text-align:center"><div class="stat-value" style="color:var(--cyan)">${sr.totalSignals ?? 0}</div><div class="stat-label">Signale gesamt</div></div>
+      <div style="text-align:center"><div class="stat-value" style="color:var(--green)">${sr.handlerCount ?? 0}</div><div class="stat-label">Handler</div></div>
+    </div>
+    ${types.length > 0 ? types.map(t => `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <span style="color:var(--text-dim)">${t.signalType}</span>
+      <span class="badge badge-ok">${t.count}</span>
+    </div>`).join('') : '<div class="empty" style="font-size:11px">Noch keine Signale</div>'}
+  </div>`;
+}
+
+// ── Teaching Widget ──────────────────────────────────────
+function renderTeaching() {
+  const el = document.getElementById('teachingWidget');
+  if (!el) return;
+  const t = state.teaching;
+  if (!t || !t.status) { el.innerHTML = '<div class="empty">Kein Teaching-Daten</div>'; return; }
+  const s = t.status;
+  const maxBar = Math.max(s.totalSent || 0, s.totalReceived || 0, 1);
+  const sentPct = Math.round(((s.totalSent || 0) / maxBar) * 100);
+  const rcvPct = Math.round(((s.totalReceived || 0) / maxBar) * 100);
+  const accPct = Math.round(((s.acceptedCount || 0) / maxBar) * 100);
+  el.innerHTML = `<div class="card">
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Sent</span><span style="color:var(--cyan)">${s.totalSent || 0}</span></div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:8px"><div style="width:${sentPct}%;height:100%;background:var(--cyan);border-radius:4px"></div></div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Received</span><span style="color:var(--yellow)">${s.totalReceived || 0}</span></div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:8px"><div style="width:${rcvPct}%;height:100%;background:var(--yellow);border-radius:4px"></div></div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Accepted</span><span style="color:var(--green)">${s.acceptedCount || 0}</span></div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:8px"><div style="width:${accPct}%;height:100%;background:var(--green);border-radius:4px"></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);text-align:center">Avg Relevance: ${((s.avgRelevance || 0) * 100).toFixed(1)}%</div>
+  </div>`;
+  renderSignalFlow();
+}
+
+// ── Action-Pipeline Widget ───────────────────────────────
+function renderActionPipeline() {
+  const el = document.getElementById('actionPipelineWidget');
+  if (!el) return;
+  const f = state.forgeStatus || {};
+  const ab = f.actionBridge;
+  if (!ab) { el.innerHTML = '<div class="empty">Kein ActionBridge-Daten</div>'; return; }
+  const rate = ab.successRate != null ? (ab.successRate * 100).toFixed(0) : '0';
+  const rateColor = ab.successRate >= 0.8 ? 'var(--green)' : ab.successRate >= 0.5 ? 'var(--yellow)' : 'var(--red)';
+  const sources = (ab.topSources || []).slice(0, 5);
+  el.innerHTML = `<div class="card">
+    <div class="pipeline" style="margin-bottom:12px">
+      <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(0,200,255,0.3)"><div class="pipe-icon">&#x1F4E5;</div><div class="pipe-label">Queue</div><div class="pipe-value" style="color:var(--cyan)">${ab.queueSize ?? 0}</div></div></div>
+      <div class="pipe-arrow" style="color:var(--cyan)">&#x27A1;</div>
+      <div class="pipe-stage"><div class="pipe-box" style="border-color:rgba(0,255,136,0.3)"><div class="pipe-icon">&#x26A1;</div><div class="pipe-label">Executed 24h</div><div class="pipe-value" style="color:var(--green)">${ab.executed24h ?? 0}</div></div></div>
+      <div class="pipe-arrow" style="color:var(--green)">&#x27A1;</div>
+      <div class="pipe-stage"><div class="pipe-box" style="border-color:${rateColor.replace('var(','rgba(').replace(')','') + ',0.3)'}"><div class="pipe-icon">&#x1F3AF;</div><div class="pipe-label">Success</div><div class="pipe-value" style="color:${rateColor}">${rate}%</div></div></div>
+    </div>
+    ${sources.length > 0 ? '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Top Sources:</div>' + sources.map(s => `<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05)"><span>${s.source}</span><span class="badge badge-ok">${s.count}</span></div>`).join('') : ''}
+  </div>`;
+}
+
+// ── Calibration Widget ───────────────────────────────────
+function renderCalibration() {
+  const el = document.getElementById('calibrationWidget');
+  if (!el) return;
+  const c = state.calibration;
+  if (!c) { el.innerHTML = '<div class="empty">Keine Calibration-Daten</div>'; return; }
+  const offset = c.offset || 0;
+  const offsetPct = (offset * 100).toFixed(1);
+  const offsetColor = Math.abs(offset) < 0.1 ? 'var(--green)' : Math.abs(offset) < 0.2 ? 'var(--yellow)' : 'var(--red)';
+  const domains = c.accuracyByDomain || [];
+  el.innerHTML = `<div class="card">
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Calibration Offset</div>
+      <div class="stat-value" style="color:${offsetColor};font-size:28px">${offset >= 0 ? '+' : ''}${offsetPct}%</div>
+      <div style="font-size:10px;color:var(--text-dim)">${Math.abs(offset) < 0.1 ? 'Gut kalibriert' : Math.abs(offset) < 0.2 ? 'Leichte Abweichung' : 'Starke Abweichung'}</div>
+    </div>
+    ${domains.length > 0 ? domains.map(d => {
+      const acc = (d.accuracy || 0) * 100;
+      const accColor = acc >= 80 ? 'var(--green)' : acc >= 50 ? 'var(--yellow)' : 'var(--red)';
+      return `<div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span>${d.domain || 'unknown'}</span><span style="color:${accColor}">${acc.toFixed(0)}%</span></div>
+        <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:6px"><div style="width:${acc}%;height:100%;background:${accColor};border-radius:4px"></div></div>
+      </div>`;
+    }).join('') : '<div class="empty" style="font-size:11px">Keine Domain-Daten</div>'}
+  </div>`;
 }
 
 // ── Chat ──────────────────────────────────────────────────
