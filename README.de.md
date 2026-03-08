@@ -12,7 +12,7 @@
 
 ![Command Center](docs/assets/command-center.png)
 
-Brain Ecosystem ist ein System aus drei spezialisierten "Brains", verbunden durch ein Hebbsches Synapsen-Netzwerk. 72+ autonome Engines laufen in Feedback-Loops — beobachten, erkennen Anomalien, bilden Hypothesen, testen sie statistisch, destillieren Prinzipien, träumen, debattieren, denken in Ketten, fühlen Emotionen, entwickeln Strategien genetisch weiter und modifizieren ihren eigenen Quellcode. Multi-Provider LLM-Support (Anthropic + Ollama). Live-Marktdaten via CCXT WebSocket. Social Feeds via Bluesky + Reddit. Web-Recherche via Brave Search + Playwright + Firecrawl. Borg Collective Sync. Plugin SDK für Community Brains. Advocatus Diaboli Prinzip-Challenges. RAG-Vektorsuche über alles Wissen. Knowledge Graph mit transitiver Inferenz. Semantische Kompression. RLHF Feedback-Lernen. Proaktive Vorschläge. Inter-Brain Teaching. Multi-Brain Konsens-Abstimmung. Aktives Lernen mit Wissenslücken-Erkennung. Automatische Widerspruchs-Auflösung im Knowledge Graph. Selbsterkenntnis eigener Fähigkeiten. 424+ MCP Tools. 3.316 Tests. Das Brain denkt buchstäblich über sich selbst nach, wird neugierig, führt Experimente durch und schreibt Code um sich zu verbessern.
+Brain Ecosystem ist ein System aus drei spezialisierten "Brains", verbunden durch ein Hebbsches Synapsen-Netzwerk. 76+ autonome Engines laufen in Feedback-Loops — beobachten, erkennen Anomalien, bilden Hypothesen, testen sie statistisch, destillieren Prinzipien, träumen, debattieren, denken in Ketten, fühlen Emotionen, entwickeln Strategien genetisch weiter und modifizieren ihren eigenen Quellcode. Multi-Provider LLM-Support (Anthropic + Ollama) mit Vision (Bildanalyse). Live-Marktdaten via CCXT WebSocket. Social Feeds via Bluesky + Reddit. Web-Recherche via Brave Search + Playwright + Firecrawl. Borg Collective Sync. Kausale Inferenz mit Interventionsplanung. Mehrstufige Forschungs-Roadmaps mit Ziel-Abhängigkeiten. Kreative Cross-Domain-Ideengenerierung. Selbstschutz-Guardrails mit Circuit Breaker. 450+ MCP Tools. 3.405 Tests. Das Brain denkt buchstäblich über sich selbst nach, wird neugierig, führt Experimente durch und schreibt Code um sich zu verbessern.
 
 ## Pakete
 
@@ -21,7 +21,7 @@ Brain Ecosystem ist ein System aus drei spezialisierten "Brains", verbunden durc
 | [@timmeck/brain](packages/brain) | [![npm](https://img.shields.io/npm/v/@timmeck/brain)](https://www.npmjs.com/package/@timmeck/brain) | Fehler-Gedächtnis, Code-Intelligenz, autonome Forschung & Selbst-Modifikation | 7777 / 7778 / 7790 |
 | [@timmeck/trading-brain](packages/trading-brain) | [![npm](https://img.shields.io/npm/v/@timmeck/trading-brain)](https://www.npmjs.com/package/@timmeck/trading-brain) | Adaptive Trading-Intelligenz mit Signal-Lernen, Paper Trading & Live-Marktdaten | 7779 / 7780 |
 | [@timmeck/marketing-brain](packages/marketing-brain) | [![npm](https://img.shields.io/npm/v/@timmeck/marketing-brain)](https://www.npmjs.com/package/@timmeck/marketing-brain) | Content-Strategie, Social Engagement & Cross-Platform-Optimierung | 7781 / 7782 / 7783 |
-| [@timmeck/brain-core](packages/brain-core) | [![npm](https://img.shields.io/npm/v/@timmeck/brain-core)](https://www.npmjs.com/package/@timmeck/brain-core) | Geteilte Infrastruktur — 72+ Engines, Synapsen, IPC, MCP, LLM, Bewusstsein, Missionen, Benachrichtigungen | — |
+| [@timmeck/brain-core](packages/brain-core) | [![npm](https://img.shields.io/npm/v/@timmeck/brain-core)](https://www.npmjs.com/package/@timmeck/brain-core) | Geteilte Infrastruktur — 76+ Engines, Synapsen, IPC, MCP, LLM, Bewusstsein, Missionen, Benachrichtigungen | — |
 
 ## Schnellstart
 
@@ -83,12 +83,17 @@ Die meisten KI-Tools vergessen alles zwischen den Sessions. Brain nicht. Es baut
 - **Plugin Marketplace** — Entdeckung, Bewertung, Installation von Community Brain-Plugins (OpenClaw-inspiriert)
 - **Code Sandbox** — Docker-isolierte Code-Ausführung für sicheres Experimentieren (AutoGen-inspiriert)
 - **SelfMod Pipeline** — Feature-bewusste Selbstmodifikation: absorbierter Repo-Code als Referenz für Code-Generierung
+- **Vision** — LLM-Bildanalyse via Anthropic Vision + Ollama llava: Screenshots, Charts, UI-Bugs analysieren
+- **Kausaler Planer** — Root-Cause-Diagnose aus Kausalgraph, Interventions-Vorschläge mit Seiteneffekt-Vorhersage
+- **Forschungs-Roadmaps** — Ziel-Abhängigkeiten mit mehrstufiger Zerlegung: Daten → Hypothesen → Zielerreichung
+- **Kreativ-Engine** — Cross-Domain-Ideengenerierung: Prinzip-Kreuzung, Analogie-Suche, spekulative Hypothesen
+- **Guardrails** — Selbstschutz: Parameter-Bounds-Validierung, Circuit Breaker, Auto-Rollback bei sinkender Fitness, geschützte Core-Pfade
 
 ## Was es kann
 
 ### Brain — Fehler-Gedächtnis, Code-Intelligenz & volle Autonomie
 
-162 MCP Tools. Merkt sich Fehler, lernt Lösungen, führt 51-Schritt autonome Forschungszyklen durch, träumt, debattiert, hinterfragt Prinzipien (Advocatus Diaboli), denkt, fühlt und modifiziert seinen eigenen Code.
+162 MCP Tools. Merkt sich Fehler, lernt Lösungen, führt 58-Schritt autonome Forschungszyklen durch, träumt, debattiert, hinterfragt Prinzipien (Advocatus Diaboli), denkt, fühlt und modifiziert seinen eigenen Code.
 
 ### Trading Brain — Adaptive Trading-Intelligenz
 
