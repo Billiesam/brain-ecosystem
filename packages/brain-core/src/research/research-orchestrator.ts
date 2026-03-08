@@ -131,6 +131,10 @@ export class ResearchOrchestrator {
   private featureExtractor: import('../codegen/feature-extractor.js').FeatureExtractor | null = null;
   private contradictionResolver: import('../knowledge-graph/contradiction-resolver.js').ContradictionResolver | null = null;
   private checkpointManager: import('../checkpoint/checkpoint-manager.js').CheckpointManager | null = null;
+  private feedbackEngine: import('../feedback/feedback-engine.js').FeedbackEngine | null = null;
+  private userModelEngine: import('../user-model/user-model.js').UserModel | null = null;
+  private consensusEngine: import('../consensus/consensus-engine.js').ConsensusEngine | null = null;
+  private traceCollector: import('../observability/trace-collector.js').TraceCollector | null = null;
   private lastAutoMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
 
@@ -348,6 +352,18 @@ export class ResearchOrchestrator {
   setContradictionResolver(resolver: import('../knowledge-graph/contradiction-resolver.js').ContradictionResolver): void { this.contradictionResolver = resolver; }
   setCheckpointManager(cm: import('../checkpoint/checkpoint-manager.js').CheckpointManager): void { this.checkpointManager = cm; }
 
+  /** Set the FeedbackEngine — RLHF auto-feedback from cycle results. */
+  setFeedbackEngine(engine: import('../feedback/feedback-engine.js').FeedbackEngine): void { this.feedbackEngine = engine; }
+
+  /** Set the UserModel — profile tracking from orchestrator cycles. */
+  setUserModel(model: import('../user-model/user-model.js').UserModel): void { this.userModelEngine = model; }
+
+  /** Set the ConsensusEngine — auto-proposals for risky self-modifications. */
+  setConsensusEngine(engine: import('../consensus/consensus-engine.js').ConsensusEngine): void { this.consensusEngine = engine; }
+
+  /** Set the TraceCollector — auto-instrumentation of research cycles. */
+  setTraceCollector(collector: import('../observability/trace-collector.js').TraceCollector): void { this.traceCollector = collector; }
+
   /** Set the LLMService — propagates to all engines that can use LLM. */
   setLLMService(llm: LLMService): void {
     this.llmService = llm;
@@ -456,6 +472,13 @@ export class ResearchOrchestrator {
     const start = Date.now();
     const ts = this.thoughtStream;
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} ───`);
+
+    // Fix 6: Auto-instrument research cycles with TraceCollector
+    let traceId: string | undefined;
+    if (this.traceCollector) {
+      try { traceId = this.traceCollector.startTrace('research_cycle', { cycle: this.cycleCount, brainName: this.brainName }); }
+      catch { /* tracing should never break the cycle */ }
+    }
 
     ts?.emit('orchestrator', 'perceiving', `Feedback Cycle #${this.cycleCount} starting...`);
 
@@ -1862,6 +1885,18 @@ export class ResearchOrchestrator {
             );
             ts?.emit('self-modification', 'discovering', `Self-modification proposed: ${mod.title}`, 'notable');
 
+            // Auto-propose consensus vote for medium/high risk modifications
+            if (this.consensusEngine && suggestion.targetFiles.length > 1) {
+              try {
+                this.consensusEngine.propose({
+                  type: 'selfmod_approval',
+                  description: `SelfMod: ${mod.title} — ${suggestion.problem.substring(0, 200)}`,
+                  options: ['approve', 'reject'],
+                });
+                ts?.emit('consensus', 'analyzing', `Consensus vote created for: ${mod.title}`, 'notable');
+              } catch { /* not critical */ }
+            }
+
             // Try to generate + test
             try {
               await this.selfModificationEngine.generateCode(mod.id);
@@ -2023,16 +2058,47 @@ export class ResearchOrchestrator {
     if (this.activeLearner && this.cycleCount % this.reflectEvery === 0) {
       try {
         ts?.emit('active_learner', 'analyzing', 'Step 45: Identifying knowledge gaps...', 'routine');
-        const gaps = this.activeLearner.identifyGaps();
+        // Build real GapSources from curiosity engine + knowledge graph
+        const gapSources: import('../active-learning/active-learner.js').GapSources = {};
+        // Knowledge voids from CuriosityEngine (open dark_zones)
+        if (this.curiosityEngine) {
+          try {
+            const curiosityGaps = this.curiosityEngine.getGaps(10);
+            const darkZones = curiosityGaps.filter(g => g.gapType === 'dark_zone');
+            if (darkZones.length > 0) {
+              gapSources.knowledgeVoids = darkZones.map(g => ({ topic: g.topic }));
+            }
+          } catch { /* curiosity table may not exist */ }
+        }
+        // Low confidence facts from KnowledgeGraph
+        if (this.knowledgeGraph) {
+          try {
+            const lowConf = this.db.prepare(
+              `SELECT subject as topic, confidence FROM knowledge_facts WHERE confidence < 0.3 ORDER BY confidence ASC LIMIT 10`
+            ).all() as Array<{ topic: string; confidence: number }>;
+            if (lowConf.length > 0) {
+              gapSources.lowConfidenceFacts = lowConf;
+            }
+          } catch { /* table may not exist */ }
+        }
+        const gaps = this.activeLearner.identifyGaps(gapSources);
         if (gaps.length > 0) {
+          // Persist gaps via addGap so they get IDs for planLearning
+          const persistedGaps: Array<{ id?: number; topic: string }> = [];
+          for (const gap of gaps.slice(0, 5)) {
+            try {
+              const persisted = this.activeLearner.addGap(gap.gapType, gap.topic, gap.description, gap.impact, gap.ease);
+              persistedGaps.push(persisted);
+            } catch { /* max gaps reached or duplicate — skip */ }
+          }
           this.journal.write({
             title: `Active Learning: ${gaps.length} knowledge gap(s) identified`,
             type: 'insight', content: gaps.slice(0, 3).map(g => g.topic).join(', '),
             tags: [this.brainName, 'active-learning', 'knowledge-gaps'],
             references: [], significance: 'routine', data: { gapCount: gaps.length },
           });
-          // Plan learning for the highest-priority gap
-          const topGap = gaps[0];
+          // Plan learning for the highest-priority persisted gap
+          const topGap = persistedGaps[0];
           if (topGap?.id) {
             try { this.activeLearner.planLearning(topGap.id); } catch { /* not critical */ }
           }
@@ -2151,9 +2217,88 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 51 error: ${(err as Error).message}`); }
     }
 
+    // Step 52: RLHF Auto-Feedback — generate signals from cycle results (every 10 cycles)
+    if (this.feedbackEngine && this.cycleCount % this.reflectEvery === 0) {
+      try {
+        ts?.emit('feedback', 'analyzing', 'Step 52: Auto-feedback from cycle results...', 'routine');
+        let feedbackCount = 0;
+        // Confirmed hypotheses → positive feedback
+        const confirmedHyps = this.hypothesisEngine.list('confirmed', 20);
+        for (const hyp of confirmedHyps) {
+          if (hyp.id) {
+            this.feedbackEngine.recordFeedback('hypothesis', hyp.id, 'positive', `Confirmed: ${hyp.statement.substring(0, 100)}`);
+            feedbackCount++;
+          }
+        }
+        // Rejected hypotheses → negative feedback
+        const rejectedHyps = this.hypothesisEngine.list('rejected', 20);
+        for (const hyp of rejectedHyps) {
+          if (hyp.id) {
+            this.feedbackEngine.recordFeedback('hypothesis', hyp.id, 'negative', `Rejected: ${hyp.statement.substring(0, 100)}`);
+            feedbackCount++;
+          }
+        }
+        // Correct/wrong predictions → feedback
+        if (this.predictionEngine) {
+          const correctPreds = this.predictionEngine.list(undefined, 'correct', 20);
+          for (const pred of correctPreds) {
+            this.feedbackEngine.recordFeedback('prediction', Number(pred.prediction_id.substring(0, 8)) || 1, 'positive', `Correct: ${pred.metric}`);
+            feedbackCount++;
+          }
+          const wrongPreds = this.predictionEngine.list(undefined, 'wrong', 20);
+          for (const pred of wrongPreds) {
+            this.feedbackEngine.recordFeedback('prediction', Number(pred.prediction_id.substring(0, 8)) || 1, 'negative', `Wrong: ${pred.metric}`);
+            feedbackCount++;
+          }
+        }
+        if (feedbackCount > 0) {
+          ts?.emit('feedback', 'discovering', `Auto-feedback: ${feedbackCount} signal(s) generated`, 'routine');
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('feedback_engine', this.cycleCount, { insights: feedbackCount });
+      } catch (err) { this.log.warn(`[orchestrator] Step 52 error: ${(err as Error).message}`); }
+    }
+
+    // Step 53: UserModel — log user profile status to journal (every 20 cycles)
+    if (this.userModelEngine && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('user_model', 'analyzing', 'Step 53: Logging user model status...', 'routine');
+        const profile = this.userModelEngine.getProfile();
+        const status = this.userModelEngine.getStatus();
+        const topDomain = [...profile.skillDomains.entries()][0];
+        const skillLabel = topDomain ? `${topDomain[0]}:${topDomain[1]}` : 'unknown';
+        this.journal.write({
+          title: `User Model: ${status.totalKeys} keys, skill=${skillLabel}`,
+          type: 'insight',
+          content: `Top tools: ${profile.topTools.slice(0, 5).join(', ')}. Domains: ${profile.skillDomains.size}.`,
+          tags: [this.brainName, 'user-model', 'profile'],
+          references: [],
+          significance: 'routine',
+          data: { totalKeys: status.totalKeys, domains: status.domains },
+        });
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('user_model', this.cycleCount, { insights: 1 });
+      } catch (err) { this.log.warn(`[orchestrator] Step 53 error: ${(err as Error).message}`); }
+    }
+
+    // Step 54: Consensus — auto-propose for risky self-modifications (piggybacks on Step 40)
+    // Already checked in Step 40; here we just log status
+    if (this.consensusEngine && this.cycleCount % 20 === 0) {
+      try {
+        const cStatus = this.consensusEngine.getStatus();
+        if (cStatus.totalProposals > 0) {
+          ts?.emit('consensus', 'reflecting', `Consensus: ${cStatus.totalProposals} proposals, ${cStatus.resolvedCount} resolved`, 'routine');
+        }
+      } catch { /* not critical */ }
+    }
+
     const duration = Date.now() - start;
     ts?.emit('orchestrator', 'reflecting', `Feedback Cycle #${this.cycleCount} complete (${duration}ms)`);
     this.log.info(`[orchestrator] ─── Feedback Cycle #${this.cycleCount} complete (${duration}ms) ───`);
+
+    // End trace for this research cycle
+    if (this.traceCollector && traceId) {
+      try { this.traceCollector.endTrace(traceId); }
+      catch { /* tracing should never break the cycle */ }
+    }
 
     // Record cycle metrics into MetaCognition for engine-level tracking
     if (this.metaCognitionLayer) {

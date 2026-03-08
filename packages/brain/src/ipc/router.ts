@@ -232,11 +232,17 @@ export class IpcRouter {
     }
   }
 
-  /** Fire-and-forget: record tool usage in ToolTracker + UserModel. */
+  /** Fire-and-forget: record tool usage in ToolTracker + UserModel + ScopeCheck. */
   private trackToolCall(method: string, durationMs: number, success: boolean): void {
     try {
       this.services.toolTracker?.recordUsage(method, null, durationMs, success ? 'success' : 'failure');
       this.services.userModel?.updateFromInteraction(method, null, success ? 'success' : 'failure');
+      // Fix 7: Dynamic Scoping — log scope check for every tool call (fire & forget)
+      if (this.services.toolScopeManager) {
+        try {
+          this.services.toolScopeManager.checkTool(method, { phase: 'runtime' });
+        } catch { /* scope check logging should never disrupt IPC */ }
+      }
     } catch { /* best effort — never disrupt IPC flow */ }
   }
 

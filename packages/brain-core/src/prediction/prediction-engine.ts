@@ -257,6 +257,7 @@ export class PredictionEngine {
     const expired = this.tracker.getPendingExpired();
     for (const pred of expired) {
       this.tracker.markExpired(pred.prediction_id);
+      this.db.prepare(`UPDATE prediction_state SET total_resolved = total_resolved + 1, updated_at = datetime('now') WHERE id = 1`).run();
       resolved++;
     }
 
@@ -273,7 +274,11 @@ export class PredictionEngine {
       `).get(pred.metric, pred.created_at) as { avg_value: number | null } | undefined;
 
       if (row?.avg_value != null) {
-        this.tracker.resolve(pred.prediction_id, row.avg_value);
+        const status = this.tracker.resolve(pred.prediction_id, row.avg_value);
+        this.db.prepare(`UPDATE prediction_state SET total_resolved = total_resolved + 1, updated_at = datetime('now') WHERE id = 1`).run();
+        if (status === 'correct') {
+          this.db.prepare(`UPDATE prediction_state SET total_correct = total_correct + 1 WHERE id = 1`).run();
+        }
         resolved++;
       }
     }

@@ -925,6 +925,10 @@ export class BrainCore {
     this.orchestrator.setFeatureExtractor(featureExtractor);
     this.orchestrator.setContradictionResolver(contradictionResolver);
     this.orchestrator.setCheckpointManager(checkpointManager);
+    this.orchestrator.setFeedbackEngine(feedbackEngine);
+    this.orchestrator.setUserModel(userModel);
+    this.orchestrator.setConsensusEngine(consensusEngine);
+    this.orchestrator.setTraceCollector(traceCollector);
 
     logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber — all wired into orchestrator)');
 
