@@ -123,6 +123,10 @@ export interface Services {
   causalPlanner?: import('@timmeck/brain-core').CausalPlanner;
   researchRoadmap?: import('@timmeck/brain-core').ResearchRoadmap;
   creativeEngine?: import('@timmeck/brain-core').CreativeEngine;
+  actionBridge?: import('@timmeck/brain-core').ActionBridgeEngine;
+  contentForge?: import('@timmeck/brain-core').ContentForge;
+  codeForge?: import('@timmeck/brain-core').CodeForge;
+  strategyForge?: import('@timmeck/brain-core').StrategyForge;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -811,6 +815,49 @@ export class IpcRouter {
       ['creative.insights',        (params) => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return s.creativeEngine.getInsights(p(params)?.limit ?? 20, p(params)?.status); }],
       ['creative.convert',         (params) => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return { converted: s.creativeEngine.convertTopInsights(p(params)?.minNovelty ?? 0.5) }; }],
       ['creative.status',          () => { if (!s.creativeEngine) throw new Error('CreativeEngine not available'); return s.creativeEngine.getStatus(); }],
+
+      // ─── ActionBridge ─────────────────────────────────────────────
+      ['action.propose',      (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.propose(p(params)); }],
+      ['action.queue',        (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.getQueue(p(params).status); }],
+      ['action.history',      (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.getHistory(p(params).limit); }],
+      ['action.execute',      async (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return await s.actionBridge.executeAction(p(params).id); }],
+      ['action.outcome',      (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.recordOutcome(p(params).id, p(params).outcome); }],
+      ['action.rollback',     (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.rollback(p(params).id); }],
+      ['action.stats',        (params) => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.getSuccessRate(p(params).type, p(params).source); }],
+      ['action.status',       () => { if (!s.actionBridge) throw new Error('ActionBridge not available'); return s.actionBridge.getStatus(); }],
+
+      // ─── ContentForge ─────────────────────────────────────────────
+      ['content.generate',    async (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return await s.contentForge.generateFromInsight({ insight: p(params).insight ?? 'Generated via IPC', noveltyScore: p(params).noveltyScore ?? 0.5 }, p(params).platform); }],
+      ['content.schedule',    (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return s.contentForge.schedule(p(params).id, p(params).when ?? new Date().toISOString()); }],
+      ['content.publish',     async (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return await s.contentForge.publishNow(p(params).id); }],
+      ['content.list',        () => { if (!s.contentForge) throw new Error('ContentForge not available'); return s.contentForge.getSchedule(); }],
+      ['content.engagement',  (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return s.contentForge.recordEngagement(p(params).id, p(params).metrics); }],
+      ['content.best',        (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return s.contentForge.getBestPerforming(p(params).limit); }],
+      ['content.optimal',     (params) => { if (!s.contentForge) throw new Error('ContentForge not available'); return s.contentForge.getOptimalTime(p(params).platform); }],
+      ['content.status',      () => { if (!s.contentForge) throw new Error('ContentForge not available'); return s.contentForge.getStatus(); }],
+
+      // ─── CodeForge ────────────────────────────────────────────────
+      ['codeforge.patterns',  () => { if (!s.codeForge) throw new Error('CodeForge not available'); return s.codeForge.extractPatterns(); }],
+      ['codeforge.generate',  async (params) => { if (!s.codeForge) throw new Error('CodeForge not available'); return await s.codeForge.generateUtility(p(params).patternId); }],
+      ['codeforge.scaffold',  async (params) => { if (!s.codeForge) throw new Error('CodeForge not available'); return await s.codeForge.scaffoldProject(p(params).template, p(params).config); }],
+      ['codeforge.test',      async (params) => { if (!s.codeForge) throw new Error('CodeForge not available'); return await s.codeForge.generateTest(p(params).targetFile); }],
+      ['codeforge.apply',     async (params) => { if (!s.codeForge) throw new Error('CodeForge not available'); return await s.codeForge.applyProduct(p(params).id); }],
+      ['codeforge.products',  (params) => { if (!s.codeForge) throw new Error('CodeForge not available'); return s.codeForge.getProducts(p(params).status); }],
+      ['codeforge.rollback',  (params) => { if (!s.codeForge) throw new Error('CodeForge not available'); return s.codeForge.rollback(p(params).id); }],
+      ['codeforge.status',    () => { if (!s.codeForge) throw new Error('CodeForge not available'); return s.codeForge.getStatus(); }],
+
+      // ─── StrategyForge ────────────────────────────────────────────
+      ['strategy.create',      async (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return await s.strategyForge.createFromPrinciples(p(params).domain); }],
+      ['strategy.fromSignals', async (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return await s.strategyForge.createFromSignals(p(params).signals); }],
+      ['strategy.backtest',    (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.backtest(p(params).id, p(params).data); }],
+      ['strategy.activate',    (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.activate(p(params).id); }],
+      ['strategy.pause',       (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.pause(p(params).id); }],
+      ['strategy.execute',     async (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return await s.strategyForge.executeStep(p(params).id); }],
+      ['strategy.evolve',      async (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return await s.strategyForge.evolve(p(params)?.ids); }],
+      ['strategy.active',      () => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getActive(); }],
+      ['strategy.performance', (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getPerformance(p(params).id); }],
+      ['strategy.retire',      (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.retire(p(params).id, p(params).reason); }],
+      ['strategy.status',      () => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getStatus(); }],
 
       ['status',               () => ({
         name: 'marketing-brain',

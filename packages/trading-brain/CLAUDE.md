@@ -45,7 +45,11 @@ Claude Code → MCP Server (stdio) → TradingCore → Services → SQLite
                                        ├── Synapse Network (Hebbian: "win together → wire together")
                                        ├── Strategy Brain (DCA multiplier, grid params)
                                        ├── Learning Engine (patterns, chains, calibration)
-                                       └── Research Engine (trends, gaps, synergies, regime shifts)
+                                       ├── Research Engine (trends, gaps, synergies, regime shifts)
+                                       ├── ActionBridge (risk-assessed auto-execution)
+                                       ├── ContentForge (autonomous content pipeline)
+                                       ├── CodeForge (pattern extraction, code generation)
+                                       └── StrategyForge (autonomous strategy creation)
 ```
 
 ## Development

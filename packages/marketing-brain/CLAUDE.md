@@ -50,7 +50,11 @@ Claude Code → MCP Server (stdio) → MarketingCore → Services → SQLite
                                        ├── Synapse Network (8 connection types)
                                        ├── Learning Engine (15-min cycles)
                                        ├── Research Engine (1-hr cycles)
-                                       └── Template Extractor
+                                       ├── Template Extractor
+                                       ├── ActionBridge (risk-assessed auto-execution)
+                                       ├── ContentForge (autonomous content pipeline)
+                                       ├── CodeForge (pattern extraction, code generation)
+                                       └── StrategyForge (autonomous strategy creation)
 ```
 
 ## Development

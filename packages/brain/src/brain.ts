@@ -71,7 +71,7 @@ import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 import type { HypothesisStatus } from '@timmeck/brain-core';
 import type { ExperimentStatus } from '@timmeck/brain-core';
 import type { AnomalyType } from '@timmeck/brain-core';
-import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot, BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace, CodeSandbox, GuardrailEngine, CausalPlanner, ResearchRoadmap, runRoadmapMigration, CreativeEngine, runCreativeMigration } from '@timmeck/brain-core';
+import { RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, SemanticCompressor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, ProactiveEngine, UserModel, CodeHealthMonitor, TeachingProtocol, Curriculum, ConsensusEngine, ActiveLearner, RepoAbsorber, FeatureExtractor, FeatureRecommender, ContradictionResolver, CheckpointManager, TraceCollector, MessageRouter, TelegramBot, DiscordBot, BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace, CodeSandbox, GuardrailEngine, CausalPlanner, ResearchRoadmap, runRoadmapMigration, CreativeEngine, runCreativeMigration, ActionBridgeEngine, runActionBridgeMigration, ContentForge, runContentForgeMigration, CodeForge, runCodeForgeMigration, StrategyForge, runStrategyForgeMigration } from '@timmeck/brain-core';
 
 export class BrainCore {
   private db: Database.Database | null = null;
@@ -946,6 +946,34 @@ export class BrainCore {
     this.creativeEngine = creativeEngine;
     services.creativeEngine = creativeEngine;
 
+    // 91. ActionBridgeEngine — risk-assessed auto-execution of proposed actions
+    runActionBridgeMigration(this.db!);
+    const actionBridge = new ActionBridgeEngine(this.db!, { brainName: 'brain' });
+    services.actionBridge = actionBridge;
+
+    // 92. ContentForge — autonomous content generation + publishing
+    runContentForgeMigration(this.db!);
+    const contentForge = new ContentForge(this.db!, { brainName: 'brain' });
+    if (llmService) contentForge.setLLMService(llmService);
+    contentForge.setActionBridge(actionBridge);
+    services.contentForge = contentForge;
+
+    // 93. CodeForge — pattern extraction + auto-apply code changes
+    runCodeForgeMigration(this.db!);
+    const codeForge = new CodeForge(this.db!, { brainName: 'brain' });
+    codeForge.setActionBridge(actionBridge);
+    if (services.guardrailEngine) codeForge.setGuardrailEngine(services.guardrailEngine);
+    if (services.selfModificationEngine) codeForge.setSelfModificationEngine(services.selfModificationEngine);
+    if (services.codeHealthMonitor) codeForge.setCodeHealthMonitor(services.codeHealthMonitor);
+    services.codeForge = codeForge;
+
+    // 94. StrategyForge — autonomous strategy creation + execution
+    runStrategyForgeMigration(this.db!);
+    const strategyForge = new StrategyForge(this.db!, { brainName: 'brain' });
+    strategyForge.setActionBridge(actionBridge);
+    strategyForge.setKnowledgeDistiller(this.orchestrator.knowledgeDistiller);
+    services.strategyForge = strategyForge;
+
     // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
     this.orchestrator.setFactExtractor(factExtractor);
     this.orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -968,6 +996,10 @@ export class BrainCore {
     this.orchestrator.setCausalPlanner(causalPlanner);
     this.orchestrator.setResearchRoadmap(researchRoadmap);
     this.orchestrator.setCreativeEngine(creativeEngine);
+    this.orchestrator.setActionBridge(actionBridge);
+    this.orchestrator.setContentForge(contentForge);
+    this.orchestrator.setCodeForge(codeForge);
+    this.orchestrator.setStrategyForge(strategyForge);
 
     logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber, Guardrails, CausalPlanner, Roadmap, Creative — all wired into orchestrator)');
 

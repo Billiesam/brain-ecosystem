@@ -555,3 +555,31 @@ export type {
   CreativeInsight, Analogy as CreativeAnalogy, SpeculativeHypothesis,
   CreativeEngineConfig, CreativeEngineStatus,
 } from './creative/index.js';
+
+// ── Action Bridge ─────────────────────────────────────────
+export { ActionBridgeEngine, runActionBridgeMigration } from './action/index.js';
+export type {
+  ProposedAction, ActionOutcome,
+  ActionBridgeConfig, ActionBridgeStatus,
+} from './action/index.js';
+
+// ── Content Forge ─────────────────────────────────────────
+export { ContentForge, runContentForgeMigration } from './content/index.js';
+export type {
+  ContentPiece, ContentEngagement,
+  ContentForgeConfig, ContentForgeStatus,
+} from './content/index.js';
+
+// ── Code Forge ────────────────────────────────────────────
+export { CodeForge, runCodeForgeMigration } from './codegen/code-forge.js';
+export type {
+  CodeProduct, CodePattern,
+  CodeForgeConfig, CodeForgeStatus,
+} from './codegen/code-forge.js';
+
+// ── Strategy Forge ────────────────────────────────────────
+export { StrategyForge, runStrategyForgeMigration } from './strategy/index.js';
+export type {
+  Strategy as ForgeStrategy, StrategyRule, StrategyPerformance, BacktestResult,
+  StrategyForgeConfig, StrategyForgeStatus,
+} from './strategy/index.js';

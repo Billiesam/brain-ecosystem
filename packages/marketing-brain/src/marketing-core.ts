@@ -65,7 +65,7 @@ import { SchedulerService } from './services/scheduler.service.js';
 import { CalendarService } from './services/calendar.service.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine, BorgSyncEngine, DebateEngine, RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, UserModel, ProactiveEngine, SemanticCompressor, GuardrailEngine, CausalPlanner, CausalGraph, ResearchRoadmap, runRoadmapMigration, CreativeEngine, runCreativeMigration, GoalEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine, BorgSyncEngine, DebateEngine, RAGEngine, RAGIndexer, KnowledgeGraphEngine, FactExtractor, FeedbackEngine, ToolTracker, ToolPatternAnalyzer, UserModel, ProactiveEngine, SemanticCompressor, GuardrailEngine, CausalPlanner, CausalGraph, ResearchRoadmap, runRoadmapMigration, CreativeEngine, runCreativeMigration, GoalEngine, ActionBridgeEngine, runActionBridgeMigration, ContentForge, runContentForgeMigration, CodeForge, runCodeForgeMigration, StrategyForge, runStrategyForgeMigration } from '@timmeck/brain-core';
 import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 
 export class MarketingCore {
@@ -368,7 +368,35 @@ export class MarketingCore {
       const creativeEngine = new CreativeEngine(db, { brainName: 'marketing-brain' });
       services.creativeEngine = creativeEngine;
 
-      logger.info('Intelligence upgrade active (RAG, KG, Feedback, ToolTracker, UserModel, Proactive, Guardrails, CausalPlanner, Roadmap, Creative)');
+      // ActionBridge — risk-assessed auto-execution
+      runActionBridgeMigration(db);
+      const actionBridge = new ActionBridgeEngine(db, { brainName: 'marketing-brain' });
+      services.actionBridge = actionBridge;
+
+      // ContentForge — autonomous content pipeline
+      runContentForgeMigration(db);
+      const contentForge = new ContentForge(db, { brainName: 'marketing-brain' });
+      contentForge.setActionBridge(actionBridge);
+      if (services.socialService) {
+        const social = services.socialService;
+        contentForge.setSocialService({ post: async (platform: string, content: string) => { const result = await social.publish(platform, { text: content }); return { id: result.postId ?? 'unknown' }; } });
+      }
+      services.contentForge = contentForge;
+
+      // CodeForge — pattern extraction & code generation
+      runCodeForgeMigration(db);
+      const codeForge = new CodeForge(db, { brainName: 'marketing-brain' });
+      codeForge.setActionBridge(actionBridge);
+      if (services.guardrailEngine) codeForge.setGuardrailEngine(services.guardrailEngine);
+      services.codeForge = codeForge;
+
+      // StrategyForge — autonomous strategy creation & execution
+      runStrategyForgeMigration(db);
+      const strategyForge = new StrategyForge(db, { brainName: 'marketing-brain' });
+      strategyForge.setActionBridge(actionBridge);
+      services.strategyForge = strategyForge;
+
+      logger.info('Intelligence upgrade active (RAG, KG, Feedback, ToolTracker, UserModel, Proactive, Guardrails, CausalPlanner, Roadmap, Creative, ActionBridge, ContentForge, CodeForge, StrategyForge)');
     } catch (err) {
       logger.warn(`Intelligence upgrade failed (non-critical): ${(err as Error).message}`);
     }

@@ -1027,6 +1027,267 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
       return textResult(result);
     },
   );
+
+  // === ActionBridge Tools ===
+
+  server.tool(
+    'brain_action_queue',
+    'View pending actions in the ActionBridge queue. Shows risk level and confidence for each.',
+    {
+      status: z.string().optional().describe('Filter by status: pending, approved, executing, completed, failed'),
+    },
+    async (params) => {
+      const result = await call('action.queue', { status: params.status }) as AnyResult[];
+      if (!result?.length) return textResult('No actions in queue.');
+      const lines = result.map((a: AnyResult) =>
+        `#${a.id} [${a.riskLevel}] ${a.title} (${a.source}/${a.type}) conf=${(a.confidence * 100).toFixed(0)}% status=${a.status}`
+      );
+      return textResult(`Action Queue (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_action_execute',
+    'Manually execute a pending action from the ActionBridge queue.',
+    {
+      id: z.number().describe('Action ID to execute'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('action.execute', { id: params.id });
+      if (result?.success) {
+        return textResult(`Action #${params.id} executed successfully.`);
+      }
+      return textResult(`Action #${params.id} failed: ${result?.result ?? 'unknown error'}`);
+    },
+  );
+
+  server.tool(
+    'brain_action_history',
+    'View action execution history with outcomes.',
+    {
+      limit: z.number().optional().describe('Max entries (default 20)'),
+    },
+    async (params) => {
+      const result = await call('action.history', { limit: params.limit ?? 20 }) as AnyResult[];
+      if (!result?.length) return textResult('No action history.');
+      const lines = result.map((a: AnyResult) =>
+        `#${a.id} ${a.title} → ${a.status} ${a.executedAt ?? ''}`
+      );
+      return textResult(`Action History (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_action_stats',
+    'Get ActionBridge success rates, queue size, and top action sources.',
+    {},
+    async () => {
+      const result: AnyResult = await call('action.status');
+      const lines = [
+        `Queue Size: ${result.queueSize}`,
+        `Executed (24h): ${result.executed24h}`,
+        `Success Rate: ${(result.successRate * 100).toFixed(1)}%`,
+        `Auto-Execute: ${result.autoExecuteEnabled ? 'enabled' : 'disabled'}`,
+      ];
+      if (result.topSources?.length) {
+        lines.push(`Top Sources: ${result.topSources.map((s: AnyResult) => `${s.source}(${s.count})`).join(', ')}`);
+      }
+      return textResult(lines.join('\n'));
+    },
+  );
+
+  // === ContentForge Tools ===
+
+  server.tool(
+    'brain_content_generate',
+    'Generate content from a knowledge source (insight, mission, trend, principle).',
+    {
+      source_type: z.enum(['insight', 'mission', 'trend', 'principle']).describe('Source type'),
+      platform: z.string().optional().describe('Target platform (default: bluesky)'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('content.generate', {
+        sourceType: params.source_type,
+        insight: 'Generated via MCP',
+        noveltyScore: 0.5,
+        platform: params.platform ?? 'bluesky',
+      });
+      return textResult(`Content #${result.id} generated: ${result.title} (${result.platform})`);
+    },
+  );
+
+  server.tool(
+    'brain_content_publish',
+    'Publish a content piece immediately.',
+    {
+      id: z.number().describe('Content piece ID'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('content.publish', { id: params.id });
+      if (result?.success) {
+        return textResult(`Content #${params.id} published. Post ID: ${result.postId ?? '?'}`);
+      }
+      return textResult(`Content #${params.id} publish failed.`);
+    },
+  );
+
+  server.tool(
+    'brain_content_schedule',
+    'View scheduled content pieces.',
+    {},
+    async () => {
+      const result = await call('content.list') as AnyResult[];
+      if (!result?.length) return textResult('No scheduled content.');
+      const lines = result.map((p: AnyResult) =>
+        `#${p.id} ${p.title} → ${p.platform} ${p.scheduledFor ?? 'no time'} [${p.status}]`
+      );
+      return textResult(`Scheduled Content (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_content_best',
+    'Show best performing published content by engagement.',
+    {
+      limit: z.number().optional().describe('Max entries (default 10)'),
+    },
+    async (params) => {
+      const result = await call('content.best', { limit: params.limit ?? 10 }) as AnyResult[];
+      if (!result?.length) return textResult('No published content with engagement data.');
+      const lines = result.map((p: AnyResult) => {
+        const eng = p.engagement ? `likes=${p.engagement.likes} reposts=${p.engagement.reposts} replies=${p.engagement.replies}` : 'no data';
+        return `#${p.id} ${p.title} — ${eng}`;
+      });
+      return textResult(`Top Content (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  // === CodeForge Tools ===
+
+  server.tool(
+    'brain_codeforge_patterns',
+    'Show extracted recurring code patterns.',
+    {},
+    async () => {
+      const result = await call('codeforge.patterns') as AnyResult[];
+      if (!result?.length) return textResult('No code patterns extracted yet.');
+      const lines = result.map((p: AnyResult) =>
+        `#${p.id} ${p.pattern} — ${p.occurrences} occurrences, similarity=${(p.similarity * 100).toFixed(0)}%`
+      );
+      return textResult(`Code Patterns (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_codeforge_generate',
+    'Generate a utility function from an extracted pattern.',
+    {
+      pattern_id: z.number().describe('Pattern ID to generate utility from'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('codeforge.generate', { patternId: params.pattern_id });
+      if (result) {
+        return textResult(`Utility generated: #${result.id} ${result.name} (${result.files?.length ?? 0} files)`);
+      }
+      return textResult('Generation failed — pattern not found or LLM unavailable.');
+    },
+  );
+
+  server.tool(
+    'brain_codeforge_apply',
+    'Apply a code product (utility, refactor, fix).',
+    {
+      id: z.number().describe('Product ID to apply'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('codeforge.apply', { id: params.id });
+      if (result?.success) {
+        return textResult(`Code product #${params.id} applied successfully.`);
+      }
+      return textResult(`Code product #${params.id} apply failed.`);
+    },
+  );
+
+  server.tool(
+    'brain_codeforge_products',
+    'List code products with their status.',
+    {
+      status: z.string().optional().describe('Filter: generated, tested, applied, failed'),
+    },
+    async (params) => {
+      const result = await call('codeforge.products', { status: params.status }) as AnyResult[];
+      if (!result?.length) return textResult('No code products.');
+      const lines = result.map((p: AnyResult) =>
+        `#${p.id} ${p.name} (${p.type}) — ${p.status} ${p.files?.length ?? 0} files`
+      );
+      return textResult(`Code Products (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  // === StrategyForge Tools ===
+
+  server.tool(
+    'brain_strategy_create',
+    'Create a strategy from learned principles in a domain.',
+    {
+      domain: z.string().describe('Knowledge domain (e.g. trading, marketing, research)'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('strategy.create', { domain: params.domain });
+      if (result) {
+        return textResult(`Strategy #${result.id} created: ${result.name} (${result.rules?.length ?? 0} rules)`);
+      }
+      return textResult(`No principles found for domain: ${params.domain}`);
+    },
+  );
+
+  server.tool(
+    'brain_strategy_active',
+    'List all active strategies.',
+    {},
+    async () => {
+      const result = await call('strategy.active') as AnyResult[];
+      if (!result?.length) return textResult('No active strategies.');
+      const lines = result.map((s: AnyResult) => {
+        const wr = s.performance?.executions > 0 ? `${(s.performance.successes / s.performance.executions * 100).toFixed(0)}%` : '-';
+        return `#${s.id} ${s.name} (${s.type}) — ${s.rules?.length ?? 0} rules, win=${wr}`;
+      });
+      return textResult(`Active Strategies (${result.length}):\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'brain_strategy_performance',
+    'Get detailed performance report for a strategy.',
+    {
+      id: z.number().describe('Strategy ID'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('strategy.performance', { id: params.id });
+      if (!result) return textResult(`Strategy #${params.id} not found.`);
+      const lines = [
+        `Strategy #${params.id} Performance:`,
+        `Executions: ${result.executions}`,
+        `Successes: ${result.successes}`,
+        `Win Rate: ${result.executions > 0 ? `${(result.successes / result.executions * 100).toFixed(1)}%` : '-'}`,
+        `Avg Return: ${(result.avgReturn * 100).toFixed(2)}%`,
+      ];
+      return textResult(lines.join('\n'));
+    },
+  );
+
+  server.tool(
+    'brain_strategy_evolve',
+    'Evolve a new strategy by crossing the best active strategies.',
+    {},
+    async () => {
+      const result: AnyResult = await call('strategy.evolve');
+      if (result) {
+        return textResult(`Evolved strategy #${result.id}: ${result.name}`);
+      }
+      return textResult('Need at least 2 active strategies to evolve.');
+    },
+  );
 }
 
 function detectLanguage(filePath: string): string {

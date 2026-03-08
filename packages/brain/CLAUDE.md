@@ -33,9 +33,13 @@ brain peers              Ecosystem peer status
 brain guardrail          Guardrail status, health, rollback, circuit breaker reset
 brain roadmap            Research roadmaps: list, show, ready, create
 brain creative           Creative engine: status, insights, pollinate, analogies
+brain action           Action queue, history, execute, stats
+brain content          Content generate, publish, schedule, best
+brain codeforge        CodeForge patterns, products, apply, status
+brain strategy         Strategy list, create, performance, evolve
 ```
 
-## MCP Tools (26)
+## MCP Tools (42)
 
 `brain_report_error`, `brain_query_error`, `brain_report_solution`, `brain_report_attempt`,
 `brain_find_reusable_code`, `brain_register_code`, `brain_check_code_similarity`,
@@ -45,7 +49,11 @@ brain creative           Creative engine: status, insights, pollinate, analogies
 `brain_guardrail_status`, `brain_guardrail_health`,
 `brain_causal_diagnose`, `brain_causal_interventions`,
 `brain_roadmap_list`, `brain_roadmap_progress`,
-`brain_creative_pollinate`, `brain_creative_insights`, `brain_creative_analogies`
+`brain_creative_pollinate`, `brain_creative_insights`, `brain_creative_analogies`,
+`brain_action_queue`, `brain_action_execute`, `brain_action_history`, `brain_action_stats`,
+`brain_content_generate`, `brain_content_publish`, `brain_content_schedule`, `brain_content_best`,
+`brain_codeforge_patterns`, `brain_codeforge_generate`, `brain_codeforge_apply`, `brain_codeforge_products`,
+`brain_strategy_create`, `brain_strategy_active`, `brain_strategy_performance`, `brain_strategy_evolve`
 
 ## Architecture
 
@@ -57,7 +65,11 @@ Claude Code → MCP Server (stdio) → BrainCore → Services → SQLite
                                        ├── Learning Engine (patterns, rules, antipatterns)
                                        ├── Research Engine (trends, gaps, synergies)
                                        ├── Embedding Engine (all-MiniLM-L6-v2, local)
-                                       └── Git Intelligence (commit linking)
+                                       ├── Git Intelligence (commit linking)
+                                       ├── ActionBridge (risk-assessed auto-execution)
+                                       ├── ContentForge (autonomous content pipeline)
+                                       ├── CodeForge (pattern extraction, code generation)
+                                       └── StrategyForge (autonomous strategy creation)
 ```
 
 Key directories: `src/cli/commands/`, `src/mcp/`, `src/db/`, `src/learning/`, `src/synapses/`, `src/code/`, `src/hooks/`

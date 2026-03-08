@@ -23,6 +23,10 @@ Shared infrastructure library for the Brain Ecosystem. Not an MCP server itself 
 | Engines | `@timmeck/brain-core` | BaseLearningEngine, BaseResearchEngine |
 | Cross-Brain | `@timmeck/brain-core` | CrossBrainClient, CrossBrainNotifier |
 | Utils | `@timmeck/brain-core` | sha256, createLogger, normalizePath, getDataDir, getPipeName, TypedEventBus |
+| Action | `@timmeck/brain-core` | ActionBridgeEngine: risk-assessed auto-execution |
+| Content | `@timmeck/brain-core` | ContentForge: autonomous content pipeline |
+| CodeForge | `@timmeck/brain-core` | CodeForge: pattern extraction, code generation |
+| Strategy | `@timmeck/brain-core` | StrategyForge: autonomous strategy creation |
 
 ## Development
 

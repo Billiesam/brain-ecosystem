@@ -48,6 +48,10 @@ import { llmCommand } from './cli/commands/llm.js';
 import { guardrailCommand } from './cli/commands/guardrail.js';
 import { roadmapCommand } from './cli/commands/roadmap.js';
 import { creativeCommand } from './cli/commands/creative.js';
+import { actionCommand } from './cli/commands/action.js';
+import { contentCommand } from './cli/commands/content.js';
+import { codeforgeCommand } from './cli/commands/codeforge.js';
+import { strategyCommand } from './cli/commands/strategy.js';
 import { getCurrentVersion } from './cli/update-check.js';
 
 const program = new Command();
@@ -87,6 +91,10 @@ program.addCommand(llmCommand());
 program.addCommand(guardrailCommand());
 program.addCommand(roadmapCommand());
 program.addCommand(creativeCommand());
+program.addCommand(actionCommand());
+program.addCommand(contentCommand());
+program.addCommand(codeforgeCommand());
+program.addCommand(strategyCommand());
 
 // Hidden command: run MCP server (called by Claude Code)
 program

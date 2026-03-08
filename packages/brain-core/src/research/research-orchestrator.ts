@@ -140,6 +140,10 @@ export class ResearchOrchestrator {
   private causalPlanner: import('../causal/causal-planner.js').CausalPlanner | null = null;
   private researchRoadmap: import('../goals/research-roadmap.js').ResearchRoadmap | null = null;
   private creativeEngine: import('../creative/creative-engine.js').CreativeEngine | null = null;
+  private actionBridge: import('../action/action-bridge.js').ActionBridgeEngine | null = null;
+  private contentForge: import('../content/content-forge.js').ContentForge | null = null;
+  private codeForge: import('../codegen/code-forge.js').CodeForge | null = null;
+  private strategyForge: import('../strategy/strategy-forge.js').StrategyForge | null = null;
   private lastAutoMissionTime = 0;
   private lastGoalMissionTime = 0;
   private onSuggestionCallback: ((suggestions: string[]) => void) | null = null;
@@ -381,6 +385,18 @@ export class ResearchOrchestrator {
 
   /** Set the CreativeEngine — cross-domain idea generation. */
   setCreativeEngine(engine: import('../creative/creative-engine.js').CreativeEngine): void { this.creativeEngine = engine; }
+
+  /** Set the ActionBridgeEngine — risk-assessed action execution. */
+  setActionBridge(bridge: import('../action/action-bridge.js').ActionBridgeEngine): void { this.actionBridge = bridge; }
+
+  /** Set the ContentForge — autonomous content pipeline. */
+  setContentForge(forge: import('../content/content-forge.js').ContentForge): void { this.contentForge = forge; }
+
+  /** Set the CodeForge — pattern extraction + auto-apply. */
+  setCodeForge(forge: import('../codegen/code-forge.js').CodeForge): void { this.codeForge = forge; }
+
+  /** Set the StrategyForge — autonomous strategy execution. */
+  setStrategyForge(forge: import('../strategy/strategy-forge.js').StrategyForge): void { this.strategyForge = forge; }
 
   /** Set the LLMService — propagates to all engines that can use LLM. */
   setLLMService(llm: LLMService): void {
@@ -2541,6 +2557,89 @@ export class ResearchOrchestrator {
       } catch (err) {
         this.log.warn(`[orchestrator] Step 58 (creative) error: ${(err as Error).message}`);
       }
+    }
+
+    // Step 59: ActionBridge — process pending action queue (every 5 cycles)
+    if (this.actionBridge && this.cycleCount % 5 === 0) {
+      try {
+        ts?.emit('action_bridge', 'responding', 'Step 59: Processing action queue...', 'routine');
+        const executed = await this.actionBridge.processQueue();
+        if (executed > 0) {
+          this.journal.write({
+            type: 'discovery',
+            title: `ActionBridge: auto-executed ${executed} action(s)`,
+            content: `Queue processed: ${executed} actions executed automatically`,
+            tags: [this.brainName, 'action-bridge', 'auto-execute'],
+            references: [],
+            significance: executed > 3 ? 'notable' : 'routine',
+            data: { executed },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('action_bridge', this.cycleCount, { insights: executed });
+      } catch (err) { this.log.warn(`[orchestrator] Step 59 error: ${(err as Error).message}`); }
+    }
+
+    // Step 60: ContentForge — generate content from top creative insights (every 10 cycles)
+    if (this.contentForge && this.creativeEngine && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('content_forge', 'discovering', 'Step 60: Generating content from insights...', 'routine');
+        const topInsights = this.creativeEngine.getInsights(3, 'raw');
+        let generated = 0;
+        for (const insight of topInsights) {
+          if (insight.noveltyScore > 0.6) {
+            this.contentForge.generateFromInsight(insight);
+            generated++;
+          }
+        }
+        if (generated > 0) {
+          this.journal.write({
+            type: 'discovery',
+            title: `ContentForge: ${generated} content piece(s) generated`,
+            content: `Generated ${generated} content pieces from creative insights`,
+            tags: [this.brainName, 'content-forge', 'auto-generate'],
+            references: [],
+            significance: 'routine',
+            data: { generated },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('content_forge', this.cycleCount, { insights: generated });
+      } catch (err) { this.log.warn(`[orchestrator] Step 60 error: ${(err as Error).message}`); }
+    }
+
+    // Step 61: CodeForge — extract patterns from code health scans (every 15 cycles)
+    if (this.codeForge && this.cycleCount % 15 === 0) {
+      try {
+        ts?.emit('code_forge', 'analyzing', 'Step 61: Extracting code patterns...', 'routine');
+        const patterns = this.codeForge.extractPatterns();
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('code_forge', this.cycleCount, { insights: patterns.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 61 error: ${(err as Error).message}`); }
+    }
+
+    // Step 62: StrategyForge — execute active strategies (every 20 cycles)
+    if (this.strategyForge && this.cycleCount % 20 === 0) {
+      try {
+        ts?.emit('strategy_forge', 'experimenting', 'Step 62: Executing active strategies...', 'routine');
+        const active = this.strategyForge.getActive();
+        let totalFired = 0;
+        for (const strategy of active) {
+          try {
+            const result = this.strategyForge.executeStep(strategy.id);
+            totalFired += result.fired;
+          } catch { /* individual strategy execution non-critical */ }
+        }
+        if (totalFired > 0) {
+          this.journal.write({
+            type: 'experiment',
+            title: `StrategyForge: ${totalFired} rule(s) fired across ${active.length} strategies`,
+            content: `Active strategies: ${active.map(s => s.name).join(', ')}`,
+            tags: [this.brainName, 'strategy-forge', 'execution'],
+            references: [],
+            significance: totalFired > 5 ? 'notable' : 'routine',
+            data: { totalFired, activeCount: active.length },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('strategy_forge', this.cycleCount, { insights: totalFired });
+      } catch (err) { this.log.warn(`[orchestrator] Step 62 error: ${(err as Error).message}`); }
     }
 
     const duration = Date.now() - start;

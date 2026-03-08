@@ -11,6 +11,8 @@ export { FeatureExtractor } from './feature-extractor.js';
 export type { ExtractedFeature, FeatureCategory, FeatureExtractionResult, FeatureSearchOptions, FeatureStats } from './feature-extractor.js';
 export { FeatureRecommender } from './feature-recommender.js';
 export type { FeatureWish, FeatureConnection, RecommendationResult, FeatureRecommenderStatus } from './feature-recommender.js';
+export { CodeForge, runCodeForgeMigration } from './code-forge.js';
+export type { CodeProduct, CodePattern, CodeForgeConfig, CodeForgeStatus } from './code-forge.js';
 export type {
   CodeMinerConfig, RepoContent, CodeMinerSummary,
   ExtractedPattern, DependencyPattern, TechStack, ProjectStructure, ReadmePattern,
