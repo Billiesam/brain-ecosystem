@@ -581,6 +581,19 @@ canvas{display:block;width:100%;height:100%}
           <div id="featureWishlist" style="margin-top:12px"></div>
         </div>
 
+        <!-- Goals -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x1F3AF;</span> Goals — <span data-t="Forschungsziele">Forschungsziele</span></div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px" data-t="Brain setzt sich autonome Ziele und verfolgt deren Fortschritt. Erreichte Ziele werden automatisch härter neu erstellt.">Brain setzt sich autonome Ziele und verfolgt deren Fortschritt. Erreichte Ziele werden automatisch härter neu erstellt.</p>
+          <div class="grid grid-4">
+            <div class="card" style="text-align:center"><div class="card-value" id="int-goals-active" style="color:var(--cyan)">0</div><div class="card-sub" data-t="Aktiv">Aktiv</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="int-goals-achieved" style="color:var(--green)">0</div><div class="card-sub" data-t="Erreicht">Erreicht</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="int-goals-failed" style="color:var(--red)">0</div><div class="card-sub" data-t="Gescheitert">Gescheitert</div></div>
+            <div class="card" style="text-align:center"><div class="card-value" id="int-goals-total" style="color:var(--text-dim)">0</div><div class="card-sub" data-t="Gesamt">Gesamt</div></div>
+          </div>
+          <div id="goalsList" style="margin-top:12px"><div class="empty" data-t="Noch keine Goals — werden beim ersten Zyklus erstellt">Noch keine Goals — werden beim ersten Zyklus erstellt</div></div>
+        </div>
+
         <!-- Traces / Observability -->
         <div class="section">
           <div class="section-title"><span class="icon">&#x1F50D;</span> Observability — <span data-t="Traces & Spans">Traces & Spans</span></div>
@@ -793,6 +806,11 @@ const translations = { en: {
   'Keine Tool-Daten':'No tool data','Aufrufe':'Calls','Erfolg':'Success',
   'Proaktive Vorschläge':'Proactive Suggestions','Offen':'Open','Verworfen':'Dismissed','Vorschläge gesamt':'Total Suggestions',
   'Ø Reward Score':'Avg Reward Score',
+  'Forschungsziele':'Research Goals',
+  'Brain setzt sich autonome Ziele und verfolgt deren Fortschritt. Erreichte Ziele werden automatisch härter neu erstellt.':'Brain sets autonomous goals and tracks their progress. Achieved goals are automatically ratcheted to harder targets.',
+  'Erreicht':'Achieved','Gescheitert':'Failed','Gesamt':'Total',
+  'Datenpunkte':'data points',
+  'Noch keine Goals — werden beim ersten Zyklus erstellt':'No goals yet — will be created on first cycle',
   'Dein Profil':'Your Profile',
   'Brain lernt dein Verhalten: Skill-Domains, bevorzugte Tools, Arbeitszeiten.':'Brain learns your behavior: skill domains, preferred tools, working hours.',
   'Skill-Domains':'Skill Domains','Profil-Keys':'Profile Keys','Zuletzt aktualisiert':'Last Updated',
@@ -1267,6 +1285,41 @@ function renderIntelligence() {
       }).join('');
     } else {
       wishEl.innerHTML = `<div class="empty">${t('Noch keine Feature-Wünsche — Brain analysiert automatisch')}</div>`;
+    }
+  }
+
+  // Goals
+  if (d.goals) {
+    const g = d.goals;
+    setText('int-goals-active', g.activeGoals || 0);
+    setText('int-goals-achieved', g.achievedGoals || 0);
+    setText('int-goals-failed', g.failedGoals || 0);
+    setText('int-goals-total', g.totalGoals || 0);
+    const el = document.getElementById('goalsList');
+    const list = g.progressList || [];
+    if (list.length) {
+      el.innerHTML = list.map(goal => {
+        const p = goal.progress;
+        const pct = p ? Math.min(100, Math.max(0, p.progressPercent)).toFixed(0) : '0';
+        const trendIcon = !p ? '' : p.trend === 'improving' ? '<span style="color:var(--green)">&#x25B2;</span>' : p.trend === 'declining' ? '<span style="color:var(--red)">&#x25BC;</span>' : '<span style="color:var(--text-dim)">&#x25CF;</span>';
+        const dirLabel = goal.direction === 'lower_is_better' ? '&#x25BC;' : '&#x25B2;';
+        const barColor = p && p.trend === 'improving' ? 'var(--green)' : p && p.trend === 'declining' ? 'var(--red)' : 'var(--yellow)';
+        return `<div class="card" style="padding:10px 12px;margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-weight:600;color:var(--cyan)">${escHtml(goal.title)}</span>
+            <span style="font-size:11px;color:var(--text-dim)">${trendIcon} ${pct}%</span>
+          </div>
+          <div style="background:var(--surface);border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.5s ease"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim)">
+            <span>${dirLabel} ${escHtml(goal.metricName)}: ${typeof goal.currentValue==='number' && goal.currentValue % 1 !== 0 ? goal.currentValue.toFixed(2) : goal.currentValue} → ${typeof goal.targetValue==='number' && goal.targetValue % 1 !== 0 ? goal.targetValue.toFixed(2) : goal.targetValue}</span>
+            <span>${p ? p.dataPoints : 0} ${t('Datenpunkte')}</span>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      el.innerHTML = `<div class="empty">${t('Noch keine Goals — werden beim ersten Zyklus erstellt')}</div>`;
     }
   }
 

@@ -935,6 +935,19 @@ export class ResearchOrchestrator {
       this.predictionEngine.recordMetric('journal_entries', (journalStats.total_entries as number) ?? 0, 'metric');
       const responderStatus = this.autoResponder.getStatus();
       this.predictionEngine.recordMetric('auto_response_count', responderStatus.total_responses, 'metric');
+
+      // Hypothesis & knowledge metrics (useful for prediction)
+      try {
+        const hypSummary = this.hypothesisEngine.getSummary();
+        this.predictionEngine.recordMetric('hypothesis_total', hypSummary.total, 'metric');
+        this.predictionEngine.recordMetric('hypothesis_confirmed', hypSummary.confirmed, 'metric');
+      } catch { /* skip */ }
+      try {
+        const kSummary = this.knowledgeDistiller.getSummary();
+        this.predictionEngine.recordMetric('principle_count', kSummary.principles, 'metric');
+        this.predictionEngine.recordMetric('knowledge_confidence', kSummary.avgConfidence, 'metric');
+      } catch { /* skip */ }
+
       ts?.emit('orchestrator', 'perceiving', `Self-metrics recorded: ${anomalies.length} anomalies, ${insights.length} insights, ${cycleDuration}ms`);
 
       // 11b. Re-resolve predictions now that fresh metrics are available
@@ -3174,7 +3187,8 @@ export class ResearchOrchestrator {
         case 'prediction_accuracy': {
           const predSummary = this.predictionEngine?.getSummary();
           const domains = (predSummary?.by_domain ?? []) as Array<{ accuracy_rate?: number }>;
-          value = domains.length > 0 ? (domains[0]?.accuracy_rate ?? 0) : 0;
+          // Average across ALL domains, not just the first
+          value = domains.length > 0 ? domains.reduce((sum, d) => sum + (d.accuracy_rate ?? 0), 0) / domains.length : 0;
           break;
         }
         default: value = 0;

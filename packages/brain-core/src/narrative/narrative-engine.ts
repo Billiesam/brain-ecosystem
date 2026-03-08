@@ -428,6 +428,7 @@ export class NarrativeEngine {
     const confirmed = hypotheses.filter(h => h.status === 'confirmed');
     for (const h of confirmed) {
       for (const a of antiPatterns) {
+        if (h.statement === a.statement) continue;
         if (this.topicOverlap(h.statement, a.statement) >= 0.5) {
           contradictions.push({
             id: idCounter++,
@@ -447,6 +448,7 @@ export class NarrativeEngine {
     const rejected = hypotheses.filter(h => h.status === 'rejected');
     for (const c of confirmed) {
       for (const r of rejected) {
+        if (c.statement === r.statement) continue;
         if (this.topicOverlap(c.statement, r.statement) >= 0.5) {
           contradictions.push({
             id: idCounter++,
@@ -467,6 +469,7 @@ export class NarrativeEngine {
       for (let j = i + 1; j < principles.length; j++) {
         const a = principles[i]!;
         const b = principles[j]!;
+        if (a.statement === b.statement) continue;
         // Check for negation patterns
         if (this.seemsContradictory(a.statement, b.statement)) {
           contradictions.push({

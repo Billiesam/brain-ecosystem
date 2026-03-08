@@ -591,14 +591,13 @@ export class DreamEngine {
       return 0; // memories table doesn't exist or has different schema
     }
 
-    // Feed recent journal entries (notable/breakthrough only)
+    // Feed recent journal entries (all significance levels — journal is already sparse)
     if (this.journal) {
       try {
-        const entries = this.journal.getEntries(undefined, 30);
+        const entries = this.journal.getEntries(undefined, 50);
         for (const entry of entries) {
-          if (entry.significance !== 'notable' && entry.significance !== 'breakthrough') continue;
           const key = `journal:${entry.id}`;
-          const importance = entry.significance === 'breakthrough' ? 9 : 7;
+          const importance = entry.significance === 'breakthrough' ? 9 : entry.significance === 'notable' ? 7 : 5;
           try {
             this.db.prepare(sql).run('journal', key, `${entry.title}: ${entry.content.substring(0, 500)}`, importance, JSON.stringify(entry.tags));
             fed++;

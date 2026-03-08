@@ -1112,6 +1112,15 @@ export class BrainCore {
         proactive: services.proactiveEngine?.getStatus() ?? null,
         userModel: services.userModel?.getStatus() ?? null,
         userProfile: services.userModel?.getProfile() ?? null,
+        goals: services.goalEngine ? (() => {
+          const status = services.goalEngine.getStatus();
+          const activeGoals = services.goalEngine.listGoals('active');
+          const progressList = activeGoals.map(g => ({
+            ...g,
+            progress: services.goalEngine!.getProgress(g.id!),
+          }));
+          return { ...status, progressList };
+        })() : null,
         recommender: services.featureRecommender ? {
           ...services.featureRecommender.getStatus(),
           wishlist: services.featureRecommender.getWishlist()
@@ -1540,7 +1549,6 @@ export class BrainCore {
       causal?.recordEvent('brain', 'error:reported', { errorId, projectId });
       hypothesis?.observe({ source: 'brain', type: 'error:reported', value: 1, timestamp: Date.now() });
       orch?.onEvent('error:reported', { errorId, projectId });
-      services.predictionEngine?.recordMetric('error_count', 1, 'error');
     });
 
     // Solution applied → strengthen or weaken
@@ -1589,10 +1597,9 @@ export class BrainCore {
       orch?.onEvent('insight:created', { insightId, type });
     });
 
-    // Solution applied → orchestrator + prediction
+    // Solution applied → orchestrator
     bus.on('solution:applied', ({ errorId, solutionId, success }) => {
       orch?.onEvent('solution:applied', { errorId, solutionId, success: success ? 1 : 0 });
-      services.predictionEngine?.recordMetric('resolution_success', success ? 1 : 0, 'error');
     });
 
     // Memory → Project synapse
