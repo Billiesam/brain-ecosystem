@@ -8,7 +8,7 @@ export interface GoalEngineConfig {
   brainName: string;
   /** Maximum active goals at once. Default: 10 */
   maxActiveGoals?: number;
-  /** Minimum data points for forecast. Default: 3 */
+  /** Minimum data points for forecast. Default: 8 */
   minForecastCycles?: number;
 }
 
@@ -158,7 +158,7 @@ export class GoalEngine {
     this.config = {
       brainName: config.brainName,
       maxActiveGoals: config.maxActiveGoals ?? 10,
-      minForecastCycles: config.minForecastCycles ?? 3,
+      minForecastCycles: config.minForecastCycles ?? 8,
     };
 
     runGoalEngineMigration(db);

@@ -108,6 +108,7 @@ export class ResearchOrchestrator {
   private dataScout: DataScout | null = null;
   private simulationEngine: SimulationEngine | null = null;
   private memoryPalace: MemoryPalace | null = null;
+  private memoryPalaceRagRegistered = false;
   private goalEngine: GoalEngine | null = null;
   private evolutionEngine: EvolutionEngine | null = null;
   private reasoningEngine: ReasoningEngine | null = null;
@@ -896,6 +897,14 @@ export class ResearchOrchestrator {
       if (resolved > 0) {
         this.log.info(`[orchestrator] Predictions resolved: ${resolved}`);
         ts?.emit('prediction', 'predicting', `Resolved ${resolved} prediction${resolved > 1 ? 's' : ''}`);
+
+        // Cross-module: Prediction→Goal — feed accuracy into goal tracking
+        if (this.goalEngine) {
+          try {
+            const summary = this.predictionEngine.getSummary();
+            this.goalEngine.recordProgress(this.cycleCount, { predictionAccuracy: summary.accuracy_rate });
+          } catch { /* goal recording non-critical */ }
+        }
       }
       ts?.emit('prediction', 'predicting', 'Generating new predictions...');
       const newPredictions = this.predictionEngine.autoPredictAll();
@@ -975,8 +984,8 @@ export class ResearchOrchestrator {
       this.feedExperimentMeasurements(anomalies.length, insights.length);
     }
 
-    // 13. Periodic Dream Consolidation: don't wait for idle, consolidate every 10 cycles
-    if (this.dreamEngine && this.cycleCount % 10 === 0) {
+    // 13. Periodic Dream Consolidation: don't wait for idle, consolidate every 5 cycles
+    if (this.dreamEngine && this.cycleCount % 5 === 0) {
       ts?.emit('dream', 'dreaming', 'Feeding knowledge into memories for consolidation...');
       try {
         // Feed current knowledge into memories table so consolidation has material
@@ -1102,6 +1111,20 @@ export class ResearchOrchestrator {
               timestamp: now,
               metadata: { type: c.type, statement_a: c.statement_a.substring(0, 100), statement_b: c.statement_b.substring(0, 100) },
             });
+          }
+
+          // Cross-module: Narrative→Emotion — contradictions signal cognitive dissonance
+          if (this.emotionalModel && highSeverity.length > 0) {
+            try {
+              // Record contradiction observations so sense() picks up stress/frustration
+              this.hypothesisEngine.observe({
+                source: this.brainName,
+                type: 'high_severity_contradiction',
+                value: highSeverity.length,
+                timestamp: now,
+                metadata: { contradictionCount: contradictions.length, highSeverityCount: highSeverity.length },
+              });
+            } catch { /* emotional signaling non-critical */ }
           }
           // 17a. Actively resolve contradictions — lower confidence of weaker side
           let resolved = 0;
@@ -1548,8 +1571,8 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 25 error: ${(err as Error).message}`); }
     }
 
-    // Step 26: Dream Retrospective — analyze pruning regret (every 10 cycles)
-    if (this.dreamEngine && this.cycleCount % 10 === 0) {
+    // Step 26: Dream Retrospective — analyze pruning regret (every 5 cycles)
+    if (this.dreamEngine && this.cycleCount % 5 === 0) {
       try {
         ts?.emit('orchestrator', 'reflecting', 'Step 26: Analyzing dream retrospective...', 'routine');
         const retrospectives = this.dreamEngine.analyzeRetrospective(5);
@@ -1646,8 +1669,8 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 30 error: ${(err as Error).message}`); }
     }
 
-    // Step 31: Meta-Trends — record system-wide trend data every cycle
-    if (this.metaCognitionLayer) {
+    // Step 31: Meta-Trends — record system-wide trend data (every 5 cycles)
+    if (this.metaCognitionLayer && this.cycleCount % 5 === 0) {
       try {
         const totalPrinciples = this.knowledgeDistiller.getPrinciples(undefined, 1000).length;
         const hypothesisSummary = this.hypothesisEngine.getSummary();
@@ -1688,6 +1711,15 @@ export class ResearchOrchestrator {
           significance: 'routine',
           data: { simulation: sim },
         });
+        // Cross-module: Simulation→Prediction — feed predicted outcomes as synthetic metrics
+        if (this.predictionEngine && sim.predictedOutcomes.length > 0) {
+          try {
+            for (const outcome of sim.predictedOutcomes) {
+              this.predictionEngine.recordMetric(`sim_${outcome.metric}`, outcome.predicted * outcome.confidence, 'metric');
+            }
+          } catch { /* simulation metric recording non-critical */ }
+        }
+
         if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('simulation', this.cycleCount, { predictions: sim.predictedOutcomes.length });
       } catch (err) { this.log.warn(`[orchestrator] Step 32 error: ${(err as Error).message}`); }
     }
@@ -1708,6 +1740,19 @@ export class ResearchOrchestrator {
             data: { memoryPalace: result },
           });
         }
+        // Cross-module: MemoryPalace→RAG — index new connections for semantic search (once)
+        if (result.newConnections > 0 && this.ragIndexer && !this.memoryPalaceRagRegistered) {
+          try {
+            this.ragIndexer.addSource({
+              collection: 'memory_palace',
+              query: `SELECT id, source_type || ':' || source_id || ' —[' || relation || ']→ ' || target_type || ':' || target_id as text FROM knowledge_connections ORDER BY strength DESC LIMIT 100`,
+              textColumns: ['text'],
+              idColumn: 'id',
+            });
+            this.memoryPalaceRagRegistered = true;
+          } catch { /* source registration non-critical */ }
+        }
+
         // Check for isolated knowledge
         const isolated = this.memoryPalace.getIsolatedNodes();
         if (isolated.length > 5) {
@@ -1812,6 +1857,19 @@ export class ResearchOrchestrator {
               data: { chain },
             });
             insights++;
+
+            // Cross-module: Reasoning→Hypothesis — high-confidence chains become testable hypotheses
+            if (this.hypothesisEngine && chain.final_confidence > 0.5) {
+              try {
+                this.hypothesisEngine.propose({
+                  statement: chain.conclusion,
+                  type: 'correlation',
+                  source: 'reasoning_engine',
+                  variables: [q],
+                  condition: { type: 'correlation', params: { strategy: 'inference_chain', chain_id: chain.id, confidence: chain.final_confidence } },
+                });
+              } catch { /* dedup or other constraint — non-critical */ }
+            }
           }
 
           // Abduce on surprising observations
@@ -1845,6 +1903,19 @@ export class ResearchOrchestrator {
         const recs = this.emotionalModel.getRecommendations();
         for (const rec of recs) {
           ts?.emit('emotional', 'reflecting', `[${mood.mood}] ${rec}`, 'notable');
+        }
+
+        // Cross-module: Emotional→Attention — high arousal boosts attention on active topics
+        if (mood.arousal > 0.7 && this.attentionEngine) {
+          try {
+            const topTopics = this.attentionEngine.getTopTopics?.(3) ?? [];
+            for (const t of topTopics) {
+              this.attentionEngine.setFocus(t.topic, mood.arousal * 2.0);
+            }
+            if (topTopics.length > 0) {
+              this.log.info(`[orchestrator] High arousal (${mood.arousal.toFixed(2)}) → boosted attention on ${topTopics.length} topics`);
+            }
+          } catch { /* attention boost non-critical */ }
         }
 
         if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('emotional_model', this.cycleCount, { insights: 1 });
@@ -1957,8 +2028,8 @@ export class ResearchOrchestrator {
 
     // ── Intelligence Upgrade Steps (Sessions 55-65) ─────────
 
-    // Step 42: FactExtractor — extract typed facts from recent insights (every 5 cycles)
-    if (this.factExtractor && this.knowledgeGraph && this.cycleCount % this.distillEvery === 0) {
+    // Step 42: FactExtractor — extract typed facts from recent insights (every 3 cycles)
+    if (this.factExtractor && this.knowledgeGraph && this.cycleCount % 3 === 0) {
       try {
         ts?.emit('fact_extractor', 'analyzing', 'Step 42: Extracting facts from insights...', 'routine');
         let factsAdded = 0;
@@ -2139,6 +2210,18 @@ export class ResearchOrchestrator {
         }
         if (taught > 0) {
           ts?.emit('teaching', 'discovering', `Taught ${taught} principle(s) to peer brain(s)`, 'routine');
+
+          // Cross-module: Teaching→Consensus — propose teaching packages for multi-brain review
+          if (this.consensusEngine && taught >= 2) {
+            try {
+              const topPrinciples = principles.filter(p => (p.confidence ?? 0) >= 0.7).slice(0, 3);
+              this.consensusEngine.propose({
+                type: 'teaching_review',
+                description: `Review ${taught} principles for teaching: ${topPrinciples.map(p => p.statement.substring(0, 60)).join('; ')}`,
+                options: ['adopt', 'reject', 'defer'],
+              });
+            } catch { /* consensus proposal non-critical */ }
+          }
         }
         if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('teaching', this.cycleCount, { insights: taught });
       } catch (err) { this.log.warn(`[orchestrator] Step 47 error: ${(err as Error).message}`); }
@@ -2180,8 +2263,8 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 49 error: ${(err as Error).message}`); }
     }
 
-    // Step 50: FeatureRecommender — detect needs, match features, build connections (every 15 cycles)
-    if (this.featureRecommender && this.cycleCount % 15 === 0) {
+    // Step 50: FeatureRecommender — detect needs, match features, build connections (every 20 cycles)
+    if (this.featureRecommender && this.cycleCount % 20 === 0) {
       try {
         ts?.emit('feature_recommender', 'analyzing', 'Step 50: Scanning for feature needs & connections...', 'routine');
         const recResult = await this.featureRecommender.runCycle();
@@ -3116,7 +3199,28 @@ export class ResearchOrchestrator {
       } catch { /* featureRecommender not ready */ }
     }
 
-    // ── Source B: Existing suggestions (filtered — skip AutoResponder noise) ──
+    // ── Source B: CodeHealth issues → SelfMod suggestions ──
+    if (this.codeHealthMonitor) {
+      try {
+        const health = this.codeHealthMonitor.getStatus();
+        if (health.lastScan && health.lastScan.techDebtScore > 60) {
+          const scan = health.lastScan;
+          const issues: string[] = [];
+          if (scan.complexityScore > 70) issues.push(`high complexity (${scan.complexityScore.toFixed(0)})`);
+          if (scan.duplicationScore > 30) issues.push(`code duplication (${scan.duplicationScore.toFixed(0)})`);
+          if (scan.testRatio < 0.3) issues.push(`low test coverage (${(scan.testRatio * 100).toFixed(0)}%)`);
+          if (issues.length > 0) {
+            return {
+              title: `Reduce tech debt (score: ${scan.techDebtScore.toFixed(0)})`,
+              problem: `Code health scan detected: ${issues.join(', ')}. Tech debt score is ${scan.techDebtScore.toFixed(1)}/100.`,
+              targetFiles: this.findTargetFilesForNeed('code quality'),
+            };
+          }
+        }
+      } catch { /* code health not ready */ }
+    }
+
+    // ── Source C: Existing suggestions (filtered — skip AutoResponder noise) ──
     if (!this.selfScanner) return null;
 
     const suggestions = this.generateSelfImprovementSuggestions();

@@ -93,7 +93,7 @@ export class DreamEngine {
       minClusterSize: config.minClusterSize ?? 2,
       importanceDecayRate: config.importanceDecayRate ?? 0.5,
       importanceDecayAfterDays: config.importanceDecayAfterDays ?? 30,
-      archiveImportanceThreshold: config.archiveImportanceThreshold ?? 1,
+      archiveImportanceThreshold: config.archiveImportanceThreshold ?? 3,
       dreamPruneThreshold: config.dreamPruneThreshold ?? 0.15,
       dreamLearningRate: config.dreamLearningRate ?? 0.15,
       maxConsolidationsPerCycle: config.maxConsolidationsPerCycle ?? 5,

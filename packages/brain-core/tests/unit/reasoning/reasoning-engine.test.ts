@@ -249,9 +249,9 @@ describe('ReasoningEngine', () => {
     engine.setDataSources({
       getCausalEffects: (eventType: string) => {
         const graph: Record<string, Array<{ cause: string; effect: string; strength: number; confidence: number; lag_ms: number }>> = {
-          a: [{ cause: 'a', effect: 'b', strength: 0.5, confidence: 0.2, lag_ms: 100 }],
-          b: [{ cause: 'b', effect: 'c', strength: 0.5, confidence: 0.2, lag_ms: 100 }],
-          c: [{ cause: 'c', effect: 'd', strength: 0.5, confidence: 0.2, lag_ms: 100 }],
+          a: [{ cause: 'a', effect: 'b', strength: 0.5, confidence: 0.35, lag_ms: 100 }],
+          b: [{ cause: 'b', effect: 'c', strength: 0.5, confidence: 0.35, lag_ms: 100 }],
+          c: [{ cause: 'c', effect: 'd', strength: 0.5, confidence: 0.35, lag_ms: 100 }],
         };
         return graph[eventType] ?? [];
       },

@@ -61,8 +61,8 @@ describe('GoalEngine', () => {
   it('should forecast completion with linear regression', () => {
     const goal = engine.createGoal('Accuracy', 'accuracy', 1.0, 100, { currentCycle: 0 });
 
-    // Simulate linear progress: 0.1 per cycle
-    for (let cycle = 1; cycle <= 5; cycle++) {
+    // Simulate linear progress: 0.1 per cycle (need 8 data points for minForecastCycles=8)
+    for (let cycle = 1; cycle <= 10; cycle++) {
       engine.recordProgress(cycle, { accuracy: cycle * 0.1 });
     }
 

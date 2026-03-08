@@ -124,6 +124,10 @@ export class PeerNetwork {
       } catch { /* ignore */ }
       this.socket = null;
     }
+
+    // Clear callback references to prevent memory leaks
+    this.onDiscoveredCallbacks = [];
+    this.onLostCallbacks = [];
   }
 
   announce(): void {

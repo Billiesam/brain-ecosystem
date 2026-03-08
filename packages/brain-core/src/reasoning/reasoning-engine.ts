@@ -8,7 +8,7 @@ export interface ReasoningEngineConfig {
   brainName: string;
   /** Max inference chain depth. Default: 5 */
   maxDepth?: number;
-  /** Min confidence to continue chain. Default: 0.1 */
+  /** Min confidence to continue chain. Default: 0.3 */
   minConfidence?: number;
   /** Confidence dampening per step. Default: 0.95 */
   dampening?: number;
@@ -185,7 +185,7 @@ export class ReasoningEngine {
     this.config = {
       brainName: config.brainName,
       maxDepth: config.maxDepth ?? 5,
-      minConfidence: config.minConfidence ?? 0.1,
+      minConfidence: config.minConfidence ?? 0.3,
       dampening: config.dampening ?? 0.95,
       minSimilarity: config.minSimilarity ?? 0.15,
     };
