@@ -77,6 +77,7 @@ describe('ResearchEngine', () => {
     insightRepo = {
       expireOld: vi.fn().mockReturnValue(0),
       create: vi.fn().mockReturnValue(1),
+      hasActiveWithTitle: vi.fn().mockReturnValue(false),
     };
     synapseManager = {
       strengthen: vi.fn(),
@@ -226,5 +227,30 @@ describe('ResearchEngine', () => {
       (c: unknown[]) => (c[0] as { type: string }).type === 'optimization'
     );
     expect(optCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should skip creating duplicate insights when active one exists', () => {
+    postRepo.countByPlatform.mockReturnValue({}); // all platforms missing → gap insights
+    insightRepo.hasActiveWithTitle.mockReturnValue(true); // all titles already exist
+
+    engine.runCycle();
+
+    // No gap insights should be created since they all already exist
+    const gapCalls = insightRepo.create.mock.calls.filter(
+      (c: unknown[]) => (c[0] as { type: string }).type === 'gap'
+    );
+    expect(gapCalls).toHaveLength(0);
+  });
+
+  it('should create insight when title is new', () => {
+    postRepo.countByPlatform.mockReturnValue({});
+    insightRepo.hasActiveWithTitle.mockReturnValue(false); // no existing
+
+    engine.runCycle();
+
+    const gapCalls = insightRepo.create.mock.calls.filter(
+      (c: unknown[]) => (c[0] as { type: string }).type === 'gap'
+    );
+    expect(gapCalls.length).toBeGreaterThanOrEqual(1);
   });
 });

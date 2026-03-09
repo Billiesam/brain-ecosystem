@@ -9,3 +9,6 @@ export type { CreativeSeedPayload, CreativeSeedHandlerDeps, CreativeSeedHandlerR
 
 export { createAdjustParameterHandler } from './adjust-parameter-handler.js';
 export type { AdjustParameterPayload, AdjustParameterHandlerDeps, AdjustParameterHandlerResult } from './adjust-parameter-handler.js';
+
+export { createMissionHandler } from './mission-handler.js';
+export type { MissionHandlerDeps, MissionHandlerResult } from './mission-handler.js';

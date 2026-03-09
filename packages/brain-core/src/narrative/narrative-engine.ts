@@ -103,6 +103,12 @@ export class NarrativeEngine {
   private llm: LLMService | null = null;
   private log = getLogger();
 
+  // Contradiction dedup cooldown (5 min)
+  private lastContradictionHash = '';
+  private lastContradictionResult: Contradiction[] = [];
+  private lastContradictionTime = 0;
+  private contradictionCooldownMs = 300_000;
+
   constructor(private db: Database.Database, config: NarrativeEngineConfig) {
     this.brainName = config.brainName;
 
@@ -509,6 +515,21 @@ export class NarrativeEngine {
       return (sev[b.severity] ?? 0) - (sev[a.severity] ?? 0);
     });
     const capped = contradictions.slice(0, 20);
+
+    // Dedup: hash contradictions → skip ThoughtStream if identical within cooldown
+    const hash = createHash('sha256')
+      .update(capped.map(c => `${c.statement_a}|${c.statement_b}`).join('\n'))
+      .digest('hex');
+    const now = Date.now();
+
+    if (hash === this.lastContradictionHash && now - this.lastContradictionTime < this.contradictionCooldownMs) {
+      this.log.debug(`[narrative] Contradiction result unchanged, returning cached (cooldown ${Math.round((this.contradictionCooldownMs - (now - this.lastContradictionTime)) / 1000)}s remaining)`);
+      return this.lastContradictionResult;
+    }
+
+    this.lastContradictionHash = hash;
+    this.lastContradictionResult = capped;
+    this.lastContradictionTime = now;
 
     this.thoughtStream?.emit('narrative', 'discovering',
       `Found ${capped.length} contradictions (${capped.filter(c => c.severity === 'high').length} high severity)`,

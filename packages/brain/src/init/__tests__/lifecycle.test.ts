@@ -60,4 +60,52 @@ describe('runRetentionCleanup', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(() => runRetentionCleanup(db as any, mockConfig as any)).not.toThrow();
   });
+
+  it('caps active insights when above MAX_ACTIVE_INSIGHTS', async () => {
+    const { runRetentionCleanup } = await import('../lifecycle.js');
+    const runResult = { changes: 0 };
+    const capResult = { changes: 1200 };
+    let prepareCallIndex = 0;
+    const db = {
+      prepare: vi.fn().mockImplementation((sql: string) => {
+        if (sql.includes('COUNT(*)') && sql.includes("status = 'active'")) {
+          return { get: vi.fn().mockReturnValue({ cnt: 6200 }) };
+        }
+        if (sql.includes("SET status = 'inactive'") && sql.includes('ORDER BY priority ASC')) {
+          return { run: vi.fn().mockReturnValue(capResult) };
+        }
+        return { run: vi.fn().mockReturnValue(runResult) };
+      }),
+      pragma: vi.fn(),
+      exec: vi.fn(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(() => runRetentionCleanup(db as any, mockConfig as any)).not.toThrow();
+    // Verify the cap query was called
+    const capCall = db.prepare.mock.calls.find(
+      (c: string[]) => c[0].includes('ORDER BY priority ASC')
+    );
+    expect(capCall).toBeDefined();
+  });
+
+  it('does not cap when active insights are below limit', async () => {
+    const { runRetentionCleanup } = await import('../lifecycle.js');
+    const db = {
+      prepare: vi.fn().mockImplementation((sql: string) => {
+        if (sql.includes('COUNT(*)') && sql.includes("status = 'active'")) {
+          return { get: vi.fn().mockReturnValue({ cnt: 3000 }) };
+        }
+        return { run: vi.fn().mockReturnValue({ changes: 0 }) };
+      }),
+      pragma: vi.fn(),
+      exec: vi.fn(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    runRetentionCleanup(db as any, mockConfig as any);
+    // The deactivate query should NOT have been called
+    const capCall = db.prepare.mock.calls.find(
+      (c: string[]) => c[0].includes('ORDER BY priority ASC')
+    );
+    expect(capCall).toBeUndefined();
+  });
 });

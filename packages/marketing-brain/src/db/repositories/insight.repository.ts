@@ -38,7 +38,12 @@ export class InsightRepository {
         WHERE active = 1 AND expires_at IS NOT NULL AND expires_at <= datetime('now')
       `),
       delete: db.prepare('DELETE FROM insights WHERE id = ?'),
+      hasActiveWithTitle: db.prepare('SELECT id FROM insights WHERE title = ? AND active = 1 LIMIT 1'),
     };
+  }
+
+  hasActiveWithTitle(title: string): boolean {
+    return this.stmts.hasActiveWithTitle.get(title) !== undefined;
   }
 
   create(data: InsightCreate): number {

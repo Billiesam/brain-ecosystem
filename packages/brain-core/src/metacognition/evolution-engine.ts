@@ -126,6 +126,9 @@ export class EvolutionEngine {
   private thoughtStream: ThoughtStream | null = null;
   private dataSources: EvolutionDataSources | null = null;
   private currentGeneration = 0;
+  private lastBestFitness = 0;
+  private stagnationCount = 0;
+  private boostGenerationsRemaining = 0;
 
   constructor(db: Database.Database, registry: ParameterRegistry, config: EvolutionConfig) {
     this.db = db;
@@ -255,12 +258,39 @@ export class EvolutionEngine {
       });
     }
 
+    // Stagnation check: boost mutation if fitness hasn't improved for 5 generations
+    const currentBest = population[0]?.fitness ?? 0;
+    if (currentBest > this.lastBestFitness + 0.001) {
+      this.lastBestFitness = currentBest;
+      this.stagnationCount = 0;
+    } else {
+      this.stagnationCount++;
+    }
+
+    let effectiveMutationRate = this.mutationRate;
+    if (this.boostGenerationsRemaining > 0) {
+      effectiveMutationRate = this.mutationRate * 2;
+      this.boostGenerationsRemaining--;
+      this.thoughtStream?.emit('evolution', 'reflecting',
+        `Stagnation boost active: mutation rate ${effectiveMutationRate.toFixed(3)} (${this.boostGenerationsRemaining} gen remaining)`,
+        'notable',
+      );
+    } else if (this.stagnationCount >= 5) {
+      this.boostGenerationsRemaining = 3;
+      effectiveMutationRate = this.mutationRate * 2;
+      this.stagnationCount = 0;
+      this.thoughtStream?.emit('evolution', 'reflecting',
+        `Stagnation detected (5 gen no improvement). Doubling mutation rate for 3 generations.`,
+        'notable',
+      );
+    }
+
     // 4b. Fill rest via tournament selection + crossover + mutation
     while (nextPop.length < this.populationSize) {
       const parentA = this.tournamentSelect(population, this.tournamentSize);
       const parentB = this.tournamentSelect(population, this.tournamentSize);
       const { child, crossoverPoints } = this.crossover(parentA, parentB);
-      const { genome: mutated, mutations } = this.mutateGenome(child, this.mutationRate);
+      const { genome: mutated, mutations } = this.mutateGenome(child, effectiveMutationRate);
 
       nextPop.push({
         generation: this.currentGeneration,

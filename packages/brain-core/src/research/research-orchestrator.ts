@@ -784,6 +784,12 @@ export class ResearchOrchestrator {
       }
       ts?.emit('hypothesis', 'analyzing', 'Testing pending hypotheses...');
       const testResults = this.hypothesisEngine.testAll();
+      // Quality filter: auto-reject weak hypotheses (confidence < 0.3 after testing)
+      const weak = testResults.filter(r => r.newStatus === 'testing' && r.confidence < 0.3 && (r.evidenceFor + r.evidenceAgainst) >= 3);
+      for (const w of weak) {
+        try { this.db.prepare("UPDATE hypotheses SET status = 'rejected' WHERE id = ?").run(w.hypothesisId); } catch { /* best effort */ }
+      }
+      if (weak.length > 0) this.log.debug(`[orchestrator] Rejected ${weak.length} weak hypotheses (confidence < 0.3)`);
       const confirmed = testResults.filter(r => r.newStatus === 'confirmed');
       const rejected = testResults.filter(r => r.newStatus === 'rejected');
       if (confirmed.length > 0 || rejected.length > 0) {
@@ -966,6 +972,12 @@ export class ResearchOrchestrator {
           } catch { /* goal recording non-critical */ }
         }
       }
+      // Diagnostics: log prediction stats for debugging stale accuracy
+      try {
+        const summary = this.predictionEngine.getSummary();
+        this.log.debug(`[orchestrator] Prediction stats: total=${summary.total_predictions}, resolved=${summary.resolved ?? 'N/A'}, pending=${summary.pending ?? 'N/A'}, accuracy=${(summary.accuracy_rate * 100).toFixed(1)}%`);
+      } catch { /* non-critical */ }
+
       ts?.emit('prediction', 'predicting', 'Generating new predictions...');
       const newPredictions = this.predictionEngine.autoPredictAll();
       if (newPredictions.length > 0) {
@@ -1430,6 +1442,26 @@ export class ResearchOrchestrator {
         }
       } catch (err) {
         this.log.debug(`[orchestrator] Auto-mission check error: ${(err as Error).message}`);
+      }
+    }
+
+    // 18c. Curiosity Auto-Answer: periodically answer unanswered questions via NarrativeEngine
+    if (this.curiosityEngine && this.narrativeEngine && this.cycleCount % (this.reflectEvery * 5) === 0) {
+      try {
+        const questions = this.curiosityEngine.getQuestions(10);
+        const unanswered = questions.filter(q => !q.answered).slice(0, 2);
+        for (const q of unanswered) {
+          const answer = this.narrativeEngine.ask(q.question);
+          if (answer.sources.length > 0 && q.id) {
+            this.curiosityEngine.answerQuestion(q.id, answer.answer);
+            this.log.debug(`[orchestrator] Auto-answered curiosity question #${q.id}: "${q.question.substring(0, 60)}"`);
+          }
+        }
+        if (unanswered.length > 0) {
+          ts?.emit('curiosity', 'exploring', `Auto-answered ${unanswered.length} curiosity question(s)`, 'routine');
+        }
+      } catch (err) {
+        this.log.debug(`[orchestrator] Curiosity auto-answer error: ${(err as Error).message}`);
       }
     }
 
@@ -2593,8 +2625,8 @@ export class ResearchOrchestrator {
       }
     }
 
-    // Step 58: CreativeEngine — cross-pollination (every 20 cycles)
-    if (this.creativeEngine && this.cycleCount % 20 === 0) {
+    // Step 58: CreativeEngine — cross-pollination (every reflectEvery cycles)
+    if (this.creativeEngine && this.cycleCount % this.reflectEvery === 0) {
       try {
         const debugInfo = this.creativeEngine.getDebugInfo();
         this.log.debug(`[orchestrator] Step 58: ${debugInfo.principlesCount} principles, domains: ${JSON.stringify(debugInfo.domains)}`);
@@ -2613,8 +2645,11 @@ export class ResearchOrchestrator {
             data: { insightCount: insights.length, converted },
           });
         } else {
-          ts?.emit('creative', 'reflecting', `Step 58: 0 insights (${debugInfo.principlesCount} principles, ${Object.keys(debugInfo.domains).length} domains)`, 'notable');
+          const domainCount = Object.keys(debugInfo.domains).length;
+          this.log.debug(`[orchestrator] Step 58: 0 insights — ${domainCount} domain(s) (need 2+), ${debugInfo.principlesCount} principles`);
+          ts?.emit('creative', 'reflecting', `Step 58: 0 insights (${debugInfo.principlesCount} principles, ${domainCount} domains)`, 'notable');
         }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('creative_engine', this.cycleCount, { insights: insights.length });
       } catch (err) {
         this.log.warn(`[orchestrator] Step 58 (creative) error: ${(err as Error).message}`);
       }
@@ -3711,6 +3746,7 @@ export class ResearchOrchestrator {
     if (this.featureRecommender) {
       try {
         const wishes = this.featureRecommender.getWishlist('matched');
+        this.log.debug(`[selfmod] Source A: ${wishes.length} matched wishes`);
         const actionable = wishes.find(w => w.priority >= 0.5 && w.matchScore >= 0.3);
         if (actionable) {
           // Try to get reference code from matched feature
@@ -3730,6 +3766,8 @@ export class ResearchOrchestrator {
           };
         }
       } catch { /* featureRecommender not ready */ }
+    } else {
+      this.log.debug('[selfmod] Source A skipped: no featureRecommender');
     }
 
     // ── Source B: CodeHealth issues → SelfMod suggestions ──
@@ -3751,13 +3789,21 @@ export class ResearchOrchestrator {
           }
         }
       } catch { /* code health not ready */ }
+    } else {
+      this.log.debug('[selfmod] Source B skipped: no codeHealthMonitor');
     }
 
     // ── Source C: Existing suggestions (filtered — skip AutoResponder noise) ──
-    if (!this.selfScanner) return null;
+    if (!this.selfScanner) {
+      this.log.debug('[selfmod] Source C skipped: no selfScanner');
+      return null;
+    }
 
     const suggestions = this.generateSelfImprovementSuggestions();
-    if (suggestions.length === 0) return null;
+    if (suggestions.length === 0) {
+      this.log.debug('[selfmod] Source C: 0 suggestions from generateSelfImprovementSuggestions()');
+      return null;
+    }
 
     // Engine name → module file mapping heuristics
     const engineMap: Record<string, string[]> = {

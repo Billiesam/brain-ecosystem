@@ -140,6 +140,12 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): void {
     logger.info('Registered execute_trade handler → PaperEngine');
   }
 
+  // Graceful no-op for start_mission (trading-brain has no MissionEngine)
+  actionBridge.registerHandler('start_mission', async (payload) => {
+    logger.debug(`[start_mission] No-op in trading-brain (desireKey=${(payload as Record<string, unknown>).desireKey})`);
+    return { started: false, topic: 'n/a', missionId: null };
+  });
+
   // ContentForge — autonomous content pipeline
   runContentForgeMigration(db);
   const contentForge = new ContentForge(db, { brainName: 'trading-brain' });

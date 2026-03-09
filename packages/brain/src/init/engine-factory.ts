@@ -19,7 +19,7 @@ import {
   BenchmarkSuite, AgentTrainer, ToolScopeManager, PluginMarketplace, CodeSandbox,
   GuardrailEngine, CausalPlanner, ResearchRoadmap, runRoadmapMigration,
   CreativeEngine, runCreativeMigration,
-  ActionBridgeEngine, runActionBridgeMigration,
+  ActionBridgeEngine, runActionBridgeMigration, createMissionHandler,
   ContentForge, runContentForgeMigration,
   CodeForge, runCodeForgeMigration,
   StrategyForge, runStrategyForgeMigration,
@@ -258,6 +258,15 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): IntelligenceR
     }
   });
   services.actionBridge = actionBridge;
+
+  // Register start_mission handler → MissionEngine
+  if (services.missionEngine) {
+    const missionRef = services.missionEngine;
+    actionBridge.registerHandler('start_mission', createMissionHandler({
+      createMission: (topic, mode) => missionRef.createMission(topic, mode as 'quick' | 'standard' | 'deep'),
+    }));
+    logger.info('Registered start_mission handler → MissionEngine');
+  }
 
   // 92. ContentForge — autonomous content generation + publishing
   runContentForgeMigration(db);

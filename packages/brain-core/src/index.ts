@@ -567,7 +567,7 @@ export type {
 } from './creative/index.js';
 
 // ── Action Bridge ─────────────────────────────────────────
-export { ActionBridgeEngine, runActionBridgeMigration, createTradeHandler, createContentHandler, createCreativeSeedHandler, createAdjustParameterHandler } from './action/index.js';
+export { ActionBridgeEngine, runActionBridgeMigration, createTradeHandler, createContentHandler, createCreativeSeedHandler, createAdjustParameterHandler, createMissionHandler } from './action/index.js';
 export type {
   ProposedAction, ActionOutcome,
   ActionBridgeConfig, ActionBridgeStatus,

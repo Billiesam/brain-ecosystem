@@ -48,6 +48,24 @@ export function runRetentionCleanup(db: Database.Database, config: BrainConfig):
       logger.info(`[retention] Cleaned up ${errResult.changes} old errors, ${insResult.changes} old insights`);
     }
 
+    // Cap active insights to prevent unbounded growth
+    const MAX_ACTIVE_INSIGHTS = 5000;
+    try {
+      const activeCount = (db.prepare("SELECT COUNT(*) as cnt FROM insights WHERE status = 'active'").get() as { cnt: number }).cnt;
+      if (activeCount > MAX_ACTIVE_INSIGHTS) {
+        const excess = activeCount - MAX_ACTIVE_INSIGHTS;
+        const deactivated = db.prepare(`
+          UPDATE insights SET status = 'inactive' WHERE id IN (
+            SELECT id FROM insights WHERE status = 'active'
+            ORDER BY priority ASC, confidence ASC LIMIT ?
+          )
+        `).run(excess);
+        logger.info(`[retention] Capped active insights: deactivated ${deactivated.changes} (was ${activeCount}, cap ${MAX_ACTIVE_INSIGHTS})`);
+      }
+    } catch (err) {
+      logger.debug(`[retention] Insight cap check skipped: ${(err as Error).message}`);
+    }
+
     // Optimize DB
     db.pragma('optimize');
 

@@ -129,10 +129,12 @@ export class ResearchEngine extends BaseResearchEngine {
       if (olderAvg > 0 && Math.abs(recentAvg - olderAvg) / olderAvg > 0.2) {
         const direction = recentAvg > olderAvg ? 'up' : 'down';
         const pct = Math.round(Math.abs(recentAvg - olderAvg) / olderAvg * 100);
+        const trendTitle = `${platform} engagement trending ${direction}`;
 
+        if (this.insightRepo.hasActiveWithTitle(trendTitle)) continue;
         this.insightRepo.create({
           type: 'trend',
-          title: `${platform} engagement trending ${direction}`,
+          title: trendTitle,
           description: `Engagement on ${platform} is ${direction} ${pct}% over the last ${this.config.trendWindowDays} days (avg score: ${avg.toFixed(0)})`,
           confidence: Math.min(0.9, scores.length / 20),
           priority: pct > 30 ? 8 : 5,
@@ -148,6 +150,7 @@ export class ResearchEngine extends BaseResearchEngine {
 
     for (const platform of platforms) {
       if (!postsByPlatform[platform] || postsByPlatform[platform] === 0) {
+        if (this.insightRepo.hasActiveWithTitle(`No posts on ${platform}`)) continue;
         this.insightRepo.create({
           type: 'gap',
           title: `No posts on ${platform}`,
@@ -157,6 +160,7 @@ export class ResearchEngine extends BaseResearchEngine {
           expires_at: this.expiresAt(),
         });
       } else if (postsByPlatform[platform] < 3) {
+        if (this.insightRepo.hasActiveWithTitle(`Low activity on ${platform}`)) continue;
         this.insightRepo.create({
           type: 'gap',
           title: `Low activity on ${platform}`,
@@ -187,9 +191,11 @@ export class ResearchEngine extends BaseResearchEngine {
     for (const [platform, formats] of Object.entries(platformFormat)) {
       const sorted = Object.entries(formats).sort(([, a], [, b]) => b - a);
       if (sorted[0] && sorted[0][1] >= 3) {
+        const synergyTitle = `${sorted[0][0]} works best on ${platform}`;
+        if (this.insightRepo.hasActiveWithTitle(synergyTitle)) continue;
         this.insightRepo.create({
           type: 'synergy',
-          title: `${sorted[0][0]} works best on ${platform}`,
+          title: synergyTitle,
           description: `${sorted[0][1]} of your top posts on ${platform} use the ${sorted[0][0]} format. This combination consistently performs well.`,
           confidence: sorted[0][1] / topPosts.length,
           priority: 6,
@@ -211,9 +217,11 @@ export class ResearchEngine extends BaseResearchEngine {
       if (existing.length > 0) continue;
 
       // If top post has no matching template, suggest creating one
+      const templateTitle = `Create template from top ${fullPost.platform} post`;
+      if (this.insightRepo.hasActiveWithTitle(templateTitle)) continue;
       this.insightRepo.create({
         type: 'template',
-        title: `Create template from top ${fullPost.platform} post`,
+        title: templateTitle,
         description: `Post #${fullPost.id} (${fullPost.format}) has high engagement. Consider extracting its structure as a reusable template.`,
         confidence: 0.7,
         priority: 5,
@@ -247,9 +255,11 @@ export class ResearchEngine extends BaseResearchEngine {
         const top = topPost[0];
         const topFullPost = this.postRepo.getById(top.post_id);
         if (topFullPost && topFullPost.campaign_id === campaign.id) {
+          const optTitle = `Cross-post top content from "${campaign.name}"`;
+          if (this.insightRepo.hasActiveWithTitle(optTitle)) continue;
           this.insightRepo.create({
             type: 'optimization',
-            title: `Cross-post top content from "${campaign.name}"`,
+            title: optTitle,
             description: `Your top post in "${campaign.name}" (score: ${engagementScore(top).toFixed(0)}) could be adapted for other platforms. Campaign avg: ${avgScore.toFixed(0)}.`,
             confidence: 0.6,
             priority: 4,

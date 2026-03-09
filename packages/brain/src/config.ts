@@ -8,7 +8,7 @@ const defaults: BrainConfig = {
   dbPath: path.join(getDataDir(), 'brain.db'),
   ipc: {
     pipeName: getPipeName(),
-    timeout: 5000,
+    timeout: 15000,
   },
   api: {
     port: 7777,

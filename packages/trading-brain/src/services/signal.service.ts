@@ -88,6 +88,14 @@ export class SignalService {
           weights[key] = Math.round(DEFAULT_WEIGHTS[key]! * factor);
         }
       }
+
+      // Negative learning: penalize all weights when synapse shows consistent losses
+      if (synapse.weight < 0.3 && synapse.activations >= 3) {
+        const penaltyFactor = synapse.weight / 0.5; // e.g. 0.2/0.5 = 0.4
+        for (const key of Object.keys(weights)) {
+          weights[key] = Math.round(weights[key]! * penaltyFactor);
+        }
+      }
     }
 
     // Spreading activation for combo bonus

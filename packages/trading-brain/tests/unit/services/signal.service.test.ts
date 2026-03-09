@@ -229,6 +229,39 @@ describe('SignalService', () => {
       const calledFp = synapseManager.getByFingerprint.mock.calls[0]?.[0] as string;
       expect(calledFp).toContain('bull');
     });
+
+    it('should apply negative learning penalty when synapse weight < 0.3 and activations >= 3', () => {
+      tradeCountFn.mockReturnValue(50);
+      synapseManager.getByFingerprint.mockReturnValue({
+        weight: 0.2, // below 0.3 threshold
+        activations: 5, // above 3 minimum
+        wins: 1,
+        losses: 4,
+      });
+
+      const weights = service.getSignalWeights(defaultSignals);
+
+      // factor = 0.2 / 0.5 = 0.4 → weights scaled by 0.4 first
+      // Then penalty: penaltyFactor = 0.2 / 0.5 = 0.4 → weights * 0.4 again
+      // rsi_oversold: round(30 * 0.4) = 12 → round(12 * 0.4) = 5
+      expect(weights['rsi_oversold']).toBeLessThan(15); // significantly reduced
+    });
+
+    it('should not apply negative learning penalty when synapse weight >= 0.3', () => {
+      tradeCountFn.mockReturnValue(50);
+      synapseManager.getByFingerprint.mockReturnValue({
+        weight: 0.4, // above 0.3 threshold
+        activations: 5,
+        wins: 2,
+        losses: 3,
+      });
+
+      const weights = service.getSignalWeights(defaultSignals);
+
+      // factor = 0.4 / 0.5 = 0.8, no penalty
+      // rsi_oversold: round(30 * 0.8) = 24
+      expect(weights['rsi_oversold']).toBe(24);
+    });
   });
 
   describe('getConfidence', () => {

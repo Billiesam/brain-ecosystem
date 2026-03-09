@@ -151,6 +151,12 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): void {
       logger.info('Registered creative_seed handler → CreativeEngine');
     }
 
+    // Graceful no-op for start_mission (marketing-brain has no MissionEngine)
+    actionBridge.registerHandler('start_mission', async (payload) => {
+      logger.debug(`[start_mission] No-op in marketing-brain (desireKey=${(payload as Record<string, unknown>).desireKey})`);
+      return { started: false, topic: 'n/a', missionId: null };
+    });
+
     const autoPublisher = new AutoPublisher(contentForge);
     autoPublisher.start();
     services.autoPublisher = autoPublisher;
