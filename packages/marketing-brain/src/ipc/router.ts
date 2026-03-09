@@ -132,6 +132,7 @@ export interface Services {
   feedbackRouter?: import('@timmeck/brain-core').FeedbackRouter;
   teachingProtocol?: import('@timmeck/brain-core').TeachingProtocol;
   curriculum?: import('@timmeck/brain-core').Curriculum;
+  memoryWatchdog?: import('@timmeck/brain-core').MemoryWatchdog;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -893,6 +894,9 @@ export class IpcRouter {
       ['strategy.performance', (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getPerformance(p(params).id); }],
       ['strategy.retire',      (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.retire(p(params).id, p(params).reason); }],
       ['strategy.status',      () => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getStatus(); }],
+
+      // System
+      ['system.memory',        () => s.memoryWatchdog?.getStats() ?? { currentMB: Math.round(process.memoryUsage().heapUsed / 1048576), peakMB: 0, trend: 'stable', leakSuspected: false, samples: 0 }],
 
       ['status',               () => ({
         name: 'marketing-brain',

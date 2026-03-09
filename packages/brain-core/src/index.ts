@@ -11,6 +11,8 @@ export { retryWithBackoff } from './utils/retry.js';
 export type { RetryOptions } from './utils/retry.js';
 export { BatchQueue } from './utils/batch-queue.js';
 export type { BatchQueueOptions } from './utils/batch-queue.js';
+export { MemoryWatchdog } from './utils/memory-watchdog.js';
+export type { MemoryStats } from './utils/memory-watchdog.js';
 
 // ── DB ─────────────────────────────────────────────────────
 export { createConnection } from './db/connection.js';

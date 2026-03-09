@@ -96,6 +96,7 @@ export class GuardrailEngine {
   private registry: ParameterRegistry | null = null;
   private goalEngine: GoalEngine | null = null;
   private ts: ThoughtStream | null = null;
+  private memoryWatchdog: import('../utils/memory-watchdog.js').MemoryWatchdog | null = null;
   private circuitBreakerTripped = false;
   private circuitBreakerReason: string | null = null;
 
@@ -113,6 +114,7 @@ export class GuardrailEngine {
   setParameterRegistry(registry: ParameterRegistry): void { this.registry = registry; }
   setGoalEngine(engine: GoalEngine): void { this.goalEngine = engine; }
   setThoughtStream(stream: ThoughtStream): void { this.ts = stream; }
+  setMemoryWatchdog(watchdog: import('../utils/memory-watchdog.js').MemoryWatchdog): void { this.memoryWatchdog = watchdog; }
 
   // ── Parameter Validation ────────────────────────────────
 
@@ -296,16 +298,20 @@ export class GuardrailEngine {
       }
     } catch (err) { this.log.debug(`[guardrails] Change frequency check failed: ${(err as Error).message}`); }
 
-    // 4. Check memory/DB size (pragmatic check)
+    // 4. Check memory/DB size (pragmatic check — uses MemoryWatchdog if available)
     try {
-      const memUsage = process.memoryUsage();
-      const heapUsedMB = memUsage.heapUsed / (1024 * 1024);
-      if (heapUsedMB > 512) {
-        warnings.push({
-          category: 'memory',
-          message: `Heap usage at ${heapUsedMB.toFixed(0)}MB — consider restart`,
-          severity: heapUsedMB > 1024 ? 'high' : 'medium',
-        });
+      if (this.memoryWatchdog) {
+        const stats = this.memoryWatchdog.getStats();
+        if (stats.leakSuspected) {
+          warnings.push({ category: 'memory', message: `Memory leak suspected: ${stats.currentMB}MB heap, trend=${stats.trend} over ${stats.samples} samples`, severity: 'high' });
+        } else if (stats.currentMB > 512) {
+          warnings.push({ category: 'memory', message: `Heap usage at ${stats.currentMB}MB — consider restart`, severity: stats.currentMB > 1024 ? 'high' : 'medium' });
+        }
+      } else {
+        const heapUsedMB = process.memoryUsage().heapUsed / (1024 * 1024);
+        if (heapUsedMB > 512) {
+          warnings.push({ category: 'memory', message: `Heap usage at ${heapUsedMB.toFixed(0)}MB — consider restart`, severity: heapUsedMB > 1024 ? 'high' : 'medium' });
+        }
       }
     } catch (err) { this.log.debug(`[guardrails] Memory check failed: ${(err as Error).message}`); }
 

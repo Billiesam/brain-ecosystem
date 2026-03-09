@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine, GuardrailEngine, CausalPlanner, ResearchRoadmap, CreativeEngine, TelegramBot, DiscordBot } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine, GuardrailEngine, CausalPlanner, ResearchRoadmap, CreativeEngine, TelegramBot, DiscordBot, MemoryWatchdog } from '@timmeck/brain-core';
 import type { BorgDataProvider, SyncItem, HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 // Init modules (extracted from God-Class)
@@ -829,7 +829,12 @@ export class BrainCore {
     this.borgSync = new BorgSyncEngine('brain', this.crossBrain!, borgProvider);
     services.borgSync = this.borgSync;
 
-    // 11f. Command Center Dashboard
+    // 11f. MemoryWatchdog — heap leak detection (5 min samples, 1h window)
+    const memoryWatchdog = new MemoryWatchdog();
+    memoryWatchdog.start();
+    services.memoryWatchdog = memoryWatchdog;
+
+    // 11g. Command Center Dashboard
     this.commandCenter = createCommandCenter({
       services, crossBrain: this.crossBrain!, ecosystemService: this.ecosystemService!,
       correlator: this.correlator!, watchdog, pluginRegistry: this.pluginRegistry!,
@@ -936,6 +941,9 @@ export class BrainCore {
           research: this.researchEngine !== null,
           embeddings: this.embeddingEngine !== null,
           ecosystemHealth: this.correlator?.getHealth().score ?? null,
+          memoryMB: Math.round(process.memoryUsage().heapUsed / 1048576),
+          uptimeSeconds: Math.round(process.uptime()),
+          dbSizeMB: (() => { try { return +(fs.statSync(config.dbPath).size / 1048576).toFixed(2); } catch { return null; } })(),
         }),
       });
       this.apiServer.start();

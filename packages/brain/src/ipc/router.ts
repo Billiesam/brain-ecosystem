@@ -168,6 +168,7 @@ export interface Services {
   signalRouter?: import('@timmeck/brain-core').CrossBrainSignalRouter;
   chatEngine?: import('@timmeck/brain-core').ChatEngine;
   subAgentFactory?: import('@timmeck/brain-core').SubAgentFactory;
+  memoryWatchdog?: import('@timmeck/brain-core').MemoryWatchdog;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1264,6 +1265,9 @@ export class IpcRouter {
         const actionId = s.actionBridge.propose({ source: 'desire' as any, type: actionType, title: `Desire: ${top.suggestion.substring(0, 80)}`, description: top.suggestion, confidence: Math.min(top.priority / 10, 0.9), payload: { desireKey: top.key, priority: top.priority } });
         return { actuated: true, actionId, actionType, desireKey: top.key };
       }],
+
+      // System
+      ['system.memory',           () => s.memoryWatchdog?.getStats() ?? { currentMB: Math.round(process.memoryUsage().heapUsed / 1048576), peakMB: 0, trend: 'stable', leakSuspected: false, samples: 0 }],
 
       // Status (cross-brain)
       ['status',                  () => ({

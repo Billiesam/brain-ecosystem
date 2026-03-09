@@ -65,7 +65,7 @@ import { SchedulerService } from './services/scheduler.service.js';
 import { CalendarService } from './services/calendar.service.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine, BorgSyncEngine, DebateEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, HypothesisEngine, runHypothesisMigration, TransferEngine, BorgSyncEngine, DebateEngine, MemoryWatchdog } from '@timmeck/brain-core';
 import { createIntelligenceEngines } from './init/engine-factory.js';
 import type { BorgDataProvider, SyncItem } from '@timmeck/brain-core';
 
@@ -307,6 +307,11 @@ export class MarketingCore {
     this.borgSync = new BorgSyncEngine('marketing-brain', this.crossBrain!, borgProvider);
     services.borgSync = this.borgSync;
 
+    // 10c-pre. MemoryWatchdog — heap leak detection (5 min samples, 1h window)
+    const memoryWatchdog = new MemoryWatchdog();
+    memoryWatchdog.start();
+    services.memoryWatchdog = memoryWatchdog;
+
     // 10c. Debate Engine — multi-perspective debates on marketing questions
     try {
       const debateEngine = new DebateEngine(db, { brainName: 'marketing-brain', domainDescription: 'content strategy and engagement learning' });
@@ -344,6 +349,15 @@ export class MarketingCore {
         port: config.api.port,
         router,
         apiKey: config.api.apiKey,
+        healthCheck: () => ({
+          db: this.db !== null,
+          ipc: this.ipcServer !== null,
+          learning: this.learningEngine !== null,
+          research: this.researchEngine !== null,
+          memoryMB: Math.round(process.memoryUsage().heapUsed / 1048576),
+          uptimeSeconds: Math.round(process.uptime()),
+          dbSizeMB: (() => { try { return +(fs.statSync(config.dbPath).size / 1048576).toFixed(2); } catch { return null; } })(),
+        }),
       });
       this.apiServer.start();
       logger.info(`REST API enabled on port ${config.api.port}`);

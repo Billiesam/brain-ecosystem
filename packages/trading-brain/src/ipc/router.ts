@@ -133,6 +133,7 @@ export interface Services {
   signalRouter?: import('@timmeck/brain-core').CrossBrainSignalRouter;
   strategyMutator?: import('@timmeck/brain-core').StrategyMutator;
   portfolioOptimizer?: import('../paper/portfolio-optimizer.js').PortfolioOptimizer;
+  memoryWatchdog?: import('@timmeck/brain-core').MemoryWatchdog;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -867,6 +868,9 @@ export class IpcRouter {
       ['strategy.generation', () => { if (!s.strategyMutator) throw new Error('Not available'); return { generation: s.strategyMutator.getGeneration() }; }],
       ['portfolio.health',    () => { if (!s.portfolioOptimizer || !s.paper) throw new Error('Not available'); const portfolio = s.paper.getPortfolio(); return s.portfolioOptimizer.checkHealth(portfolio.equity, portfolio.positions.map((p: { symbol: string; usdtAmount: number }) => ({ symbol: p.symbol, usdtAmount: p.usdtAmount }))); }],
       ['portfolio.history',   (params) => { if (!s.portfolioOptimizer) throw new Error('Not available'); return s.portfolioOptimizer.getHistory(p(params).limit); }],
+
+      // System
+      ['system.memory', () => s.memoryWatchdog?.getStats() ?? { currentMB: Math.round(process.memoryUsage().heapUsed / 1048576), peakMB: 0, trend: 'stable', leakSuspected: false, samples: 0 }],
 
       ['status', () => ({
         name: 'trading-brain',

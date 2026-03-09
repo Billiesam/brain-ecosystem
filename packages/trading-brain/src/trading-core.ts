@@ -65,7 +65,7 @@ import { ApiServer } from './api/server.js';
 import { McpHttpServer } from './mcp/http-server.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, BorgSyncEngine } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, TradingDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, BorgSyncEngine, MemoryWatchdog } from '@timmeck/brain-core';
 import type { BorgDataProvider, SyncItem, HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 export class TradingCore {
@@ -718,6 +718,11 @@ export class TradingCore {
     this.borgSync = new BorgSyncEngine('trading-brain', this.crossBrain!, borgProvider);
     services.borgSync = this.borgSync;
 
+    // 12b. MemoryWatchdog — heap leak detection (5 min samples, 1h window)
+    const memoryWatchdog = new MemoryWatchdog();
+    memoryWatchdog.start();
+    services.memoryWatchdog = memoryWatchdog;
+
     // 13. IPC Server
     const router = new IpcRouter(services);
     this.ipcServer = new IpcServer(router, config.ipc.pipeName, 'trading-brain', 'trading-brain');
@@ -769,6 +774,9 @@ export class TradingCore {
           learning: this.learningEngine !== null,
           research: this.researchEngine !== null,
           ecosystemHealth: this.correlator?.getHealth().score ?? null,
+          memoryMB: Math.round(process.memoryUsage().heapUsed / 1048576),
+          uptimeSeconds: Math.round(process.uptime()),
+          dbSizeMB: (() => { try { return +(fs.statSync(config.dbPath).size / 1048576).toFixed(2); } catch { return null; } })(),
         }),
       });
       this.apiServer.start();

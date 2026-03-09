@@ -1,5 +1,7 @@
 src/
 tests/
+dist/**/__tests__/
+dist/**/*.test.*
 .claude/
 .mcp.json
 tsconfig.json
