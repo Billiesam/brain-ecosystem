@@ -38,8 +38,10 @@ describe('MemoryWatchdog', () => {
     vi.spyOn(Date, 'now')
       .mockImplementation(() => now);
 
+    // Deterministic jitter pattern: alternating ±0.5 MB around base
+    const jitter = [0.3, -0.4, 0.2, -0.3, 0.4, -0.2, 0.1, -0.1];
     for (let i = 0; i < 8; i++) {
-      heapValue = baseHeap + (Math.random() - 0.5) * 2; // ±1 MB jitter
+      heapValue = baseHeap + jitter[i]!;
       vi.spyOn(Date, 'now').mockReturnValue(now + i * 300_000); // 5 min intervals
       watchdog.takeSample();
     }

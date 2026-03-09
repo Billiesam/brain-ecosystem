@@ -79,6 +79,39 @@ export function borgCommand(): Command {
       });
     });
 
+  cmd.command('config')
+    .description('Update Borg config')
+    .option('--mode <mode>', 'Sync mode: selective or full')
+    .option('--threshold <n>', 'Relevance threshold (0-1)')
+    .option('--confidence <n>', 'Minimum confidence (0-1)')
+    .action(async (opts) => {
+      await withIpc(async (client) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const update: any = {};
+        if (opts.mode) update.mode = opts.mode;
+        if (opts.threshold) update.relevanceThreshold = parseFloat(opts.threshold);
+        if (opts.confidence) update.minConfidence = parseFloat(opts.confidence);
+
+        if (Object.keys(update).length === 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cfg: any = await client.request('borg.config');
+          console.log(header('Borg Config', '\u{2699}\u{FE0F}'));
+          for (const [k, v] of Object.entries(cfg ?? {})) {
+            console.log(keyValue(k, String(v)));
+          }
+          console.log(divider());
+          return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result: any = await client.request('borg.updateConfig', update);
+        console.log(`  ${c.green('Config updated')}`);
+        console.log(keyValue('Mode', c.value(result?.mode ?? '-')));
+        console.log(keyValue('Relevance Threshold', String(result?.relevanceThreshold ?? '-')));
+        console.log(keyValue('Min Confidence', String(result?.minConfidence ?? '-')));
+      });
+    });
+
   // Default action: status
   cmd.action(async () => {
     await cmd.commands.find(c => c.name() === 'status')!.parseAsync([], { from: 'user' });

@@ -785,6 +785,9 @@ export class IpcRouter {
       ['borg.history',            (params) => s.borgSync?.getHistory((params as { limit?: number })?.limit) ?? []],
       ['borg.enable',             () => { s.borgSync?.setEnabled(true); return { enabled: true }; }],
       ['borg.disable',            () => { s.borgSync?.setEnabled(false); return { enabled: false }; }],
+      ['borg.config',             () => s.borgSync?.getConfig() ?? null],
+      ['borg.updateConfig',       (params) => { s.borgSync?.updateConfig(params as Record<string, unknown>); return s.borgSync?.getConfig() ?? null; }],
+      ['borg.sync',               async () => { await s.borgSync?.syncCycle(); return { synced: true }; }],
       ['cross-brain.borgSync',    (params) => s.borgSync?.handleIncomingSync(params as import('@timmeck/brain-core').SyncPacket) ?? { accepted: 0, rejected: 0 }],
       ['cross-brain.borgExport',  () => s.borgSync?.handleExportRequest() ?? { source: 'marketing-brain', timestamp: new Date().toISOString(), items: [] }],
 
