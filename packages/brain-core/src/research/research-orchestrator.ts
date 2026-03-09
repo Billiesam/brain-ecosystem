@@ -147,6 +147,10 @@ export class ResearchOrchestrator {
   private contentForge: import('../content/content-forge.js').ContentForge | null = null;
   private codeForge: import('../codegen/code-forge.js').CodeForge | null = null;
   private strategyForge: import('../strategy/strategy-forge.js').StrategyForge | null = null;
+  private engineRegistry: import('../governance/engine-registry.js').EngineRegistry | null = null;
+  private runtimeInfluenceTracker: import('../governance/runtime-influence-tracker.js').RuntimeInfluenceTracker | null = null;
+  private loopDetector: import('../governance/loop-detector.js').LoopDetector | null = null;
+  private governanceLayer: import('../governance/governance-layer.js').GovernanceLayer | null = null;
   private lastAutoMissionTime = 0;
   private lastGoalMissionTime = 0;
   private roadmapBootstrapped = false;
@@ -414,6 +418,18 @@ export class ResearchOrchestrator {
 
   /** Set the StrategyForge — autonomous strategy execution. */
   setStrategyForge(forge: import('../strategy/strategy-forge.js').StrategyForge): void { this.strategyForge = forge; }
+
+  /** Set the EngineRegistry — formal engine profiles for governance. */
+  setEngineRegistry(registry: import('../governance/engine-registry.js').EngineRegistry): void { this.engineRegistry = registry; }
+
+  /** Set the RuntimeInfluenceTracker — before/after snapshots for influence tracking. */
+  setRuntimeInfluenceTracker(tracker: import('../governance/runtime-influence-tracker.js').RuntimeInfluenceTracker): void { this.runtimeInfluenceTracker = tracker; }
+
+  /** Set the LoopDetector — anti-pattern detection. */
+  setLoopDetector(detector: import('../governance/loop-detector.js').LoopDetector): void { this.loopDetector = detector; }
+
+  /** Set the GovernanceLayer — active engine control. */
+  setGovernanceLayer(layer: import('../governance/governance-layer.js').GovernanceLayer): void { this.governanceLayer = layer; }
 
   /** Set the LLMService — propagates to all engines that can use LLM. */
   setLLMService(llm: LLMService): void {
@@ -2878,6 +2894,53 @@ export class ResearchOrchestrator {
       } catch (err) {
         this.log.warn(`[orchestrator] Step 65 (outcome review) error: ${(err as Error).message}`);
       }
+    }
+
+    // Step 66: RuntimeInfluenceTracker — feed into CausalGraph (every 10 cycles)
+    if (this.runtimeInfluenceTracker && this.causalGraph && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('governance', 'analyzing', 'Step 66: Feeding engine influences into CausalGraph...', 'routine');
+        this.runtimeInfluenceTracker.feedIntoCausalGraph(this.causalGraph);
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('influence_tracker', this.cycleCount, { insights: 0 });
+      } catch (err) { this.log.warn(`[orchestrator] Step 66 (influence tracker) error: ${(err as Error).message}`); }
+    }
+
+    // Step 67: LoopDetector — detect anti-patterns (every 10 cycles)
+    if (this.loopDetector && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('governance', 'analyzing', 'Step 67: Scanning for anti-patterns...', 'routine');
+        const loopDetections = this.loopDetector.detect(this.cycleCount);
+        if (loopDetections.length > 0) {
+          ts?.emit('governance', 'discovering', `Step 67: ${loopDetections.length} anti-pattern(s) detected`, 'notable');
+          this.journal.write({
+            type: 'insight', title: `Loop Detector: ${loopDetections.length} anti-pattern(s)`,
+            content: loopDetections.map(d => `${d.loopType}: ${d.description}`).join('\n'),
+            tags: [this.brainName, 'governance', 'loop-detector'],
+            references: [], significance: 'notable',
+            data: { detections: loopDetections.length },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('loop_detector', this.cycleCount, { insights: loopDetections.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 67 (loop detector) error: ${(err as Error).message}`); }
+    }
+
+    // Step 68: GovernanceLayer — auto-governance review (every 10 cycles)
+    if (this.governanceLayer && this.cycleCount % 10 === 0) {
+      try {
+        ts?.emit('governance', 'analyzing', 'Step 68: Governance review...', 'routine');
+        const decisions = this.governanceLayer.review(this.cycleCount);
+        if (decisions.length > 0) {
+          ts?.emit('governance', 'responding', `Step 68: ${decisions.length} governance decision(s)`, 'notable');
+          this.journal.write({
+            type: 'insight', title: `Governance: ${decisions.length} decision(s)`,
+            content: decisions.map(d => `${d.action} → ${d.engine}: ${d.reason}`).join('\n'),
+            tags: [this.brainName, 'governance', 'decisions'],
+            references: [], significance: 'notable',
+            data: { decisions: decisions.length },
+          });
+        }
+        if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('governance_layer', this.cycleCount, { insights: decisions.length });
+      } catch (err) { this.log.warn(`[orchestrator] Step 68 (governance) error: ${(err as Error).message}`); }
     }
 
     const duration = Date.now() - start;

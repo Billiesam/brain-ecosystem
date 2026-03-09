@@ -134,6 +134,10 @@ export interface Services {
   strategyMutator?: import('@timmeck/brain-core').StrategyMutator;
   portfolioOptimizer?: import('../paper/portfolio-optimizer.js').PortfolioOptimizer;
   memoryWatchdog?: import('@timmeck/brain-core').MemoryWatchdog;
+  engineRegistry?: import('@timmeck/brain-core').EngineRegistry;
+  runtimeInfluenceTracker?: import('@timmeck/brain-core').RuntimeInfluenceTracker;
+  loopDetector?: import('@timmeck/brain-core').LoopDetector;
+  governanceLayer?: import('@timmeck/brain-core').GovernanceLayer;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;

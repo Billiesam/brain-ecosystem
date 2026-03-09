@@ -19,6 +19,10 @@ import {
   StrategyForge, runStrategyForgeMigration,
   CrossBrainSignalRouter, runSignalRouterMigration,
   StrategyMutator,
+  EngineRegistry, getDefaultEngineProfiles,
+  RuntimeInfluenceTracker,
+  LoopDetector,
+  GovernanceLayer,
 } from '@timmeck/brain-core';
 import type {
   ResearchOrchestrator, AutonomousResearchScheduler, ThoughtStream,
@@ -184,6 +188,25 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): void {
   const portfolioOptimizer = new PortfolioOptimizer(db);
   services.portfolioOptimizer = portfolioOptimizer;
 
+  // 116. EngineRegistry — formal engine profiles for governance
+  const engineRegistry = new EngineRegistry(db);
+  for (const profile of getDefaultEngineProfiles()) {
+    engineRegistry.register(profile);
+  }
+  services.engineRegistry = engineRegistry;
+
+  const runtimeInfluenceTracker = new RuntimeInfluenceTracker(db);
+  services.runtimeInfluenceTracker = runtimeInfluenceTracker;
+
+  const loopDetector = new LoopDetector(db);
+  loopDetector.setInfluenceTracker(runtimeInfluenceTracker);
+  services.loopDetector = loopDetector;
+
+  const governanceLayer = new GovernanceLayer(db);
+  governanceLayer.setLoopDetector(loopDetector);
+  governanceLayer.setEngineRegistry(engineRegistry);
+  services.governanceLayer = governanceLayer;
+
   // Wire intelligence engines into orchestrator
   orchestrator.setFactExtractor(factExtractor);
   orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -215,6 +238,10 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): void {
 
   services.signalRouter = signalRouter;
   orchestrator.setSignalRouter(signalRouter);
+  orchestrator.setEngineRegistry(engineRegistry);
+  orchestrator.setRuntimeInfluenceTracker(runtimeInfluenceTracker);
+  orchestrator.setLoopDetector(loopDetector);
+  orchestrator.setGovernanceLayer(governanceLayer);
 
-  logger.info('Intelligence upgrade active (RAG, KG, Feedback, ToolTracker, UserModel, Proactive, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber, Guardrails, CausalPlanner, Roadmap, Creative, ActionBridge, ContentForge, CodeForge, StrategyForge, SignalRouter)');
+  logger.info('Intelligence upgrade active (RAG, KG, Feedback, ToolTracker, UserModel, Proactive, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber, Guardrails, CausalPlanner, Roadmap, Creative, ActionBridge, ContentForge, CodeForge, StrategyForge, SignalRouter, EngineRegistry, InfluenceTracker)');
 }

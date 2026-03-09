@@ -26,6 +26,10 @@ import {
   CrossBrainSignalRouter, runSignalRouterMigration,
   ChatEngine, runChatMigration,
   SubAgentFactory, runSubAgentMigration,
+  EngineRegistry, getDefaultEngineProfiles,
+  RuntimeInfluenceTracker,
+  LoopDetector,
+  GovernanceLayer,
   SignalScanner, CodeMiner, PatternExtractor, ContextBuilder, CodeGenerator,
   TechRadarEngine, runTechRadarMigration,
   NotificationService as MultiChannelNotificationService, runNotificationMigration,
@@ -334,6 +338,28 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): IntelligenceR
   const subAgentFactory = new SubAgentFactory(db);
   services.subAgentFactory = subAgentFactory;
 
+  // 116. EngineRegistry — formal engine profiles for governance
+  const engineRegistry = new EngineRegistry(db);
+  for (const profile of getDefaultEngineProfiles()) {
+    engineRegistry.register(profile);
+  }
+  services.engineRegistry = engineRegistry;
+
+  // 117. RuntimeInfluenceTracker — before/after snapshots for influence tracking
+  const runtimeInfluenceTracker = new RuntimeInfluenceTracker(db);
+  services.runtimeInfluenceTracker = runtimeInfluenceTracker;
+
+  // 118. LoopDetector — anti-pattern detection
+  const loopDetector = new LoopDetector(db);
+  loopDetector.setInfluenceTracker(runtimeInfluenceTracker);
+  services.loopDetector = loopDetector;
+
+  // 119. GovernanceLayer — active engine control
+  const governanceLayer = new GovernanceLayer(db);
+  governanceLayer.setLoopDetector(loopDetector);
+  governanceLayer.setEngineRegistry(engineRegistry);
+  services.governanceLayer = governanceLayer;
+
   // ── Wire intelligence engines into autonomous ResearchOrchestrator ──
   orchestrator.setFactExtractor(factExtractor);
   orchestrator.setKnowledgeGraph(knowledgeGraph);
@@ -361,8 +387,12 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): IntelligenceR
   orchestrator.setCodeForge(codeForge);
   orchestrator.setStrategyForge(strategyForge);
   orchestrator.setSignalRouter(signalRouter);
+  orchestrator.setEngineRegistry(engineRegistry);
+  orchestrator.setRuntimeInfluenceTracker(runtimeInfluenceTracker);
+  orchestrator.setLoopDetector(loopDetector);
+  orchestrator.setGovernanceLayer(governanceLayer);
 
-  logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber, Guardrails, CausalPlanner, Roadmap, Creative — all wired into orchestrator)');
+  logger.info('Intelligence upgrade active (RAG, KG, Compression, Feedback, Tool-Learning, Proactive, UserModel, CodeHealth, Teaching, Consensus, ActiveLearning, RepoAbsorber, Guardrails, CausalPlanner, Roadmap, Creative, EngineRegistry, InfluenceTracker — all wired into orchestrator)');
 
   logger.info('Research orchestrator started (48+ steps, feedback loops active, DataMiner bootstrapped, Dream Mode active, Prediction Engine active)');
 

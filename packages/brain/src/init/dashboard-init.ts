@@ -109,6 +109,12 @@ export function createCommandCenter(deps: DashboardDeps): CommandCenterServer {
     getTeachingStatus: () => services.teachingProtocol?.getStatus() ?? null,
     getTeachingHistory: (limit = 20) => services.teachingProtocol?.getHistory(undefined, limit) ?? [],
     getCalibrationStatus: () => services.predictionEngine?.getCalibration() ?? null,
+    getGovernanceStatus: () => {
+      const registry = services.engineRegistry?.getStatus() ?? null;
+      const loops = services.loopDetector?.getStatus() ?? null;
+      const actions = services.governanceLayer?.getStatus() ?? null;
+      return { registry, loops, actions, engineCount: registry?.totalEngines ?? 0, loopCount: loops?.activeDetections ?? 0, actionCount: actions?.activeActions ?? 0 };
+    },
     chatMessage: async (sessionId: string, content: string) => services.chatEngine?.processMessage(sessionId, content) ?? null,
     chatHistory: (sessionId: string) => services.chatEngine?.getHistory(sessionId) ?? [],
     chatStatus: () => services.chatEngine?.getStatus() ?? null,

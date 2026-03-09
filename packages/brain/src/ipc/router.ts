@@ -169,6 +169,10 @@ export interface Services {
   chatEngine?: import('@timmeck/brain-core').ChatEngine;
   subAgentFactory?: import('@timmeck/brain-core').SubAgentFactory;
   memoryWatchdog?: import('@timmeck/brain-core').MemoryWatchdog;
+  engineRegistry?: import('@timmeck/brain-core').EngineRegistry;
+  runtimeInfluenceTracker?: import('@timmeck/brain-core').RuntimeInfluenceTracker;
+  loopDetector?: import('@timmeck/brain-core').LoopDetector;
+  governanceLayer?: import('@timmeck/brain-core').GovernanceLayer;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1150,6 +1154,25 @@ export class IpcRouter {
       ['sandbox.langStats', () => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.getLanguageStats(); }],
       ['sandbox.docker',    async () => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return { available: await s.codeSandbox.isDockerAvailable() }; }],
       ['sandbox.status',    () => { if (!s.codeSandbox) throw new Error('Sandbox not available'); return s.codeSandbox.getStatus(); }],
+
+      // ─── Governance ────────────────────────────────────────
+      ['governance.registry',      () => { if (!s.engineRegistry) throw new Error('EngineRegistry not available'); return s.engineRegistry.list(); }],
+      ['governance.profiles',      (params) => { if (!s.engineRegistry) throw new Error('EngineRegistry not available'); const id = p(params)?.id; return id ? s.engineRegistry.get(id) : s.engineRegistry.list(); }],
+      ['governance.status',        () => { if (!s.engineRegistry) throw new Error('EngineRegistry not available'); return s.engineRegistry.getStatus(); }],
+      ['governance.dependencies',  () => { if (!s.engineRegistry) throw new Error('EngineRegistry not available'); const g = s.engineRegistry.getDependencyGraph(); return Object.fromEntries(g); }],
+      ['governance.enable',        (params) => { if (!s.engineRegistry) throw new Error('EngineRegistry not available'); s.engineRegistry.enable(p(params).id); return { enabled: true }; }],
+      ['governance.disable',       (params) => { if (!s.engineRegistry) throw new Error('EngineRegistry not available'); s.engineRegistry.disable(p(params).id); return { disabled: true }; }],
+      ['governance.influences',    (params) => { if (!s.runtimeInfluenceTracker) throw new Error('RuntimeInfluenceTracker not available'); return s.runtimeInfluenceTracker.buildInfluenceGraph(p(params)?.window ?? 50); }],
+      ['governance.influence_status', () => { if (!s.runtimeInfluenceTracker) throw new Error('RuntimeInfluenceTracker not available'); return s.runtimeInfluenceTracker.getStatus(); }],
+      ['governance.loops',         () => { if (!s.loopDetector) throw new Error('LoopDetector not available'); return s.loopDetector.getActive(); }],
+      ['governance.loop_status',   () => { if (!s.loopDetector) throw new Error('LoopDetector not available'); return s.loopDetector.getStatus(); }],
+      ['governance.actions',       (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); return s.governanceLayer.getHistory(p(params)?.limit ?? 50); }],
+      ['governance.active_actions', (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); return s.governanceLayer.getActiveActions(p(params)?.engineId); }],
+      ['governance.throttle',      (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); s.governanceLayer.throttle(p(params).id, p(params).reason ?? 'manual', 0, 'manual'); return { throttled: true }; }],
+      ['governance.cooldown',      (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); s.governanceLayer.cooldown(p(params).id, p(params).reason ?? 'manual', p(params).cycles ?? 10, 0, 'manual'); return { cooled: true }; }],
+      ['governance.isolate',       (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); s.governanceLayer.isolate(p(params).id, p(params).reason ?? 'manual', 0, 'manual'); return { isolated: true }; }],
+      ['governance.restore',       (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); s.governanceLayer.restore(p(params).id, p(params).reason ?? 'manual', 0, 'manual'); return { restored: true }; }],
+      ['governance.layer_status',  () => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); return s.governanceLayer.getStatus(); }],
 
       // ─── Guardrails ────────────────────────────────────────
       ['guardrail.status',         () => { if (!s.guardrailEngine) throw new Error('GuardrailEngine not available'); return s.guardrailEngine.getStatus(); }],

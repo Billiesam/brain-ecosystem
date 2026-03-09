@@ -1288,6 +1288,83 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
       return textResult('Need at least 2 active strategies to evolve.');
     },
   );
+
+  // === Governance Tools ===
+
+  server.tool(
+    'brain_governance_status',
+    'Get the governance overview: engine registry status, active loop detections, governance actions.',
+    {},
+    async () => {
+      let registryStatus: unknown = null;
+      let loopStatus: unknown = null;
+      let layerStatus: unknown = null;
+      try { registryStatus = await call('governance.status'); } catch { /* optional */ }
+      try { loopStatus = await call('governance.loop_status'); } catch { /* optional */ }
+      try { layerStatus = await call('governance.layer_status'); } catch { /* optional */ }
+      return textResult({ registryStatus, loopStatus, layerStatus });
+    },
+  );
+
+  server.tool(
+    'brain_governance_registry',
+    'Get all registered engine profiles with their reads, writes, risk class, and dependencies.',
+    {},
+    async () => {
+      const profiles = await call('governance.registry');
+      return textResult(profiles);
+    },
+  );
+
+  server.tool(
+    'brain_governance_influences',
+    'Get the runtime influence graph showing how engines affect system metrics.',
+    { window: z.number().optional().describe('Number of recent cycles to analyze (default 50)') },
+    async (params) => {
+      const result = await call('governance.influences', { window: params.window ?? 50 });
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'brain_governance_loops',
+    'Get active anti-pattern detections: retrigger spirals, stagnation, KPI gaming, epistemic drift.',
+    {},
+    async () => {
+      const result = await call('governance.loops');
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'brain_governance_actions',
+    'Get governance action history: throttle, cooldown, isolate, escalate, restore decisions.',
+    { limit: z.number().optional().describe('Max actions to return (default 50)') },
+    async (params) => {
+      const result = await call('governance.actions', { limit: params.limit ?? 50 });
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'brain_governance_throttle',
+    'Manually throttle, cooldown, isolate, or restore an engine.',
+    {
+      id: z.string().describe('Engine ID to control'),
+      action: z.string().describe('Action: throttle, cooldown, isolate, restore'),
+      reason: z.string().describe('Reason for the action'),
+    },
+    async (params) => {
+      const { id, action, reason } = params;
+      switch (action) {
+        case 'throttle': await call('governance.throttle', { id, reason }); return textResult(`Throttled: ${id}`);
+        case 'cooldown': await call('governance.cooldown', { id, reason }); return textResult(`Cooldown: ${id}`);
+        case 'isolate': await call('governance.isolate', { id, reason }); return textResult(`Isolated: ${id}`);
+        case 'restore': await call('governance.restore', { id, reason }); return textResult(`Restored: ${id}`);
+        default: return textResult(`Unknown action: ${action}. Use: throttle, cooldown, isolate, restore`);
+      }
+    },
+  );
 }
 
 function detectLanguage(filePath: string): string {

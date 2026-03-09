@@ -133,6 +133,10 @@ export interface Services {
   teachingProtocol?: import('@timmeck/brain-core').TeachingProtocol;
   curriculum?: import('@timmeck/brain-core').Curriculum;
   memoryWatchdog?: import('@timmeck/brain-core').MemoryWatchdog;
+  engineRegistry?: import('@timmeck/brain-core').EngineRegistry;
+  runtimeInfluenceTracker?: import('@timmeck/brain-core').RuntimeInfluenceTracker;
+  loopDetector?: import('@timmeck/brain-core').LoopDetector;
+  governanceLayer?: import('@timmeck/brain-core').GovernanceLayer;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;

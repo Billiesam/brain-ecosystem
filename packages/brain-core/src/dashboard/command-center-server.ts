@@ -52,6 +52,7 @@ export interface CommandCenterOptions {
   getTeachingStatus?: () => unknown;
   getTeachingHistory?: (limit?: number) => unknown;
   getCalibrationStatus?: () => unknown;
+  getGovernanceStatus?: () => unknown;
   chatMessage?: (sessionId: string, content: string) => Promise<unknown>;
   chatHistory?: (sessionId: string) => unknown;
   chatStatus?: () => unknown;
@@ -346,6 +347,13 @@ export class CommandCenterServer {
       try { this.broadcast('calibration', this.options.getCalibrationStatus()); } catch { /* ignore */ }
     }, 30_000));
 
+    // Governance (30s)
+    this.timers.push(setInterval(() => {
+      if (this.clients.size === 0) return;
+      if (!this.options.getGovernanceStatus) return;
+      try { this.broadcast('governance', this.options.getGovernanceStatus()); } catch { /* ignore */ }
+    }, 30_000));
+
     // Heartbeat (30s)
     this.timers.push(setInterval(() => {
       if (this.clients.size > 0) {
@@ -453,8 +461,9 @@ export class CommandCenterServer {
         history: this.options.getTeachingHistory?.(20) ?? [],
       } : null;
       const calibration = this.options.getCalibrationStatus?.() ?? null;
+      const governance = this.options.getGovernanceStatus?.() ?? null;
 
-      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge, debates, intelligence, repoAbsorber, emotional, guardrailHealth, roadmaps, creativeInsights, desires, teaching, calibration });
+      this.json(res, { ecosystem, engines: engineResults, watchdog, plugins, borg, analytics, llm, thoughts, errors, selfmod, missions, knowledge, debates, intelligence, repoAbsorber, emotional, guardrailHealth, roadmaps, creativeInsights, desires, teaching, calibration, governance });
     } catch (err) {
       this.json(res, { error: (err as Error).message }, 500);
     }

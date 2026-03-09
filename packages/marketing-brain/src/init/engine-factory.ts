@@ -21,6 +21,10 @@ import {
   FeedbackRouter, runFeedbackRouterMigration,
   TeachingProtocol, runTeachingMigration,
   Curriculum, runCurriculumMigration,
+  EngineRegistry, getDefaultEngineProfiles,
+  RuntimeInfluenceTracker,
+  LoopDetector,
+  GovernanceLayer,
 } from '@timmeck/brain-core';
 import type { CrossBrainNotifier } from '@timmeck/brain-core';
 
@@ -206,6 +210,31 @@ export function createIntelligenceEngines(deps: IntelligenceDeps): void {
     logger.info('Intelligence Group 5 active (SignalRouter)');
   } catch (err) {
     logger.warn(`Intelligence Group 5 failed (SignalRouter): ${(err as Error).message}`);
+  }
+
+  // EngineRegistry — formal engine profiles for governance
+  try {
+    const engineRegistry = new EngineRegistry(db);
+    for (const profile of getDefaultEngineProfiles()) {
+      engineRegistry.register(profile);
+    }
+    services.engineRegistry = engineRegistry;
+
+    const runtimeInfluenceTracker = new RuntimeInfluenceTracker(db);
+    services.runtimeInfluenceTracker = runtimeInfluenceTracker;
+
+    const loopDetector = new LoopDetector(db);
+    loopDetector.setInfluenceTracker(runtimeInfluenceTracker);
+    services.loopDetector = loopDetector;
+
+    const governanceLayer = new GovernanceLayer(db);
+    governanceLayer.setLoopDetector(loopDetector);
+    governanceLayer.setEngineRegistry(engineRegistry);
+    services.governanceLayer = governanceLayer;
+
+    logger.info('Governance active (EngineRegistry, InfluenceTracker, LoopDetector, GovernanceLayer)');
+  } catch (err) {
+    logger.warn(`Governance setup failed (non-critical): ${(err as Error).message}`);
   }
 
   // Group 6: FeedbackRouter

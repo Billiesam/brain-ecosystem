@@ -345,6 +345,28 @@ canvas{display:block;width:100%;height:100%}
           </div>
         </div>
 
+        <!-- Governance -->
+        <div class="section">
+          <div class="section-title"><span class="icon">&#x2696;</span> Engine Governance</div>
+          <div class="card" id="governanceCard">
+            <div class="grid grid-3" style="text-align:center">
+              <div>
+                <div style="font-size:11px;color:var(--text-dim)">Engines</div>
+                <div id="govEngineCount" style="font-size:18px;font-weight:700">--</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-dim)">Active Loops</div>
+                <div id="govLoopCount" style="font-size:18px;font-weight:700;color:var(--success)">--</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-dim)">Gov Actions</div>
+                <div id="govActionCount" style="font-size:18px;font-weight:700">--</div>
+              </div>
+            </div>
+            <div id="govDetails" style="margin-top:8px;font-size:12px;color:var(--text-dim)"></div>
+          </div>
+        </div>
+
         <!-- Error Log -->
         <div class="section">
           <div class="section-title"><span class="icon">&#x26A0;</span> <span data-t="Letzte Fehler & Warnungen">Letzte Fehler & Warnungen</span> <span id="errorCount" style="color:var(--text-dim);font-weight:400;font-size:12px"></span></div>
@@ -870,7 +892,8 @@ const state = {
   llm:null, thoughts:[], connected:false, lastThoughtTime:0,
   errors:null, selfmod:null, missions:null, knowledge:null, debates:null,
   emotional:null, attention:null,
-  desires:null, teaching:null, calibration:null
+  desires:null, teaching:null, calibration:null,
+  governance:null
 };
 
 // ── i18n ──────────────────────────────────────────────────
@@ -1060,6 +1083,7 @@ function connectSSE() {
   es.addEventListener('desires', e => { state.desires = JSON.parse(e.data); renderDesires(); });
   es.addEventListener('teaching', e => { state.teaching = JSON.parse(e.data); renderTeaching(); });
   es.addEventListener('calibration', e => { state.calibration = JSON.parse(e.data); renderCalibration(); });
+  es.addEventListener('governance', e => { state.governance = JSON.parse(e.data); renderGovernance(); });
   es.onerror = () => { state.connected = false; updateConnection(); };
 }
 
@@ -1086,12 +1110,13 @@ async function loadInitial() {
     state.desires = data.desires;
     state.teaching = data.teaching;
     state.calibration = data.calibration;
+    state.governance = data.governance;
     if (data.thoughts) { state.thoughts = data.thoughts; renderThoughts(); }
     renderEcosystem(); renderEngines(); renderWatchdog(); renderPlugins();
     renderBorg(); renderAnalytics(); renderLLM(); renderErrors();
     renderSelfMod(); renderMissions(); renderRepoAbsorber(); renderIntelligence(); renderKnowledge(); renderDebates();
     renderGuardrails(); renderRoadmaps(); renderCreativeInsights(); renderForgeWidgets();
-    renderDesires(); renderTeaching(); renderCalibration();
+    renderDesires(); renderTeaching(); renderCalibration(); renderGovernance();
   } catch {}
 }
 
@@ -2328,6 +2353,38 @@ function renderCalibration() {
       </div>`;
     }).join('') : '<div class="empty" style="font-size:11px">Keine Domain-Daten</div>'}
   </div>`;
+}
+
+// ── Governance ───────────────────────────────────────────
+function renderGovernance() {
+  const d = state.governance; if (!d) return;
+  const engineEl = document.getElementById('govEngineCount');
+  const loopEl = document.getElementById('govLoopCount');
+  const actionEl = document.getElementById('govActionCount');
+  const detailsEl = document.getElementById('govDetails');
+
+  if (engineEl) engineEl.textContent = String(d.registry?.totalEngines ?? d.engineCount ?? '--');
+  if (loopEl) {
+    const loops = d.loops?.activeDetections ?? d.loopCount ?? 0;
+    loopEl.textContent = String(loops);
+    loopEl.style.color = loops > 0 ? 'var(--orange)' : 'var(--green)';
+  }
+  if (actionEl) actionEl.textContent = String(d.actions?.activeActions ?? d.actionCount ?? 0);
+
+  if (detailsEl) {
+    const parts = [];
+    if (d.registry?.enabledEngines != null) parts.push(`${d.registry.enabledEngines} enabled`);
+    if (d.actions?.throttledEngines?.length) parts.push(`Throttled: ${d.actions.throttledEngines.join(', ')}`);
+    if (d.actions?.isolatedEngines?.length) parts.push(`<span style="color:var(--red)">Isolated: ${d.actions.isolatedEngines.join(', ')}</span>`);
+    if (d.loops?.recentDetections?.length) {
+      const recent = d.loops.recentDetections.slice(0, 3);
+      for (const loop of recent) {
+        const sevCol = loop.severity === 'critical' ? 'var(--red)' : loop.severity === 'high' ? 'var(--orange)' : 'var(--yellow)';
+        parts.push(`<span style="color:${sevCol}">${loop.loopType}: ${loop.enginesInvolved || loop.engines_involved || '?'}</span>`);
+      }
+    }
+    detailsEl.innerHTML = parts.join(' · ');
+  }
 }
 
 // ── Chat ──────────────────────────────────────────────────

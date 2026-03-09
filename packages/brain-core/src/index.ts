@@ -602,3 +602,13 @@ export type {
 // ── Chat Engine ──────────────────────────────────────────
 export { ChatEngine, runChatMigration } from './chat/index.js';
 export type { ChatMessage, ChatEngineConfig, ChatEngineStatus } from './chat/index.js';
+
+// ── Governance ──────────────────────────────────────────
+export { EngineRegistry, runEngineRegistryMigration, getDefaultEngineProfiles } from './governance/index.js';
+export type { EngineProfile, EngineRegistryStatus } from './governance/index.js';
+export { RuntimeInfluenceTracker, runRuntimeInfluenceMigration } from './governance/index.js';
+export type { InfluenceEdge, InfluenceGraph, RuntimeInfluenceStatus } from './governance/index.js';
+export { LoopDetector, runLoopDetectorMigration } from './governance/index.js';
+export type { LoopDetection, LoopType, LoopSeverity, LoopDetectorStatus } from './governance/index.js';
+export { GovernanceLayer, runGovernanceMigration } from './governance/index.js';
+export type { GovernanceAction, GovernanceActionType, GovernanceDecision, GovernanceLayerStatus } from './governance/index.js';
