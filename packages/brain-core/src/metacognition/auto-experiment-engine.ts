@@ -294,7 +294,23 @@ export class AutoExperimentEngine {
 
     for (const exp of runningExps) {
       if (!exp.experiment_id) {
-        // No ExperimentEngine tracking — check by age
+        // No ExperimentEngine tracking — age-based timeout (24h)
+        const expId = exp.id!;
+        const createdAt = this.db.prepare(
+          'SELECT created_at FROM auto_experiments WHERE id = ?',
+        ).get(expId) as { created_at: string } | undefined;
+        if (createdAt) {
+          const ageMs = Date.now() - new Date(createdAt.created_at + 'Z').getTime();
+          if (ageMs > 24 * 3600 * 1000) {
+            // Too old without tracking → rollback
+            this.registry.restore(exp.snapshot_id!, 'auto_experiment_timeout');
+            this.db.prepare(
+              "UPDATE auto_experiments SET status = 'rolled_back', result_summary = ?, completed_at = datetime('now') WHERE id = ?",
+            ).run(`Timed out after ${Math.round(ageMs / 3600000)}h without ExperimentEngine tracking. Rolled back to ${exp.old_value}.`, expId);
+            results.push({ autoExpId: expId, action: 'rolled_back' });
+            this.log.info(`[auto-experiment] Orphan experiment ${expId} timed out after ${Math.round(ageMs / 3600000)}h → rolled back`);
+          }
+        }
         continue;
       }
 

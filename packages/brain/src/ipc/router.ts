@@ -173,6 +173,7 @@ export interface Services {
   runtimeInfluenceTracker?: import('@timmeck/brain-core').RuntimeInfluenceTracker;
   loopDetector?: import('@timmeck/brain-core').LoopDetector;
   governanceLayer?: import('@timmeck/brain-core').GovernanceLayer;
+  adaptiveScheduler?: import('@timmeck/brain-core').AdaptiveScheduler;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;

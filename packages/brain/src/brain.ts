@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine, GuardrailEngine, CausalPlanner, ResearchRoadmap, CreativeEngine, TelegramBot, DiscordBot, MemoryWatchdog } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine, GuardrailEngine, CausalPlanner, ResearchRoadmap, CreativeEngine, TelegramBot, DiscordBot, MemoryWatchdog, AdaptiveScheduler } from '@timmeck/brain-core';
 import type { BorgDataProvider, SyncItem, HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 // Init modules (extracted from God-Class)
@@ -487,6 +487,11 @@ export class BrainCore {
     const metaCognitionLayer = new MetaCognitionLayer(this.db!);
     this.orchestrator.setMetaCognitionLayer(metaCognitionLayer);
     services.metaCognitionLayer = metaCognitionLayer;
+    services.governanceLayer?.setMetaCognitionLayer(metaCognitionLayer);
+
+    const adaptiveScheduler = new AdaptiveScheduler();
+    this.orchestrator.setAdaptiveScheduler(adaptiveScheduler);
+    services.adaptiveScheduler = adaptiveScheduler;
 
     const autoExperimentEngine = new AutoExperimentEngine(
       this.db!, parameterRegistry, this.orchestrator.experimentEngine,
