@@ -280,6 +280,16 @@ function registerIntelligenceToolsWithCaller(server: McpServer, call: BrainCall)
     },
   );
 
+  server.tool(
+    'brain_desire_feedback',
+    'Get desire feedback stats — success/failure rates, category confidence, cross-brain coordination',
+    {},
+    async () => {
+      const result = await call('desires.feedback');
+      return textResult(result);
+    },
+  );
+
   // ── Consensus Decisions ─────────────────────────────────────
   server.tool(
     'brain_propose_consensus',

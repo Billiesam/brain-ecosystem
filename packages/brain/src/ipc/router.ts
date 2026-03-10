@@ -1290,6 +1290,10 @@ export class IpcRouter {
         const actionId = s.actionBridge.propose({ source: 'desire' as any, type: actionType, title: `Desire: ${top.suggestion.substring(0, 80)}`, description: top.suggestion, confidence: Math.min(top.priority / 10, 0.9), payload: { desireKey: top.key, priority: top.priority } });
         return { actuated: true, actionId, actionType, desireKey: top.key };
       }],
+      ['desires.feedback',        () => {
+        if (!s.orchestrator) throw new Error('Orchestrator not available');
+        return s.orchestrator.getDesireFeedbackStats();
+      }],
 
       // System
       ['system.memory',           () => s.memoryWatchdog?.getStats() ?? { currentMB: Math.round(process.memoryUsage().heapUsed / 1048576), peakMB: 0, trend: 'stable', leakSuspected: false, samples: 0 }],

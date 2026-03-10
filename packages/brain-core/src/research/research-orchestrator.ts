@@ -180,6 +180,14 @@ export class ResearchOrchestrator {
   /** Recent debate topic keys to prevent repeating the same debate. */
   private recentDebateTopics: string[] = [];
 
+  // ── Desire Feedback Tracking ──────────────────────────────
+  /** Tracks outcomes per desire key: successes, failures, last result. */
+  private desireOutcomes: Map<string, { successes: number; failures: number; lastResult: 'success' | 'failure'; lastCycle: number }> = new Map();
+  /** Category-level success rates for adaptive confidence. */
+  private desireCategoryRates: Map<string, { successes: number; total: number }> = new Map();
+  /** Desire keys currently being actuated by other brains (received via cross-brain). */
+  private crossBrainActiveDesires: Map<string, { brain: string; priority: number; cycle: number }> = new Map();
+
   constructor(db: Database.Database, config: ResearchOrchestratorConfig, causalGraph?: CausalGraph) {
     this.db = db;
     this.brainName = config.brainName;
@@ -517,6 +525,11 @@ export class ResearchOrchestrator {
   onCrossBrainEvent(sourceBrain: string, eventType: string, data: Record<string, unknown> = {}): void {
     this.crossDomain.recordEvent(sourceBrain, eventType, data);
     this.anomalyDetective.recordMetric(`cross:${sourceBrain}:${eventType}`, 1);
+
+    // Handle cross-brain desire coordination signals
+    if (eventType === 'desire_active' && data.desireKey) {
+      this.onCrossBrainDesireSignal(sourceBrain, data.desireKey as string, (data.priority as number) ?? 0);
+    }
   }
 
   /**
@@ -2934,12 +2947,45 @@ export class ResearchOrchestrator {
     }
 
     // Step 64: DesireActuator — convert top desire to action (every 15 cycles)
+    //  Fix 1: Feedback-loop — deprioritize failed desires, boost successful ones
+    //  Fix 2: Cross-brain coordination — skip desires already active in other brains
+    //  Fix 3: Adaptive confidence — use category success rate instead of static priority/10
     if (this.actionBridge && this.cycleCount - this.lastDesireActuationCycle >= 15) {
       try {
         const desires = this.getDesires();
-        const topDesire = desires.find(d => d.priority >= 5);
+
+        // Apply feedback adjustments to priorities
+        const adjusted = desires.map(d => {
+          const outcome = this.desireOutcomes.get(d.key);
+          let adjustedPriority = d.priority;
+          if (outcome) {
+            // Deprioritize desires that keep failing (−2 per failure, +1 per success, floor 0)
+            adjustedPriority = Math.max(0, d.priority + outcome.successes - outcome.failures * 2);
+            // If failed 3+ times consecutively, hard suppress below threshold
+            if (outcome.failures >= 3 && outcome.lastResult === 'failure') {
+              adjustedPriority = Math.min(adjustedPriority, 2);
+              this.log.info(`[orchestrator] Step 64: Desire "${d.key}" suppressed (${outcome.failures} consecutive failures)`);
+            }
+          }
+          return { ...d, adjustedPriority };
+        });
+
+        // Re-sort by adjusted priority
+        adjusted.sort((a, b) => b.adjustedPriority - a.adjustedPriority);
+
+        // Find top desire that passes threshold AND isn't already active in another brain
+        const topDesire = adjusted.find(d => {
+          if (d.adjustedPriority < 5) return false;
+          const crossActive = this.crossBrainActiveDesires.get(d.key);
+          if (crossActive && this.cycleCount - crossActive.cycle < 30) {
+            this.log.info(`[orchestrator] Step 64: Skipping "${d.key}" — active in ${crossActive.brain}`);
+            return false;
+          }
+          return true;
+        });
+
         if (topDesire) {
-          ts?.emit('desire', 'analyzing', `Step 64: Actuating desire "${topDesire.key}" (P${topDesire.priority})...`, 'notable');
+          ts?.emit('desire', 'analyzing', `Step 64: Actuating desire "${topDesire.key}" (P${topDesire.adjustedPriority})...`, 'notable');
 
           // Map desire key → action type
           let actionType: 'create_goal' | 'start_mission' | 'adjust_parameter' = 'create_goal';
@@ -2949,26 +2995,52 @@ export class ResearchOrchestrator {
             actionType = 'adjust_parameter';
           }
 
+          // Adaptive confidence: use category success rate if available
+          const category = this.desireKeyToCategory(topDesire.key);
+          const categoryRate = this.desireCategoryRates.get(category);
+          let confidence: number;
+          if (categoryRate && categoryRate.total >= 3) {
+            // Blend: 60% category success rate + 40% priority-based
+            const rateComponent = categoryRate.successes / categoryRate.total;
+            const priorityComponent = Math.min(topDesire.adjustedPriority / 10, 0.9);
+            confidence = Math.min(rateComponent * 0.6 + priorityComponent * 0.4, 0.9);
+          } else {
+            confidence = Math.min(topDesire.adjustedPriority / 10, 0.9);
+          }
+
           const actionId = this.actionBridge.propose({
             source: 'desire',
             type: actionType,
             title: `Desire: ${topDesire.suggestion.substring(0, 80)}`,
             description: topDesire.suggestion,
-            confidence: Math.min(topDesire.priority / 10, 0.9),
-            payload: { desireKey: topDesire.key, priority: topDesire.priority, alternatives: topDesire.alternatives },
+            confidence,
+            payload: { desireKey: topDesire.key, priority: topDesire.adjustedPriority, category, alternatives: topDesire.alternatives },
           });
 
           if (actionId > 0) {
-            this.log.info(`[orchestrator] Step 64: Desire "${topDesire.key}" → Action #${actionId} (${actionType})`);
+            this.log.info(`[orchestrator] Step 64: Desire "${topDesire.key}" → Action #${actionId} (${actionType}, conf=${confidence.toFixed(2)})`);
             this.journal.write({
               title: `Desire Actuation: ${topDesire.key}`,
-              content: `Converted desire (P${topDesire.priority}) to ${actionType} action #${actionId}: ${topDesire.suggestion}`,
+              content: `Converted desire (P${topDesire.adjustedPriority}, conf=${confidence.toFixed(2)}) to ${actionType} action #${actionId}: ${topDesire.suggestion}`,
               type: 'insight',
               significance: 'notable',
               tags: [this.brainName, 'desire', 'actuation'],
               references: [],
-              data: { desireKey: topDesire.key, actionId, actionType },
+              data: { desireKey: topDesire.key, actionId, actionType, adjustedPriority: topDesire.adjustedPriority, confidence },
             });
+
+            // Broadcast to other brains that we're working on this desire
+            if (this.signalRouter) {
+              const peers = ['brain', 'trading-brain', 'marketing-brain'].filter(b => b !== this.brainName);
+              for (const peer of peers) {
+                this.signalRouter.emit({
+                  targetBrain: peer,
+                  signalType: 'desire_active',
+                  payload: { desireKey: topDesire.key, priority: topDesire.adjustedPriority },
+                  confidence,
+                }).catch(() => { /* peer may be offline */ });
+              }
+            }
           }
 
           this.lastDesireActuationCycle = this.cycleCount;
@@ -2979,6 +3051,7 @@ export class ResearchOrchestrator {
     }
 
     // Step 65: Action-Outcome Review (every 20 cycles)
+    //  Enhanced: Feed desire outcomes back into desireOutcomes + desireCategoryRates
     if (this.actionBridge && this.cycleCount % 20 === 0) {
       try {
         const history = this.actionBridge.getHistory(10);
@@ -2988,7 +3061,7 @@ export class ResearchOrchestrator {
         if (recentCompleted.length > 0 || recentFailed.length > 0) {
           ts?.emit('orchestrator', 'reflecting', `Step 65: Reviewing ${recentCompleted.length} successes, ${recentFailed.length} failures`, 'routine');
 
-          // Success → journal lesson learned
+          // Success → journal lesson learned + desire feedback
           for (const action of recentCompleted.slice(0, 3)) {
             const lesson = action.outcome?.learnedLesson ?? `Action "${action.title}" succeeded`;
             this.journal.write({
@@ -3000,9 +3073,21 @@ export class ResearchOrchestrator {
               references: [],
               data: { actionId: action.id, type: action.type, source: action.source },
             });
+
+            // Feed success back into desire tracking
+            if (action.source === 'desire') {
+              const desireKey = (action.payload as Record<string, unknown>).desireKey as string | undefined;
+              const category = (action.payload as Record<string, unknown>).category as string | undefined;
+              if (desireKey) {
+                this.recordDesireOutcome(desireKey, 'success');
+              }
+              if (category) {
+                this.recordDesireCategoryOutcome(category, true);
+              }
+            }
           }
 
-          // Failure → journal + hypothesis rejection
+          // Failure → journal + desire feedback
           for (const action of recentFailed.slice(0, 3)) {
             this.journal.write({
               title: `Action Failed: ${action.title}`,
@@ -3013,6 +3098,18 @@ export class ResearchOrchestrator {
               references: [],
               data: { actionId: action.id, type: action.type, source: action.source },
             });
+
+            // Feed failure back into desire tracking
+            if (action.source === 'desire') {
+              const desireKey = (action.payload as Record<string, unknown>).desireKey as string | undefined;
+              const category = (action.payload as Record<string, unknown>).category as string | undefined;
+              if (desireKey) {
+                this.recordDesireOutcome(desireKey, 'failure');
+              }
+              if (category) {
+                this.recordDesireCategoryOutcome(category, false);
+              }
+            }
           }
 
           if (this.metaCognitionLayer) {
@@ -3528,6 +3625,71 @@ export class ResearchOrchestrator {
       this.writeSuggestionsToFile(result);
     }
     return result;
+  }
+
+  // ── Desire Feedback Helpers ──────────────────────────────
+
+  /** Record a desire outcome (success or failure) for feedback-loop. */
+  private recordDesireOutcome(desireKey: string, result: 'success' | 'failure'): void {
+    const existing = this.desireOutcomes.get(desireKey) ?? { successes: 0, failures: 0, lastResult: result, lastCycle: 0 };
+    if (result === 'success') {
+      existing.successes++;
+    } else {
+      existing.failures++;
+    }
+    existing.lastResult = result;
+    existing.lastCycle = this.cycleCount;
+    this.desireOutcomes.set(desireKey, existing);
+    this.log.info(`[orchestrator] Desire feedback: "${desireKey}" → ${result} (${existing.successes}S/${existing.failures}F)`);
+  }
+
+  /** Record category-level outcome for adaptive confidence. */
+  private recordDesireCategoryOutcome(category: string, success: boolean): void {
+    const existing = this.desireCategoryRates.get(category) ?? { successes: 0, total: 0 };
+    existing.total++;
+    if (success) existing.successes++;
+    this.desireCategoryRates.set(category, existing);
+  }
+
+  /** Map a desire key to a broad category for confidence tracking. */
+  private desireKeyToCategory(key: string): string {
+    if (key.startsWith('no_predictions') || key.startsWith('low_accuracy')) return 'prediction';
+    if (key.startsWith('contradiction_')) return 'contradiction';
+    if (key.startsWith('curiosity_gap_')) return 'curiosity';
+    if (key.startsWith('no_knowledge')) return 'knowledge';
+    if (key.startsWith('pending_transfers') || key.startsWith('want_cross_brain')) return 'cross_brain';
+    if (key.startsWith('deep_dive_')) return 'deep_dive';
+    return 'general';
+  }
+
+  /** Handle incoming cross-brain desire signal. */
+  onCrossBrainDesireSignal(brain: string, desireKey: string, priority: number): void {
+    this.crossBrainActiveDesires.set(desireKey, { brain, priority, cycle: this.cycleCount });
+    this.log.info(`[orchestrator] Cross-brain desire received: "${desireKey}" from ${brain} (P${priority})`);
+    // Clean up stale entries (older than 60 cycles)
+    for (const [key, entry] of this.crossBrainActiveDesires) {
+      if (this.cycleCount - entry.cycle > 60) {
+        this.crossBrainActiveDesires.delete(key);
+      }
+    }
+  }
+
+  /** Get desire feedback stats for monitoring. */
+  getDesireFeedbackStats(): {
+    outcomes: Array<{ key: string; successes: number; failures: number; lastResult: string }>;
+    categoryRates: Array<{ category: string; successRate: number; total: number }>;
+    crossBrainActive: Array<{ key: string; brain: string; priority: number }>;
+  } {
+    const outcomes = [...this.desireOutcomes.entries()].map(([key, v]) => ({
+      key, successes: v.successes, failures: v.failures, lastResult: v.lastResult,
+    }));
+    const categoryRates = [...this.desireCategoryRates.entries()].map(([category, v]) => ({
+      category, successRate: v.total > 0 ? v.successes / v.total : 0, total: v.total,
+    }));
+    const crossBrainActive = [...this.crossBrainActiveDesires.entries()].map(([key, v]) => ({
+      key, brain: v.brain, priority: v.priority,
+    }));
+    return { outcomes, categoryRates, crossBrainActive };
   }
 
   /** Get structured self-improvement desires with priority and alternatives. */
