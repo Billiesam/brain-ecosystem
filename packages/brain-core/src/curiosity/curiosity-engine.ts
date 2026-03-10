@@ -1014,7 +1014,7 @@ export class CuriosityEngine {
     // Schedule LLM enrichment for better questions (async, results cached for next call)
     if (this.llm?.isAvailable()) {
       const prompt = `Topic: "${t}"\nGap type: ${gapType}\nExisting questions:\n${questions.map(q => `- ${q}`).join('\n')}\n\nGenerate 3 additional research questions that are more specific, actionable, and could lead to testable hypotheses. Output one question per line.`;
-      void this.llm.call('research_question', prompt).catch(() => {});
+      void this.llm.call('research_question', prompt, { engine: 'curiosity_engine' }).catch(() => {});
     }
 
     return questions.slice(0, this.config.maxQuestionsPerTopic);
@@ -1027,7 +1027,7 @@ export class CuriosityEngine {
     const heuristicQuestions = this.generateQuestionsFor(topic, gapType);
     try {
       const prompt = `Topic: "${topic}"\nGap type: ${gapType}\nDomain: ${this.config.brainName}\n\nGenerate 5 specific, actionable research questions that could lead to testable hypotheses. Each question should be on its own line starting with a dash.`;
-      const result = await this.llm.call('research_question', prompt);
+      const result = await this.llm.call('research_question', prompt, { engine: 'curiosity_engine' });
       if (result?.text) {
         const llmQuestions = result.text.split('\n')
           .filter(l => l.trim().startsWith('-'))

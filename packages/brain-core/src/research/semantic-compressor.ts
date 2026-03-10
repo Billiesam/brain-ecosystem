@@ -210,7 +210,7 @@ export class SemanticCompressor {
           const response = await this.llm.call(
             'summarize',
             `Summarize these related items in 1-2 sentences:\n${metaText}`,
-            { maxTokens: 150 },
+            { maxTokens: 150, engine: 'semantic_compressor' },
           );
           summary = response?.text ?? metaText;
         } catch {

@@ -19,9 +19,146 @@ async function safe<T>(p: Promise<T>): Promise<T | null> {
   try { return await p; } catch { return null; }
 }
 
+// ── Contract Violations ─────────────────────────────────
+
+interface ContractViolation {
+  source: string;
+  field: string;
+  expected: string;
+  received: string;
+  rejected: boolean;  // true = section not rendered, false = normalized and rendered
+}
+
+const reportWarnings: string[] = [];
+const reportViolations: ContractViolation[] = [];
+
+function violation(source: string, field: string, expected: string, received: unknown, rejected: boolean): void {
+  const actualType = Array.isArray(received) ? 'array' : typeof received;
+  reportViolations.push({ source, field, expected, received: actualType, rejected });
+  const action = rejected ? 'REJECTED' : 'normalized';
+  reportWarnings.push(`[report.${action}] ${source}.${field}: expected ${expected}, got ${actualType}`);
+}
+
+// ── Normalizers ─────────────────────────────────────────
+// Each normalizer: raw data → clean typed shape | null
+// null = section is unreliable and should not be rendered with data
+
+interface NormalizedAnalytics { errors: number; solutions: number; rules: number; insights: number }
+
+function normalizeAnalytics(raw: Any): NormalizedAnalytics | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const extract = (field: string, subfield: string): number | null => {
+    const v = raw[field];
+    if (typeof v === 'number') return v;
+    if (v && typeof v === 'object' && typeof v[subfield] === 'number') return v[subfield];
+    if (v != null) violation('analytics', field, `number|{${subfield}: number}`, v, false);
+    return null;
+  };
+  const errors = extract('errors', 'total');
+  const solutions = extract('solutions', 'total');
+  const rules = extract('rules', 'active');
+  const insights = extract('insights', 'active');
+  // Need at least one valid metric to be useful
+  if (errors == null && solutions == null && rules == null && insights == null) {
+    violation('analytics', '*', 'at least one valid metric', raw, true);
+    return null;
+  }
+  return { errors: errors ?? 0, solutions: solutions ?? 0, rules: rules ?? 0, insights: insights ?? 0 };
+}
+
+interface NormalizedHypothesisSummary { entries: Array<{ status: string; count: number }> }
+
+function normalizeHypothesisSummary(raw: Any): NormalizedHypothesisSummary | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entries: Array<{ status: string; count: number }> = [];
+  for (const [key, val] of Object.entries(raw)) {
+    if (typeof val === 'number') {
+      entries.push({ status: key, count: val });
+    }
+    // silently skip non-scalar (e.g. topConfirmed: Hypothesis[])
+  }
+  if (entries.length === 0) {
+    violation('hypothesis', 'summary', 'object with scalar values', raw, true);
+    return null;
+  }
+  return { entries };
+}
+
+interface NormalizedPredictSummary { total: number; correct: number; accuracyRate: number | null }
+
+function normalizePredictSummary(raw: Any): NormalizedPredictSummary | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const total = typeof raw.total_predictions === 'number' ? raw.total_predictions
+    : typeof raw.total === 'number' ? raw.total : null;
+  if (total == null) {
+    violation('predict', 'summary.total', 'number', raw.total_predictions ?? raw.total, true);
+    return null;
+  }
+  const correct = typeof raw.correct === 'number' ? raw.correct : 0;
+  const accRate = typeof raw.accuracy_rate === 'number' ? raw.accuracy_rate
+    : typeof raw.accuracy === 'number' ? raw.accuracy : null;
+  return { total, correct, accuracyRate: accRate };
+}
+
+interface NormalizedPredictAccuracyItem { domain: string; total: number; correct: number; accuracyRate: number | null }
+
+function normalizePredictAccuracy(raw: Any): NormalizedPredictAccuracyItem[] | null {
+  if (!raw) return null;
+  if (!Array.isArray(raw)) {
+    // Try to salvage dict shape { domain: rate }
+    if (typeof raw === 'object') {
+      violation('predict', 'accuracy', 'array', raw, false);
+      return Object.entries(raw).map(([domain, rate]) => ({
+        domain, total: 0, correct: 0, accuracyRate: typeof rate === 'number' ? rate : null,
+      }));
+    }
+    violation('predict', 'accuracy', 'array', raw, true);
+    return null;
+  }
+  return raw.map((item: Any) => ({
+    domain: item.domain ?? '?',
+    total: typeof item.total === 'number' ? item.total : 0,
+    correct: typeof item.correct === 'number' ? item.correct : 0,
+    accuracyRate: typeof item.accuracy_rate === 'number' ? item.accuracy_rate : null,
+  }));
+}
+
+interface NormalizedTransferStatus {
+  totalTransfers: number; applied: number; rejected: number; avgEffectiveness: number | null;
+}
+
+function normalizeTransferStatus(raw: Any): NormalizedTransferStatus | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const total = raw.totalTransfers ?? raw.total;
+  if (typeof total !== 'number') {
+    violation('transfer', 'status.totalTransfers', 'number', total, true);
+    return null;
+  }
+  return {
+    totalTransfers: total,
+    applied: typeof raw.appliedTransfers === 'number' ? raw.appliedTransfers : (raw.successful ?? 0),
+    rejected: typeof raw.rejectedTransfers === 'number' ? raw.rejectedTransfers : (raw.failed ?? 0),
+    avgEffectiveness: typeof raw.avgEffectiveness === 'number' ? raw.avgEffectiveness : null,
+  };
+}
+
+interface NormalizedJournalEntry { timestamp: string; text: string }
+
+function normalizeJournalEntries(raw: Any): NormalizedJournalEntry[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw.map((e: Any) => {
+    const rawTs = e.timestamp ?? e.created_at ?? '';
+    const ts = typeof rawTs === 'number' ? new Date(rawTs).toISOString().slice(0, 16) : String(rawTs);
+    const text = e.title ?? e.content ?? e.description ?? JSON.stringify(e);
+    return { timestamp: ts, text };
+  });
+}
+
 export function renderMarkdown(data: Record<string, Any>): string {
   const lines: string[] = [];
   const ln = (s = '') => lines.push(s);
+  reportWarnings.length = 0;
+  reportViolations.length = 0;
 
   // --- Header ---
   ln(`# Brain Report — ${today()}`);
@@ -30,14 +167,16 @@ export function renderMarkdown(data: Record<string, Any>): string {
   // --- 1. Executive Summary ---
   ln('## 1. Executive Summary');
   ln();
-  const a = data.analytics;
-  if (a) {
+  const analytics = normalizeAnalytics(data.analytics);
+  if (analytics) {
     ln(`| Metric | Count |`);
     ln(`|--------|-------|`);
-    ln(`| Errors | ${a.totalErrors ?? a.errors ?? '?'} |`);
-    ln(`| Solutions | ${a.totalSolutions ?? a.solutions ?? '?'} |`);
-    ln(`| Rules | ${a.totalRules ?? a.rules ?? '?'} |`);
-    ln(`| Insights | ${a.totalInsights ?? a.insights ?? '?'} |`);
+    ln(`| Errors | ${analytics.errors} |`);
+    ln(`| Solutions | ${analytics.solutions} |`);
+    ln(`| Rules | ${analytics.rules} |`);
+    ln(`| Insights | ${analytics.insights} |`);
+  } else if (data.analytics) {
+    ln('*Analytics data unreliable — unexpected shape from engine.*');
   } else {
     ln('*Analytics not available.*');
   }
@@ -47,7 +186,7 @@ export function renderMarkdown(data: Record<string, Any>): string {
   ln('## 2. What Brain Needs From You');
   ln();
 
-  const desires: Any[] = data.desires ?? [];
+  const desires: Any[] = Array.isArray(data.desires) ? data.desires : [];
   if (desires.length > 0) {
     ln('### Desires (by priority)');
     ln();
@@ -60,7 +199,7 @@ export function renderMarkdown(data: Record<string, Any>): string {
     ln();
   }
 
-  const suggestions: string[] = data.suggestions ?? [];
+  const suggestions: string[] = Array.isArray(data.suggestions) ? data.suggestions : [];
   if (suggestions.length > 0) {
     ln('### Thought-Stream Suggestions');
     ln();
@@ -70,7 +209,7 @@ export function renderMarkdown(data: Record<string, Any>): string {
     ln();
   }
 
-  const pending: Any[] = data.pending ?? [];
+  const pending: Any[] = Array.isArray(data.pending) ? data.pending : [];
   if (pending.length > 0) {
     ln('### Pending Self-Modifications');
     ln();
@@ -86,27 +225,27 @@ export function renderMarkdown(data: Record<string, Any>): string {
     ln();
   }
 
-  // --- 3. Confirmed Hypotheses ---
+  // --- 3. Hypotheses ---
   ln('## 3. Hypotheses');
   ln();
-  const hSummary = data.hypothesisSummary;
+  const hSummary = normalizeHypothesisSummary(data.hypothesisSummary);
   if (hSummary) {
     ln('### Status Overview');
     ln();
     ln(`| Status | Count |`);
     ln(`|--------|-------|`);
-    for (const [status, count] of Object.entries(hSummary)) {
+    for (const { status, count } of hSummary.entries) {
       ln(`| ${status} | ${count} |`);
     }
     ln();
   }
 
-  const confirmed: Any[] = data.confirmedHypotheses ?? [];
+  const confirmed: Any[] = Array.isArray(data.confirmedHypotheses) ? data.confirmedHypotheses : [];
   if (confirmed.length > 0) {
     ln('### Confirmed');
     ln();
     for (const h of confirmed) {
-      ln(`- **${h.hypothesis ?? h.title ?? 'Untitled'}** (confidence: ${h.confidence ?? '?'})`);
+      ln(`- **${h.statement ?? h.hypothesis ?? h.title ?? 'Untitled'}** (confidence: ${h.confidence ?? '?'})`);
     }
     ln();
   } else if (!hSummary) {
@@ -117,29 +256,29 @@ export function renderMarkdown(data: Record<string, Any>): string {
   // --- 4. Prediction Accuracy ---
   ln('## 4. Prediction Accuracy');
   ln();
-  const pSummary = data.predictSummary;
-  const pAccuracy = data.predictAccuracy;
+  const pSummary = normalizePredictSummary(data.predictSummary);
+  const pAccuracy = normalizePredictAccuracy(data.predictAccuracy);
   if (pSummary) {
-    ln(`- Total predictions: ${pSummary.total ?? '?'}`);
-    ln(`- Correct: ${pSummary.correct ?? '?'}`);
-    ln(`- Accuracy: ${pSummary.accuracy != null ? (pSummary.accuracy * 100).toFixed(1) + '%' : '?'}`);
+    ln(`- Total predictions: ${pSummary.total}`);
+    ln(`- Correct: ${pSummary.correct}`);
+    ln(`- Accuracy: ${pSummary.accuracyRate != null ? (pSummary.accuracyRate * 100).toFixed(1) + '%' : '?'}`);
+    ln();
+  } else if (data.predictSummary) {
+    ln('*Prediction summary data unreliable — unexpected shape from engine.*');
     ln();
   }
-  if (pAccuracy && typeof pAccuracy === 'object') {
-    const domains = Object.entries(pAccuracy);
-    if (domains.length > 0) {
-      ln('### By Domain');
-      ln();
-      ln(`| Domain | Accuracy |`);
-      ln(`|--------|----------|`);
-      for (const [domain, acc] of domains) {
-        const val = typeof acc === 'number' ? (acc * 100).toFixed(1) + '%' : String(acc);
-        ln(`| ${domain} | ${val} |`);
-      }
-      ln();
+  if (pAccuracy && pAccuracy.length > 0) {
+    ln('### By Domain');
+    ln();
+    ln(`| Domain | Total | Correct | Accuracy |`);
+    ln(`|--------|-------|---------|----------|`);
+    for (const item of pAccuracy) {
+      const rate = item.accuracyRate != null ? (item.accuracyRate * 100).toFixed(1) + '%' : '?';
+      ln(`| ${item.domain} | ${item.total} | ${item.correct} | ${rate} |`);
     }
+    ln();
   }
-  if (!pSummary && !pAccuracy) {
+  if (!pSummary && !pAccuracy && !data.predictSummary && !data.predictAccuracy) {
     ln('*Prediction engine not available.*');
     ln();
   }
@@ -147,7 +286,7 @@ export function renderMarkdown(data: Record<string, Any>): string {
   // --- 5. Research Journal ---
   ln('## 5. Research Journal');
   ln();
-  const milestones: Any[] = data.milestones ?? [];
+  const milestones: Any[] = Array.isArray(data.milestones) ? data.milestones : [];
   if (milestones.length > 0) {
     ln('### Milestones');
     ln();
@@ -157,19 +296,17 @@ export function renderMarkdown(data: Record<string, Any>): string {
     ln();
   }
 
-  const entries: Any[] = data.journalEntries ?? [];
-  if (entries.length > 0) {
+  const journalEntries = normalizeJournalEntries(data.journalEntries);
+  if (journalEntries && journalEntries.length > 0) {
     ln('### Recent Entries');
     ln();
-    for (const e of entries.slice(0, 10)) {
-      const ts = e.timestamp ?? e.created_at ?? '';
-      const text = e.title ?? e.content ?? e.description ?? JSON.stringify(e);
-      ln(`- ${ts ? `[${ts}] ` : ''}${text}`);
+    for (const e of journalEntries.slice(0, 10)) {
+      ln(`- ${e.timestamp ? `[${e.timestamp}] ` : ''}${e.text}`);
     }
     ln();
   }
 
-  if (milestones.length === 0 && entries.length === 0) {
+  if (milestones.length === 0 && (!journalEntries || journalEntries.length === 0)) {
     ln('*No journal entries available.*');
     ln();
   }
@@ -177,28 +314,37 @@ export function renderMarkdown(data: Record<string, Any>): string {
   // --- 6. Cross-Brain Transfers ---
   ln('## 6. Cross-Brain Transfers');
   ln();
-  const tStatus = data.transferStatus;
+  const tStatus = normalizeTransferStatus(data.transferStatus);
   if (tStatus) {
-    ln(`- Total transfers: ${tStatus.total ?? '?'}`);
-    ln(`- Successful: ${tStatus.successful ?? '?'}`);
-    ln(`- Failed: ${tStatus.failed ?? '?'}`);
+    ln(`- Total transfers: ${tStatus.totalTransfers}`);
+    ln(`- Applied: ${tStatus.applied}`);
+    ln(`- Rejected: ${tStatus.rejected}`);
+    if (tStatus.avgEffectiveness != null) {
+      ln(`- Avg effectiveness: ${(tStatus.avgEffectiveness * 100).toFixed(1)}%`);
+    }
+    ln();
+  } else if (data.transferStatus) {
+    ln('*Transfer status data unreliable — unexpected shape from engine.*');
     ln();
   }
 
-  const tHistory: Any[] = data.transferHistory ?? [];
+  // Use recentTransfers from status if transferHistory is empty
+  const rawTStatus = data.transferStatus;
+  const tHistory: Any[] = Array.isArray(data.transferHistory) ? data.transferHistory
+    : (Array.isArray(rawTStatus?.recentTransfers) ? rawTStatus.recentTransfers : []);
   if (tHistory.length > 0) {
     ln('### Recent Transfers');
     ln();
     for (const t of tHistory.slice(0, 10)) {
-      const dir = t.direction ?? '?';
-      const peer = t.peer ?? t.target ?? '?';
-      ln(`- ${dir} ↔ ${peer}: ${t.itemCount ?? t.count ?? '?'} items (accepted: ${t.accepted ?? '?'})`);
+      const dir = t.direction ?? t.sourceDomain ?? '?';
+      const peer = t.peer ?? t.target ?? t.targetDomain ?? '?';
+      ln(`- ${dir} → ${peer}: ${t.itemCount ?? t.count ?? '?'} items (accepted: ${t.accepted ?? t.applied ?? '?'})`);
     }
     ln();
   }
 
   const borgStatus = data.borgStatus;
-  if (borgStatus) {
+  if (borgStatus && typeof borgStatus === 'object') {
     ln('### BorgSync');
     ln();
     ln(`- Enabled: ${borgStatus.enabled ?? false}`);
@@ -217,7 +363,7 @@ export function renderMarkdown(data: Record<string, Any>): string {
   ln('## 7. Auto-Experiments');
   ln();
   const expStatus = data.experimentStatus;
-  if (expStatus) {
+  if (expStatus && typeof expStatus === 'object') {
     ln(`- Running: ${expStatus.running ?? 0}`);
     ln(`- Completed: ${expStatus.completed ?? 0}`);
     ln(`- Successful: ${expStatus.successful ?? 0}`);
@@ -230,7 +376,7 @@ export function renderMarkdown(data: Record<string, Any>): string {
   ln('## 8. Governance');
   ln();
   const gov = data.governanceStatus;
-  if (gov) {
+  if (gov && typeof gov === 'object') {
     if (gov.engines && Array.isArray(gov.engines)) {
       ln(`| Engine | Status | Throttle |`);
       ln(`|--------|--------|----------|`);
@@ -247,10 +393,42 @@ export function renderMarkdown(data: Record<string, Any>): string {
   }
   ln();
 
+  // --- Data Quality ---
+  const rejected = reportViolations.filter(v => v.rejected);
+  const normalized = reportViolations.filter(v => !v.rejected);
+  if (reportViolations.length > 0) {
+    ln('## Data Quality');
+    ln();
+    if (rejected.length > 0) {
+      ln(`**${rejected.length} section(s) rejected** due to unrecognized data shapes:`);
+      for (const v of rejected) {
+        ln(`- \`${v.source}.${v.field}\`: expected ${v.expected}, got ${v.received}`);
+      }
+      ln();
+    }
+    if (normalized.length > 0) {
+      ln(`${normalized.length} field(s) normalized (non-standard but usable):`);
+      for (const v of normalized) {
+        ln(`- \`${v.source}.${v.field}\`: expected ${v.expected}, got ${v.received}`);
+      }
+      ln();
+    }
+  }
+
   ln('---');
   ln(`*Generated by \`brain report\` at ${new Date().toISOString()}*`);
 
   return lines.join('\n');
+}
+
+/** Get warnings from the last renderMarkdown call (for testing). */
+export function getReportWarnings(): string[] {
+  return [...reportWarnings];
+}
+
+/** Get structured contract violations from the last renderMarkdown call (for testing). */
+export function getReportViolations(): ContractViolation[] {
+  return [...reportViolations];
 }
 
 export function reportCommand(): Command {

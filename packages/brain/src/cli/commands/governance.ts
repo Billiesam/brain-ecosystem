@@ -102,6 +102,58 @@ export function governanceCommand(): Command {
       });
     });
 
+  cmd.command('budgets')
+    .description('Show per-engine token budget allocations')
+    .action(async () => {
+      await withIpc(async (client) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const budgets = (await client.request('governance.token_budgets')) as any[];
+        console.log(header('Token Budgets', '\u{1F4CA}'));
+
+        if (!budgets?.length) {
+          console.log(`  ${c.dim('No token budgets configured')}`);
+        } else {
+          // Table header
+          console.log(`  ${'Engine'.padEnd(25)} ${'Hourly'.padEnd(20)} ${'Daily'.padEnd(20)} ${'Status'.padEnd(10)}`);
+          console.log(`  ${'-'.repeat(25)} ${'-'.repeat(20)} ${'-'.repeat(20)} ${'-'.repeat(10)}`);
+
+          for (const b of budgets) {
+            const hourlyStr = `${b.hourlyUsed}/${b.hourlyLimit} (${b.hourlyPercent.toFixed(0)}%)`;
+            const dailyStr = `${b.dailyUsed}/${b.dailyLimit} (${b.dailyPercent.toFixed(0)}%)`;
+            const statusColor = b.status === 'exhausted' ? c.red
+              : b.status === 'warning' ? c.orange : c.green;
+            console.log(`  ${c.cyan(b.engineId.padEnd(25))} ${hourlyStr.padEnd(20)} ${dailyStr.padEnd(20)} ${statusColor(b.status)}`);
+          }
+        }
+        console.log(divider());
+      });
+    });
+
+  cmd.command('cycles')
+    .description('Show cycle outcome rates (productive/failed/novelty/efficiency)')
+    .option('-w, --window <hours>', 'Hours to look back (0=all)', '0')
+    .action(async (opts) => {
+      await withIpc(async (client) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rates = (await client.request('cycle.rates', { hours: parseInt(opts.window, 10) })) as any;
+        console.log(header('Cycle Outcome Rates', '\u{1F4CA}'));
+
+        if (!rates || rates.totalCycles === 0) {
+          console.log(`  ${c.dim('No cycle data recorded yet')}`);
+        } else {
+          const pctColor = (v: number) => v >= 0.7 ? c.green : v >= 0.4 ? c.orange : c.red;
+          console.log(keyValue('Window', rates.window));
+          console.log(keyValue('Total Cycles', String(rates.totalCycles)));
+          console.log(keyValue('Productive Rate', pctColor(rates.productiveRate)(`${(rates.productiveRate * 100).toFixed(1)}%`)));
+          console.log(keyValue('Failed Rate', pctColor(1 - rates.failedRate)(`${(rates.failedRate * 100).toFixed(1)}%`)));
+          console.log(keyValue('Novelty Rate', pctColor(rates.noveltyRate)(`${(rates.noveltyRate * 100).toFixed(1)}%`)));
+          console.log(keyValue('Efficiency', `${rates.efficiencyRate.toFixed(2)} outputs/1k tokens`));
+          console.log(keyValue('Avg Duration', `${Math.round(rates.avgDurationMs)}ms`));
+        }
+        console.log(divider());
+      });
+    });
+
   // Default action: status
   cmd.action(async () => {
     await cmd.commands.find(c => c.name() === 'status')!.parseAsync([], { from: 'user' });

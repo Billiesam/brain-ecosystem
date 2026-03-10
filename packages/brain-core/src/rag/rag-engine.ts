@@ -298,7 +298,7 @@ export class RAGEngine {
       const numbered = results.map((r, i) => `[${i + 1}] ${r.text}`).join('\n');
       const prompt = `Given the query: "${query}"\n\nRank these results by relevance (most relevant first). Return ONLY the numbers in order, comma-separated:\n\n${numbered}`;
 
-      const response = await this.llm.call('custom', prompt, { maxTokens: 100 });
+      const response = await this.llm.call('custom', prompt, { maxTokens: 100, engine: 'rag_engine' });
       if (!response) return results;
 
       // Parse the ranking

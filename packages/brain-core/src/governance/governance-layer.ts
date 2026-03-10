@@ -6,6 +6,7 @@ import type Database from 'better-sqlite3';
 import { getLogger } from '../utils/logger.js';
 import type { LoopDetector } from './loop-detector.js';
 import type { EngineRegistry } from './engine-registry.js';
+import type { EngineTokenBudgetTracker } from './engine-token-budget.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ export class GovernanceLayer {
   private engineRegistry: EngineRegistry | null = null;
   private metaCognitionLayer: { evaluate: (windowCycles?: number) => Array<{ engine: string; grade: string; combined_score: number }> } | null = null;
   private journalWriter: { write: (entry: Record<string, unknown>) => void } | null = null;
+  private tokenBudgetTracker: EngineTokenBudgetTracker | null = null;
 
   constructor(db: Database.Database) {
     this.db = db;
@@ -75,6 +77,7 @@ export class GovernanceLayer {
   setEngineRegistry(registry: EngineRegistry): void { this.engineRegistry = registry; }
   setMetaCognitionLayer(layer: { evaluate: (windowCycles?: number) => Array<{ engine: string; grade: string; combined_score: number }> }): void { this.metaCognitionLayer = layer; }
   setJournalWriter(writer: { write: (entry: Record<string, unknown>) => void }): void { this.journalWriter = writer; }
+  setTokenBudgetTracker(tracker: EngineTokenBudgetTracker): void { this.tokenBudgetTracker = tracker; }
 
   /** Check if an engine should run this cycle. Respects throttle/cooldown/isolate. */
   shouldRun(engineId: string, cycle: number): boolean {
@@ -182,7 +185,30 @@ export class GovernanceLayer {
       }
     }
 
-    // 2. MetaCognition Grade F 3× in a row → cooldown
+    // 2. Token Budget enforcement
+    if (this.tokenBudgetTracker) {
+      const budgetStatus = this.tokenBudgetTracker.getStatus();
+      for (const alloc of budgetStatus) {
+        if (alloc.status === 'exhausted') {
+          // Check if already has active action
+          const existing = this.db.prepare(
+            'SELECT id FROM governance_actions WHERE engine = ? AND active = 1 LIMIT 1'
+          ).get(alloc.engineId);
+          if (!existing) {
+            const reason = alloc.hourlyPercent >= 100
+              ? `Hourly token budget exhausted (${alloc.hourlyUsed}/${alloc.hourlyLimit})`
+              : `Daily token budget exhausted (${alloc.dailyUsed}/${alloc.dailyLimit})`;
+            decisions.push({ engine: alloc.engineId, action: 'cooldown', reason });
+            this.cooldown(alloc.engineId, reason, 5, cycle);
+          }
+        } else if (alloc.status === 'warning') {
+          decisions.push({ engine: alloc.engineId, action: 'escalate', reason: `Token budget >80% (hourly: ${alloc.hourlyPercent.toFixed(0)}%, daily: ${alloc.dailyPercent.toFixed(0)}%)` });
+          this.escalate(alloc.engineId, `Token budget warning: hourly ${alloc.hourlyPercent.toFixed(0)}%, daily ${alloc.dailyPercent.toFixed(0)}%`, cycle);
+        }
+      }
+    }
+
+    // 3. MetaCognition Grade F 3× in a row → cooldown
     if (this.metaCognitionLayer) {
       try {
         const fEngines = this.db.prepare(`

@@ -9,3 +9,6 @@ export type { LoopDetection, LoopType, LoopSeverity, LoopDetectorStatus } from '
 
 export { GovernanceLayer, runGovernanceMigration } from './governance-layer.js';
 export type { GovernanceAction, GovernanceActionType, GovernanceDecision, GovernanceLayerStatus } from './governance-layer.js';
+
+export { EngineTokenBudgetTracker, DEFAULT_ENGINE_BUDGETS } from './engine-token-budget.js';
+export type { EngineTokenAllocation, BudgetCheckResult, BudgetReservation } from './engine-token-budget.js';

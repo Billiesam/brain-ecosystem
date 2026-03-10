@@ -153,6 +153,7 @@ export class ResearchOrchestrator {
   private loopDetector: import('../governance/loop-detector.js').LoopDetector | null = null;
   private governanceLayer: import('../governance/governance-layer.js').GovernanceLayer | null = null;
   private adaptiveScheduler: AdaptiveScheduler | null = null;
+  private cycleOutcomeTracker: import('./cycle-outcome-tracker.js').CycleOutcomeTracker | null = null;
   private lastAutoMissionTime = 0;
   private lastGoalMissionTime = 0;
   private roadmapBootstrapped = false;
@@ -220,6 +221,11 @@ export class ResearchOrchestrator {
   /** Set the AdaptiveScheduler for dynamic cycle intervals. */
   setAdaptiveScheduler(scheduler: AdaptiveScheduler): void {
     this.adaptiveScheduler = scheduler;
+  }
+
+  /** Set the CycleOutcomeTracker for long-term cycle metrics. */
+  setCycleOutcomeTracker(tracker: import('./cycle-outcome-tracker.js').CycleOutcomeTracker): void {
+    this.cycleOutcomeTracker = tracker;
   }
 
   /** Get the AdaptiveScheduler instance. */
@@ -3299,6 +3305,37 @@ export class ResearchOrchestrator {
         anomaliesDetected: anomalies.length,
         durationMs: duration,
       });
+    }
+
+    // Cycle Outcome Tracking: long-term productive/failed/novelty/efficiency rates
+    if (this.cycleOutcomeTracker) {
+      try {
+        const { fingerprint } = await import('./cycle-outcome-tracker.js');
+        const hypSummary = this.hypothesisEngine.getSummary();
+        const llmStats = this.llmService?.getStats?.();
+
+        // Build output fingerprints from this cycle's concrete artifacts
+        const fps: string[] = [];
+        for (const ins of insights.slice(0, 10)) {
+          fps.push(fingerprint(ins.title ?? ins.type ?? JSON.stringify(ins)));
+        }
+
+        this.cycleOutcomeTracker.recordOutcome({
+          cycle: this.cycleCount,
+          timestamp: Date.now(),
+          durationMs: duration,
+          tokensUsed: llmStats?.tokensThisHour ?? 0,
+          insightsFound: insights.length,
+          rulesLearned: 0,
+          hypothesesConfirmed: hypSummary.confirmed ?? 0,
+          experimentsCompleted: 0, // tracked externally via AutoExperimentEngine
+          actionsExecuted: 0,
+          errored: false,
+          outputFingerprints: fps,
+        });
+      } catch (err) {
+        this.log.debug(`[orchestrator] CycleOutcomeTracker error: ${(err as Error).message}`);
+      }
     }
 
     // Step-profiling summary: log slow steps if any

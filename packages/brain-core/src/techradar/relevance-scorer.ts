@@ -90,7 +90,7 @@ Respond in JSON format:
   "actionDetail": "<specific recommendation>"
 }`;
 
-    const result = await this.llmService!.call('custom', prompt);
+    const result = await this.llmService!.call('custom', prompt, { engine: 'relevance_scorer' });
 
     if (!result) {
       throw new Error('LLM returned null');

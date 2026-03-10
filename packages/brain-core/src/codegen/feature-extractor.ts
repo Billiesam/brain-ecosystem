@@ -705,6 +705,7 @@ Respond with ONLY the JSON object, no markdown.`;
 
         const response = await this.llmService.call('custom', prompt, {
           maxTokens: 200,
+          engine: 'feature_extractor',
         });
         if (!response) continue;
 

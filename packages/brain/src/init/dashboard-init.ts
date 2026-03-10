@@ -114,7 +114,9 @@ export function createCommandCenter(deps: DashboardDeps): CommandCenterServer {
       const registry = services.engineRegistry?.getStatus() ?? null;
       const loops = services.loopDetector?.getStatus() ?? null;
       const actions = services.governanceLayer?.getStatus() ?? null;
-      return { registry, loops, actions, engineCount: registry?.totalEngines ?? 0, loopCount: loops?.activeDetections ?? 0, actionCount: actions?.activeActions ?? 0 };
+      const budgets = services.tokenBudgetTracker?.getStatus() ?? [];
+      const cycleRates = services.cycleOutcomeTracker?.getRates(0) ?? null;
+      return { registry, loops, actions, budgets, cycleRates, engineCount: registry?.totalEngines ?? 0, loopCount: loops?.activeDetections ?? 0, actionCount: actions?.activeActions ?? 0 };
     },
     chatMessage: async (sessionId: string, content: string) => services.chatEngine?.processMessage(sessionId, content) ?? null,
     chatHistory: (sessionId: string) => services.chatEngine?.getHistory(sessionId) ?? [],

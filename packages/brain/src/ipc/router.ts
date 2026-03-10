@@ -174,6 +174,8 @@ export interface Services {
   loopDetector?: import('@timmeck/brain-core').LoopDetector;
   governanceLayer?: import('@timmeck/brain-core').GovernanceLayer;
   adaptiveScheduler?: import('@timmeck/brain-core').AdaptiveScheduler;
+  tokenBudgetTracker?: import('@timmeck/brain-core').EngineTokenBudgetTracker;
+  cycleOutcomeTracker?: import('@timmeck/brain-core').CycleOutcomeTracker;
 }
 
 type MethodHandler = (params: unknown) => unknown | Promise<unknown>;
@@ -1181,6 +1183,16 @@ export class IpcRouter {
       ['governance.isolate',       (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); s.governanceLayer.isolate(p(params).id, p(params).reason ?? 'manual', 0, 'manual'); return { isolated: true }; }],
       ['governance.restore',       (params) => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); s.governanceLayer.restore(p(params).id, p(params).reason ?? 'manual', 0, 'manual'); return { restored: true }; }],
       ['governance.layer_status',  () => { if (!s.governanceLayer) throw new Error('GovernanceLayer not available'); return s.governanceLayer.getStatus(); }],
+
+      // ─── Token Budgets ──────────────────────────────────────
+      ['governance.token_budgets', () => { if (!s.tokenBudgetTracker) throw new Error('TokenBudgetTracker not available'); return s.tokenBudgetTracker.getStatus(); }],
+      ['governance.engine_budget', (params) => { if (!s.tokenBudgetTracker) throw new Error('TokenBudgetTracker not available'); return s.tokenBudgetTracker.getEngineStatus(p(params).id); }],
+      ['governance.set_budget',    (params) => { if (!s.parameterRegistry) throw new Error('ParameterRegistry not available'); const pp = p(params); s.parameterRegistry.set(pp.engine, pp.name, pp.value, 'ipc', pp.reason ?? 'manual budget change'); return { updated: true }; }],
+
+      // ─── Cycle Outcomes ─────────────────────────────────────
+      ['cycle.rates',          (params) => { if (!s.cycleOutcomeTracker) throw new Error('CycleOutcomeTracker not available'); return s.cycleOutcomeTracker.getRates(p(params).hours ?? 0); }],
+      ['cycle.rates_history',  (params) => { if (!s.cycleOutcomeTracker) throw new Error('CycleOutcomeTracker not available'); return s.cycleOutcomeTracker.getRateHistory(p(params).days ?? 30); }],
+      ['cycle.recent',         (params) => { if (!s.cycleOutcomeTracker) throw new Error('CycleOutcomeTracker not available'); return s.cycleOutcomeTracker.getRecent(p(params).limit ?? 20); }],
 
       // ─── Guardrails ────────────────────────────────────────
       ['guardrail.status',         () => { if (!s.guardrailEngine) throw new Error('GuardrailEngine not available'); return s.guardrailEngine.getStatus(); }],

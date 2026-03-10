@@ -67,10 +67,12 @@ export class DigestGenerator {
       'summarize',
       `Write a concise daily tech digest for ${date}. Focus on what matters for a TypeScript AI project (Brain Ecosystem).
 
+
 Top findings today:
 ${topEntries}
 
 Write 3-5 sentences highlighting the most important developments and their implications. Be direct, no fluff.`,
+      { engine: 'tech_radar' },
     );
 
     return result?.text ?? this.generateFallbackSummary(entries, date);

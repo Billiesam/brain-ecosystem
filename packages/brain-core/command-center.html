@@ -365,6 +365,8 @@ canvas{display:block;width:100%;height:100%}
               </div>
             </div>
             <div id="govDetails" style="margin-top:8px;font-size:12px;color:var(--text-dim)"></div>
+            <div id="tokenBudgets" style="margin-top:10px"></div>
+            <div id="cycleRates" style="margin-top:10px"></div>
           </div>
         </div>
 
@@ -2412,6 +2414,50 @@ function renderGovernance() {
       }
     }
     detailsEl.innerHTML = parts.join(' · ');
+  }
+
+  // Token budget bars
+  const budgetEl = document.getElementById('tokenBudgets');
+  if (budgetEl && d.budgets?.length) {
+    const bars = d.budgets
+      .filter(b => b.hourlyUsed > 0 || b.dailyUsed > 0)
+      .slice(0, 8)
+      .map(b => {
+        const pct = Math.min(100, Math.max(b.hourlyPercent, b.dailyPercent));
+        const col = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--orange)' : 'var(--green)';
+        return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+          <span style="width:140px;font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.engineId}</span>
+          <div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">
+            <div style="width:${pct.toFixed(0)}%;height:100%;background:${col};border-radius:3px"></div>
+          </div>
+          <span style="font-size:10px;color:var(--text-dim);width:35px;text-align:right">${pct.toFixed(0)}%</span>
+        </div>`;
+      }).join('');
+    budgetEl.innerHTML = bars || '';
+  }
+
+  // Cycle outcome rates
+  const cycleEl = document.getElementById('cycleRates');
+  if (cycleEl && d.cycleRates && d.cycleRates.totalCycles > 0) {
+    const r = d.cycleRates;
+    const pctBar = (label, val, invert) => {
+      const pct = (val * 100).toFixed(1);
+      const col = invert
+        ? (val >= 0.3 ? 'var(--red)' : val >= 0.15 ? 'var(--orange)' : 'var(--green)')
+        : (val >= 0.7 ? 'var(--green)' : val >= 0.4 ? 'var(--orange)' : 'var(--red)');
+      return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+        <span style="width:100px;font-size:11px;color:var(--text-dim)">${label}</span>
+        <div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${col};border-radius:3px;max-width:100%"></div>
+        </div>
+        <span style="font-size:10px;color:var(--text-dim);width:40px;text-align:right">${pct}%</span>
+      </div>`;
+    };
+    cycleEl.innerHTML = `<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px"><b>Cycle Rates</b> (${r.totalCycles} cycles, ${r.window})</div>`
+      + pctBar('Productive', r.productiveRate, false)
+      + pctBar('Failed', r.failedRate, true)
+      + pctBar('Novelty', r.noveltyRate, false)
+      + `<div style="font-size:10px;color:var(--text-dim);margin-top:2px">Efficiency: ${r.efficiencyRate.toFixed(2)} outputs/1k tokens</div>`;
   }
 }
 

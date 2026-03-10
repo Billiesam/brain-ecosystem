@@ -24,7 +24,7 @@ export interface LLMCallContext {
   /** User message / prompt content */
   userMessage: string;
   /** Call options */
-  options: { maxTokens?: number; temperature?: number; provider?: string };
+  options: { maxTokens?: number; temperature?: number; provider?: string; engine?: string };
   /** Metadata bag — middlewares can attach arbitrary data */
   metadata: Record<string, unknown>;
   /** Timestamp when the call started */

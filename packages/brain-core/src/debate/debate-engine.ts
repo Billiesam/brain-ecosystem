@@ -477,7 +477,7 @@ export class DebateEngine {
         `${c.perspectiveA} vs ${c.perspectiveB}: "${c.claimA}" vs "${c.claimB}"`,
       ).join('\n');
       const llmPrompt = `Question: "${debate.question}"\n\nPerspectives:\n${perspectiveSummary}\n\n${conflicts.length > 0 ? `Conflicts:\n${conflictSummary}\n\n` : ''}Synthesize these perspectives. Output format:\nCONSENSUS: <one paragraph>\nRECOMMENDATIONS:\n- <recommendation 1>\n- <recommendation 2>`;
-      const result = await this.llm.call('synthesize_debate', llmPrompt);
+      const result = await this.llm.call('synthesize_debate', llmPrompt, { engine: 'debate_engine' });
       if (result?.text) {
         // Parse LLM output
         const consensusMatch = result.text.match(/CONSENSUS:\s*([\s\S]*?)(?=RECOMMENDATIONS:|$)/i);

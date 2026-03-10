@@ -604,6 +604,10 @@ export type {
 export { AdaptiveScheduler } from './research/adaptive-scheduler.js';
 export type { AdaptiveSchedulerConfig, AdaptiveSchedulerStatus, SchedulerBucket, CycleOutcome } from './research/adaptive-scheduler.js';
 
+// ── Cycle Outcome Tracker ────────────────────────────────
+export { CycleOutcomeTracker, fingerprint, runCycleOutcomeMigration } from './research/cycle-outcome-tracker.js';
+export type { CycleOutcomeRecord, CycleClassification, CycleRates, CycleOutcomeRow } from './research/cycle-outcome-tracker.js';
+
 // ── Chat Engine ──────────────────────────────────────────
 export { ChatEngine, runChatMigration, MultiBrainRouter } from './chat/index.js';
 export type { ChatMessage, ChatEngineConfig, ChatEngineStatus, MultiBrainRoute, MultiBrainResponse, AggregatedResponse } from './chat/index.js';
@@ -617,3 +621,5 @@ export { LoopDetector, runLoopDetectorMigration } from './governance/index.js';
 export type { LoopDetection, LoopType, LoopSeverity, LoopDetectorStatus } from './governance/index.js';
 export { GovernanceLayer, runGovernanceMigration } from './governance/index.js';
 export type { GovernanceAction, GovernanceActionType, GovernanceDecision, GovernanceLayerStatus } from './governance/index.js';
+export { EngineTokenBudgetTracker, DEFAULT_ENGINE_BUDGETS } from './governance/index.js';
+export type { EngineTokenAllocation, BudgetCheckResult, BudgetReservation } from './governance/index.js';

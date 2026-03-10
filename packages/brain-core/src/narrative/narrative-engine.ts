@@ -172,7 +172,7 @@ export class NarrativeEngine {
     if (this.llm?.isAvailable() && details.length > 0) {
       const contextBlock = details.join('\n');
       const llmPrompt = `Topic: "${topic}"\n\nKnowledge Base:\n${contextBlock}\n\nExplain what Brain knows about this topic. Synthesize across all sources into a coherent narrative.`;
-      void this.llm.call('explain', llmPrompt).catch(() => {});
+      void this.llm.call('explain', llmPrompt, { engine: 'narrative_engine' }).catch(() => {});
     }
 
     return {
@@ -197,7 +197,7 @@ export class NarrativeEngine {
     } else if (this.llm?.isAvailable()) {
       const contextBlock = details.join('\n');
       const llmPrompt = `Topic: "${topic}"\n\nKnowledge Base:\n${contextBlock}\n\nExplain what Brain knows about this topic. Synthesize across all sources into a coherent narrative.`;
-      const llmResult = await this.llm.call('explain', llmPrompt);
+      const llmResult = await this.llm.call('explain', llmPrompt, { engine: 'narrative_engine' });
       summary = llmResult?.text ?? this.heuristicExplainSummary(topic, matchingPrinciples.length, matchingHypotheses.length, matchingAntiPatterns.length, matchingExperiments.length, journalEntries.length, avgConfidence);
     } else {
       summary = this.heuristicExplainSummary(topic, matchingPrinciples.length, matchingHypotheses.length, matchingAntiPatterns.length, matchingExperiments.length, journalEntries.length, avgConfidence);
@@ -333,7 +333,7 @@ export class NarrativeEngine {
     if (this.llm?.isAvailable() && answerParts.length > 0) {
       const context = answerParts.join('\n');
       const llmPrompt = `Question: "${question}"\n\nRelevant Knowledge:\n${context}\n\nAnswer the question based on the knowledge above. Be direct and cite sources.`;
-      void this.llm.call('ask', llmPrompt).catch(() => {});
+      void this.llm.call('ask', llmPrompt, { engine: 'narrative_engine' }).catch(() => {});
     }
 
     this.thoughtStream?.emit('narrative', 'explaining', `Answered "${question}" with ${sources.length} sources`, sources.length > 2 ? 'notable' : 'routine');
@@ -354,7 +354,7 @@ export class NarrativeEngine {
     } else if (this.llm?.isAvailable()) {
       const context = answerParts.join('\n');
       const llmPrompt = `Question: "${question}"\n\nRelevant Knowledge:\n${context}\n\nAnswer the question based on the knowledge above. Be direct and cite sources.`;
-      const llmResult = await this.llm.call('ask', llmPrompt);
+      const llmResult = await this.llm.call('ask', llmPrompt, { engine: 'narrative_engine' });
       answer = llmResult?.text ?? answerParts.join('\n\n');
     } else {
       answer = answerParts.join('\n\n');

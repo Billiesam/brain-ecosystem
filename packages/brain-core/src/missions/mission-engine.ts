@@ -312,7 +312,7 @@ export class ResearchMissionEngine {
         `Topic: "${topic}"`,
         `Return ONLY a JSON array of strings, nothing else.`,
         `Example: ["What is X?", "How does X affect Y?", "What are the latest trends in X?"]`,
-      ].join('\n'));
+      ].join('\n'), { engine: 'mission_engine' });
 
       if (response?.text) {
         try {
@@ -492,7 +492,7 @@ export class ResearchMissionEngine {
         sourceContext,
         '',
         'Return a JSON array of objects: [{"hypothesis": "...", "evidence": "...", "testable_via": "..."}]',
-      ].join('\n'), { maxTokens: 1024 });
+      ].join('\n'), { maxTokens: 1024, engine: 'mission_engine' });
 
       if (response?.text) {
         this.completePhase(phaseId, response.text);
@@ -537,7 +537,7 @@ export class ResearchMissionEngine {
         sourceContext,
         '',
         'Identify: 1) Consistent findings across sources, 2) Contradictions or gaps, 3) Strength of evidence (strong/moderate/weak)',
-      ].join('\n'), { maxTokens: 1024 });
+      ].join('\n'), { maxTokens: 1024, engine: 'mission_engine' });
 
       if (response?.text) {
         this.completePhase(phaseId, response.text);
@@ -585,7 +585,7 @@ export class ResearchMissionEngine {
         '4. Gaps & Limitations',
         '5. Conclusions & Recommendations',
         `Use plain text, no markdown headers. Cite sources by number [Source N].`,
-      ].join('\n'), { maxTokens: 2048 });
+      ].join('\n'), { maxTokens: 2048, engine: 'mission_engine' });
 
       if (response?.text) {
         this.completePhase(phaseId, 'Report generated via LLM');

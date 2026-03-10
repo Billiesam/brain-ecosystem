@@ -65,7 +65,7 @@ import { McpHttpServer } from './mcp/http-server.js';
 import { EmbeddingEngine } from './embeddings/engine.js';
 
 // Cross-Brain
-import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine, GuardrailEngine, CausalPlanner, ResearchRoadmap, CreativeEngine, TelegramBot, DiscordBot, MemoryWatchdog, AdaptiveScheduler } from '@timmeck/brain-core';
+import { CrossBrainClient, CrossBrainNotifier, CrossBrainSubscriptionManager, CrossBrainCorrelator, EcosystemService, WebhookService, ExportService, BackupService, AutonomousResearchScheduler, ResearchOrchestrator, DataMiner, BrainDataMinerAdapter, ScannerDataMinerAdapter, BootstrapService, DreamEngine, ThoughtStream, PredictionEngine, AttentionEngine, TransferEngine, NarrativeEngine, CuriosityEngine, EmergenceEngine, DebateEngine, ParameterRegistry, MetaCognitionLayer, AutoExperimentEngine, SelfTestEngine, TeachEngine, DataScout, runDataScoutMigration, GitHubTrendingAdapter, NpmStatsAdapter, HackerNewsAdapter, SimulationEngine, runSimulationMigration, MemoryPalace, GoalEngine, EvolutionEngine, runEvolutionMigration, ReasoningEngine, EmotionalModel, SelfScanner, SelfModificationEngine, ConceptAbstraction, PeerNetwork, LLMService, OllamaProvider, ResearchMissionEngine, runMissionMigration, BraveSearchAdapter, JinaReaderAdapter, PlaywrightAdapter, FirecrawlAdapter, CommandCenterServer, WatchdogService, createDefaultWatchdogConfig, PluginRegistry, BorgSyncEngine, GuardrailEngine, CausalPlanner, ResearchRoadmap, CreativeEngine, TelegramBot, DiscordBot, MemoryWatchdog, AdaptiveScheduler, EngineTokenBudgetTracker, CycleOutcomeTracker, runCycleOutcomeMigration } from '@timmeck/brain-core';
 import type { BorgDataProvider, SyncItem, HypothesisStatus, ExperimentStatus, AnomalyType } from '@timmeck/brain-core';
 
 // Init modules (extracted from God-Class)
@@ -802,6 +802,24 @@ export class BrainCore {
     this.discordBot = intelligenceResult.discordBot;
     const chatEngine = services.chatEngine!;
 
+    // Per-engine token budget tracking
+    const tokenBudgetTracker = new EngineTokenBudgetTracker(this.db!, parameterRegistry);
+    tokenBudgetTracker.registerDefaults();
+    llmService.setTokenBudgetTracker(tokenBudgetTracker);
+    if (services.governanceLayer) {
+      services.governanceLayer.setTokenBudgetTracker(tokenBudgetTracker);
+    }
+    services.tokenBudgetTracker = tokenBudgetTracker;
+    logger.info('EngineTokenBudgetTracker initialized — per-engine token budgets active');
+
+    // Cycle Outcome Tracking — long-term productive/failed/novelty/efficiency rates
+    runCycleOutcomeMigration(this.db!);
+    const cycleOutcomeTracker = new CycleOutcomeTracker(this.db!);
+    if (services.orchestrator) {
+      services.orchestrator.setCycleOutcomeTracker(cycleOutcomeTracker);
+    }
+    services.cycleOutcomeTracker = cycleOutcomeTracker;
+    logger.info('CycleOutcomeTracker initialized — 4-curve cycle metrics active');
 
     // 11c. Watchdog — monitoring only (detect peers via PID, run health checks)
     const watchdogConfig = createDefaultWatchdogConfig();

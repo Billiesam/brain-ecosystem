@@ -9,6 +9,7 @@ import type { LLMMiddleware, LLMCallContext } from './middleware.js';
 import { composeMiddleware } from './middleware.js';
 import { parseStructuredOutput } from './structured-output.js';
 import type { ContentBlock, StructuredLLMResponse } from './structured-output.js';
+import type { EngineTokenBudgetTracker } from '../governance/engine-token-budget.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -125,6 +126,14 @@ export function runLLMServiceMigration(db: Database.Database): void {
   } catch {
     // Column already exists — ignore
   }
+
+  // Add source_engine column for per-engine token budget tracking
+  try {
+    db.exec(`ALTER TABLE llm_usage ADD COLUMN source_engine TEXT NOT NULL DEFAULT 'unknown'`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_llm_usage_source_engine ON llm_usage(source_engine)`);
+  } catch {
+    // Column already exists — ignore
+  }
 }
 
 // ── Prompt Templates ────────────────────────────────────
@@ -215,6 +224,9 @@ export class LLMService {
   // Middleware pipeline
   private middlewares: LLMMiddleware[] = [];
 
+  // Per-engine token budget tracker (optional)
+  private tokenBudgetTracker: EngineTokenBudgetTracker | null = null;
+
   constructor(private db: Database.Database, config: LLMServiceConfig = {}) {
     this.model = config.model ?? 'claude-sonnet-4-20250514';
     this.maxTokens = config.maxTokens ?? 2048;
@@ -228,7 +240,7 @@ export class LLMService {
     runLLMServiceMigration(db);
 
     this.stmtInsertUsage = db.prepare(
-      'INSERT INTO llm_usage (prompt_hash, template, model, input_tokens, output_tokens, total_tokens, duration_ms, cached, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO llm_usage (prompt_hash, template, model, input_tokens, output_tokens, total_tokens, duration_ms, cached, provider, source_engine) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
 
     // Auto-register Anthropic provider from config
@@ -275,6 +287,11 @@ export class LLMService {
     return this.middlewares.length;
   }
 
+  /** Set the per-engine token budget tracker. */
+  setTokenBudgetTracker(tracker: EngineTokenBudgetTracker): void {
+    this.tokenBudgetTracker = tracker;
+  }
+
   /** Remove a provider by name. */
   removeProvider(name: string): void {
     this.providers = this.providers.filter(p => p.name !== name);
@@ -315,7 +332,7 @@ export class LLMService {
   async call(
     template: PromptTemplate,
     userMessage: string,
-    options?: { maxTokens?: number; temperature?: number; provider?: string },
+    options?: { maxTokens?: number; temperature?: number; provider?: string; engine?: string },
   ): Promise<LLMResponse | null> {
     // If middlewares registered, route through pipeline
     if (this.middlewares.length > 0) {
@@ -341,7 +358,7 @@ export class LLMService {
   async callStructured(
     template: PromptTemplate,
     userMessage: string,
-    options?: { maxTokens?: number; temperature?: number; provider?: string },
+    options?: { maxTokens?: number; temperature?: number; provider?: string; engine?: string },
   ): Promise<StructuredLLMResponse | null> {
     const response = await this.call(template, userMessage, options);
     if (!response) return null;
@@ -358,17 +375,30 @@ export class LLMService {
   private async callInternal(
     template: PromptTemplate,
     userMessage: string,
-    options?: { maxTokens?: number; temperature?: number; provider?: string },
+    options?: { maxTokens?: number; temperature?: number; provider?: string; engine?: string },
   ): Promise<LLMResponse | null> {
+    const sourceEngine = options?.engine ?? 'unknown';
+
     // Check cache first (provider-agnostic)
     const cacheKey = this.getCacheKey(template, userMessage);
     const cached = this.getFromCache(cacheKey);
     if (cached) {
       this.stats.cacheHits++;
-      this.recordUsage(cacheKey, template, cached, true);
+      this.recordUsage(cacheKey, template, cached, true, sourceEngine);
       return { ...cached, cached: true };
     }
     this.stats.cacheMisses++;
+
+    // Reserve per-engine token budget before making the call
+    let reservationId: string | null = null;
+    if (this.tokenBudgetTracker && sourceEngine !== 'unknown') {
+      const estimatedTokens = (options?.maxTokens ?? this.maxTokens) + 500; // output + ~input estimate
+      reservationId = this.tokenBudgetTracker.reserveTokens(sourceEngine, estimatedTokens);
+      if (reservationId === null) {
+        this.log.debug(`[LLMService] Engine '${sourceEngine}' budget exhausted (reservation denied)`);
+        return null;
+      }
+    }
 
     // Build provider chain (priority order)
     const providerChain = await this.getProviderChain(template, options?.provider);
@@ -430,9 +460,12 @@ export class LLMService {
         this.setCache(cacheKey, result);
 
         // Record to DB
-        this.recordUsage(cacheKey, template, result, false);
+        this.recordUsage(cacheKey, template, result, false, sourceEngine);
 
-        this.log.debug(`[LLMService] ${template} via ${provider.name}: ${totalTokens} tokens, ${providerResponse.durationMs}ms`);
+        // Release reservation now that actual usage is recorded in DB
+        if (reservationId) this.tokenBudgetTracker!.releaseReservation(reservationId);
+
+        this.log.debug(`[LLMService] ${template} via ${provider.name} (engine=${sourceEngine}): ${totalTokens} tokens, ${providerResponse.durationMs}ms`);
 
         return result;
       } catch (err) {
@@ -442,7 +475,8 @@ export class LLMService {
       }
     }
 
-    // All providers failed
+    // All providers failed — release reservation to avoid leak
+    if (reservationId) this.tokenBudgetTracker!.releaseReservation(reservationId);
     this.log.warn('[LLMService] All providers failed, returning null');
     return null;
   }
@@ -642,7 +676,7 @@ export class LLMService {
     this.callHistory = this.callHistory.filter(c => c.timestamp > oneDayAgo);
   }
 
-  private recordUsage(hash: string, template: string, response: LLMResponse, cached: boolean): void {
+  private recordUsage(hash: string, template: string, response: LLMResponse, cached: boolean, sourceEngine = 'unknown'): void {
     try {
       this.stmtInsertUsage?.run(
         hash,
@@ -654,9 +688,33 @@ export class LLMService {
         response.durationMs,
         cached ? 1 : 0,
         response.provider ?? 'anthropic',
+        sourceEngine,
       );
     } catch {
       // Best effort — don't crash on DB error
     }
+  }
+
+  /** Get usage breakdown by source engine (for token budget tracking). */
+  getUsageByEngine(hours = 1): Array<{ source_engine: string; calls: number; tokens: number }> {
+    try {
+      return this.db.prepare(`
+        SELECT source_engine,
+               COUNT(*) as calls,
+               SUM(total_tokens) as tokens
+        FROM llm_usage
+        WHERE created_at > datetime('now', '-' || ? || ' hours')
+          AND cached = 0
+        GROUP BY source_engine
+        ORDER BY tokens DESC
+      `).all(hours) as Array<{ source_engine: string; calls: number; tokens: number }>;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Expose DB for token budget tracker (read-only access). */
+  getDb(): Database.Database {
+    return this.db;
   }
 }

@@ -364,7 +364,7 @@ export class HypothesisEngine {
 
       const prompt = `${context}\n\nGenerate ${count} novel, testable hypotheses. Each should explore non-obvious connections.\n\nOutput as JSON array: [{"statement": "...", "variables": ["var1", "var2"], "reasoning": "why this is interesting"}]`;
 
-      const result = await this.llm.call('creative_hypothesis', prompt, { temperature: 0.9 });
+      const result = await this.llm.call('creative_hypothesis', prompt, { temperature: 0.9, engine: 'hypothesis_engine' });
       if (!result?.text) return this.generateCreativeHeuristic(count);
 
       // Parse JSON from LLM response
