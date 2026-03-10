@@ -5,6 +5,7 @@
 import { CommandCenterServer } from '@timmeck/brain-core';
 import type { CrossBrainClient, CrossBrainCorrelator, EcosystemService, WatchdogService, PluginRegistry, BorgSyncEngine, ThoughtStream, EmotionalModel } from '@timmeck/brain-core';
 import type { Services } from '../ipc/router.js';
+import { renderMarkdown } from '../cli/commands/report.js';
 
 export interface DashboardDeps {
   services: Services;
@@ -122,6 +123,37 @@ export function createCommandCenter(deps: DashboardDeps): CommandCenterServer {
     getDebateList: (limit = 10) => debateEngine?.listDebates(limit) ?? [],
     getChallengeHistory: (limit = 20) => debateEngine?.getChallengeHistory(limit) ?? [],
     getChallengeVulnerable: (limit = 5) => debateEngine?.getMostVulnerable(limit) ?? [],
+    getReport: async () => {
+      const safe = <T>(fn: () => T): T | null => { try { return fn(); } catch { return null; } };
+      const analytics = safe(() => services.analytics?.getSummary() ?? null);
+      const desires = safe(() => services.orchestrator?.getDesires() ?? []);
+      const suggestions = safe(() => services.orchestrator?.generateSelfImprovementSuggestions() ?? []);
+      const pending = safe(() => services.selfModificationEngine?.getPending() ?? []);
+      const hypothesisSummary = safe(() => services.hypothesis?.getSummary() ?? null);
+      const confirmedHypotheses = safe(() => services.hypothesis?.list('confirmed') ?? []);
+      const milestones = safe(() => services.journal?.getMilestones() ?? []);
+      const journalEntries = safe(() => services.journal?.getEntries() ?? []);
+      const predictSummary = safe(() => services.predictionEngine?.getSummary() ?? null);
+      const predictAccuracy = safe(() => services.predictionEngine?.getAccuracy() ?? null);
+      const transferStatus = safe(() => services.transferEngine?.getStatus() ?? null);
+      const transferHistory: null = null; // TransferEngine has no getHistory — use status only
+      const borgStatus = safe(() => deps.borgSync?.getStatus() ?? null);
+      const experimentStatus = safe(() => services.autoExperimentEngine?.getStatus() ?? null);
+      const governanceStatus = safe(() => {
+        const registry = services.engineRegistry?.getStatus() ?? null;
+        const loops = services.loopDetector?.getStatus() ?? null;
+        const actions = services.governanceLayer?.getStatus() ?? null;
+        return { registry, loops, actions, activeEngines: registry?.totalEngines ?? 0, throttled: actions?.activeActions ?? 0, isolated: 0 };
+      });
+      return renderMarkdown({
+        analytics, desires, suggestions, pending,
+        hypothesisSummary, confirmedHypotheses,
+        milestones, journalEntries,
+        predictSummary, predictAccuracy,
+        transferStatus, transferHistory, borgStatus,
+        experimentStatus, governanceStatus,
+      });
+    },
     triggerAction: async (action: string) => {
       switch (action) {
         case 'learning-cycle':

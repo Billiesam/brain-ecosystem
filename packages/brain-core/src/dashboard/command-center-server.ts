@@ -56,6 +56,7 @@ export interface CommandCenterOptions {
   chatMessage?: (sessionId: string, content: string) => Promise<unknown>;
   chatHistory?: (sessionId: string) => unknown;
   chatStatus?: () => unknown;
+  getReport?: () => Promise<string>;
   triggerAction?: (action: string, params?: unknown) => Promise<unknown>;
 }
 
@@ -126,6 +127,7 @@ export class CommandCenterServer {
         if (url.pathname === '/api/knowledge') { this.handleKnowledge(res); return; }
         if (url.pathname === '/api/debates') { this.handleDebates(res); return; }
         if (url.pathname === '/api/borg/toggle' && req.method === 'POST') { this.handleBorgToggle(req, res); return; }
+        if (url.pathname === '/api/report') { this.handleReport(res); return; }
         if (url.pathname === '/api/action' && req.method === 'POST') { this.handleAction(req, res); return; }
         if (url.pathname === '/api/guardrails') { this.handleGuardrails(res); return; }
         if (url.pathname === '/api/roadmaps') { this.handleRoadmaps(res); return; }
@@ -661,6 +663,22 @@ export class CommandCenterServer {
         this.json(res, { error: (err as Error).message }, 400);
       }
     });
+  }
+
+  private handleReport(res: http.ServerResponse): void {
+    if (!this.options.getReport) {
+      this.json(res, { error: 'Report not available' }, 501);
+      return;
+    }
+    this.options.getReport()
+      .then(markdown => {
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown; charset=utf-8',
+          'Content-Disposition': `attachment; filename="brain-report-${new Date().toISOString().slice(0, 10)}.md"`,
+        });
+        res.end(markdown);
+      })
+      .catch(err => this.json(res, { error: (err as Error).message }, 500));
   }
 
   private handleAction(req: http.IncomingMessage, res: http.ServerResponse): void {

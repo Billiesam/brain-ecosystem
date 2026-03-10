@@ -54,6 +54,7 @@ import { codeforgeCommand } from './cli/commands/codeforge.js';
 import { strategyCommand } from './cli/commands/strategy.js';
 import { desiresCommand } from './cli/commands/desires.js';
 import { governanceCommand } from './cli/commands/governance.js';
+import { reportCommand } from './cli/commands/report.js';
 import { getCurrentVersion } from './cli/update-check.js';
 
 const program = new Command();
@@ -99,6 +100,7 @@ program.addCommand(codeforgeCommand());
 program.addCommand(strategyCommand());
 program.addCommand(desiresCommand());
 program.addCommand(governanceCommand());
+program.addCommand(reportCommand());
 
 // Hidden command: run MCP server (called by Claude Code)
 program

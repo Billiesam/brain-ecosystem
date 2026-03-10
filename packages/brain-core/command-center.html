@@ -286,6 +286,7 @@ canvas{display:block;width:100%;height:100%}
             <button class="action-btn" data-action="borg-sync"><span class="action-icon">&#x1F47E;</span> Borg Sync</button>
             <button class="action-btn" data-action="tech-scan"><span class="action-icon">&#x1F4E1;</span> <span data-t="Tech-Radar Scan">Tech-Radar Scan</span></button>
             <button class="action-btn" data-action="health-check"><span class="action-icon">&#x1F3E5;</span> Health Check</button>
+            <button class="action-btn" id="reportBtn"><span class="action-icon">&#x1F4CB;</span> Report</button>
           </div>
         </div>
 
@@ -1925,6 +1926,33 @@ document.querySelectorAll('.action-btn').forEach(btn => {
       btn.querySelector('.action-icon').textContent = icons[action] || '\u26A1';
     }, 2000);
   });
+});
+
+// ── Report Download ──────────────────────────────────────
+document.getElementById('reportBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('reportBtn');
+  btn.classList.add('running');
+  btn.querySelector('.action-icon').textContent = '\u23F3';
+  try {
+    const res = await fetch('/api/report');
+    if (!res.ok) throw new Error('Report failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `brain-report-${new Date().toISOString().slice(0,10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    btn.querySelector('.action-icon').textContent = '\u2705';
+  } catch {
+    btn.querySelector('.action-icon').textContent = '\u274C';
+  }
+  setTimeout(() => {
+    btn.classList.remove('running');
+    btn.querySelector('.action-icon').textContent = '\u{1F4CB}';
+  }, 2000);
 });
 
 // ── Canvas: Peer Graph ────────────────────────────────────
