@@ -1260,6 +1260,7 @@ export class IpcRouter {
 
       // ─── Chat Interface ──────────────────────────────────────────
       ['chat.message', async (params) => { if (!s.chatEngine) throw new Error('ChatEngine not available'); return s.chatEngine.processMessage(p(params).sessionId ?? 'default', p(params).content); }],
+      ['chat.multi', async (params) => { if (!s.chatEngine) throw new Error('ChatEngine not available'); return s.chatEngine.processMultiBrain(p(params).session ?? 'default', p(params).message); }],
       ['chat.history', (params) => { if (!s.chatEngine) throw new Error('ChatEngine not available'); return s.chatEngine.getHistory(p(params).sessionId ?? 'default', p(params).limit); }],
       ['chat.status',  () => { if (!s.chatEngine) throw new Error('ChatEngine not available'); return s.chatEngine.getStatus(); }],
 

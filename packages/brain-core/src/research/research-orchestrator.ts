@@ -56,6 +56,7 @@ import type { CodeHealthMonitor } from '../code-health/health-monitor.js';
 import type { KnowledgeGraphEngine } from '../knowledge-graph/graph-engine.js';
 import type { RepoAbsorber } from '../codegen/repo-absorber.js';
 import { AutoResponder } from './auto-responder.js';
+import { AdaptiveScheduler, type CycleOutcome } from './adaptive-scheduler.js';
 
 // ── Types ───────────────────────────────────────────────
 
@@ -151,6 +152,7 @@ export class ResearchOrchestrator {
   private runtimeInfluenceTracker: import('../governance/runtime-influence-tracker.js').RuntimeInfluenceTracker | null = null;
   private loopDetector: import('../governance/loop-detector.js').LoopDetector | null = null;
   private governanceLayer: import('../governance/governance-layer.js').GovernanceLayer | null = null;
+  private adaptiveScheduler: AdaptiveScheduler | null = null;
   private lastAutoMissionTime = 0;
   private lastGoalMissionTime = 0;
   private roadmapBootstrapped = false;
@@ -158,7 +160,7 @@ export class ResearchOrchestrator {
 
   private db: Database.Database;
   private brainName: string;
-  private feedbackTimer: ReturnType<typeof setInterval> | null = null;
+  private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private cycleCount = 0;
   private lastDesireActuationCycle = 0;
   private distillEvery: number;
@@ -205,6 +207,16 @@ export class ResearchOrchestrator {
   /** Set callback for self-improvement suggestions (e.g. to create notifications). */
   setOnSuggestion(callback: (suggestions: string[]) => void): void {
     this.onSuggestionCallback = callback;
+  }
+
+  /** Set the AdaptiveScheduler for dynamic cycle intervals. */
+  setAdaptiveScheduler(scheduler: AdaptiveScheduler): void {
+    this.adaptiveScheduler = scheduler;
+  }
+
+  /** Get the AdaptiveScheduler instance. */
+  getAdaptiveScheduler(): AdaptiveScheduler | null {
+    return this.adaptiveScheduler;
   }
 
   /** Set the DataMiner instance for DB-driven engine feeding. */
@@ -453,17 +465,29 @@ export class ResearchOrchestrator {
   /** Start the autonomous feedback loop timer. */
   start(intervalMs = 300_000): void {
     if (this.feedbackTimer) return;
-    this.feedbackTimer = setInterval(() => {
-      try { void this.runFeedbackCycle(); }
-      catch (err) { this.log.error('[orchestrator] Feedback cycle error', { error: (err as Error).message }); }
-    }, intervalMs);
+    this.startIntervalMs = intervalMs;
+    this.scheduleNextCycle(intervalMs);
     this.log.info(`[orchestrator] Research orchestrator started (feedback every ${intervalMs}ms)`);
   }
+
+  /** Schedule the next feedback cycle (supports adaptive intervals). */
+  private scheduleNextCycle(intervalMs: number): void {
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(async () => {
+      try { await this.runFeedbackCycle(); }
+      catch (err) { this.log.error('[orchestrator] Feedback cycle error', { error: (err as Error).message }); }
+      // Re-schedule with adaptive or base interval
+      const nextInterval = this.adaptiveScheduler?.getNextInterval() ?? this.startIntervalMs;
+      this.scheduleNextCycle(nextInterval);
+    }, intervalMs);
+  }
+
+  private startIntervalMs = 300_000;
 
   /** Stop the feedback loop. */
   stop(): void {
     if (this.feedbackTimer) {
-      clearInterval(this.feedbackTimer);
+      clearTimeout(this.feedbackTimer);
       this.feedbackTimer = null;
     }
     this.dreamEngine?.stop();
@@ -1417,6 +1441,10 @@ export class ResearchOrchestrator {
               } else if (topic.includes('distill') || topic.includes('knowledge')) {
                 const kSummary = this.knowledgeDistiller.getSummary();
                 this.hypothesisEngine.observe({ source: this.brainName, type: 'internal:distillation_throughput', value: kSummary.principles + kSummary.antiPatterns + kSummary.strategies, timestamp: now, metadata: { principles: kSummary.principles, avgConfidence: kSummary.avgConfidence } });
+              } else if (topic.includes('dream') || topic.includes('consolidat')) {
+                const dStatus = this.dreamEngine?.getStatus();
+                const totals = dStatus?.totals as Record<string, number> | undefined;
+                this.hypothesisEngine.observe({ source: this.brainName, type: 'internal:dream_consolidation_count', value: (totals?.memoriesConsolidated ?? 0), timestamp: now });
               }
             } catch { /* internal observation non-critical */ }
           }
@@ -3073,6 +3101,16 @@ export class ResearchOrchestrator {
           { workflowType: 'orchestrator', metadata: { brainName: this.brainName } },
         );
       } catch { /* checkpoint save should never break the cycle */ }
+    }
+
+    // Adaptive Scheduling: record cycle outcome for interval optimization
+    if (this.adaptiveScheduler) {
+      this.adaptiveScheduler.recordOutcome({
+        insightsFound: insights.length,
+        rulesLearned: 0, // rules come from external learning engines
+        anomaliesDetected: anomalies.length,
+        durationMs: duration,
+      });
     }
 
     // Step-profiling summary: log slow steps if any

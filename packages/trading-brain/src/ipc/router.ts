@@ -1,5 +1,6 @@
 import { getLogger } from '../utils/logger.js';
 import { getCurrentVersion } from '../cli/update-check.js';
+import { StrategyExporter, StrategyImporter } from '@timmeck/brain-core';
 import type { TradeService } from '../services/trade.service.js';
 import type { SignalService } from '../services/signal.service.js';
 import type { StrategyService } from '../services/strategy.service.js';
@@ -307,6 +308,19 @@ export class IpcRouter {
       }],
       ['backtest.compare', (params) => s.backtest.compareSignals(p(params).fingerprint1, p(params).fingerprint2)],
       ['backtest.bestSignals', (params) => s.backtest.findBestSignals(p(params))],
+      ['backtest.strategy', async (params) => {
+        if (!s.strategyForge) throw new Error('StrategyForge not available');
+        const { strategyId, pair, days } = p(params);
+        const strategy = s.strategyForge.getStrategy(strategyId);
+        if (!strategy) throw new Error(`Strategy #${strategyId} not found`);
+        let candles: import('../paper/types.js').OHLCVCandle[] = [];
+        if (s.marketData) {
+          try { candles = await s.marketData.fetchOHLCV(pair ?? 'bitcoin', '1h', Math.min((days ?? 30) * 24, 720)); }
+          catch { /* use empty candles → 0 trades */ }
+        }
+        const result = s.backtest.runStrategyBacktest(strategy, candles, { pair });
+        return result;
+      }],
 
       // ─── Risk ─────────────────────────────────────────
       ['risk.kelly', (params) => s.risk.getKellyFraction(p(params).pair, p(params).regime)],
@@ -855,6 +869,16 @@ export class IpcRouter {
       ['strategy.performance', (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getPerformance(p(params).id); }],
       ['strategy.retire',      (params) => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.retire(p(params).id, p(params).reason); }],
       ['strategy.status',      () => { if (!s.strategyForge) throw new Error('StrategyForge not available'); return s.strategyForge.getStatus(); }],
+      ['strategy.export',      (params) => {
+        if (!s.strategyForge) throw new Error('StrategyForge not available');
+        const exporter = new StrategyExporter(s.strategyForge);
+        return exporter.exportObject(p(params).id);
+      }],
+      ['strategy.import',      (params) => {
+        if (!s.strategyForge) throw new Error('StrategyForge not available');
+        const importer = new StrategyImporter(s.strategyForge);
+        return importer.import(typeof p(params).json === 'string' ? p(params).json : JSON.stringify(p(params).json));
+      }],
       ['strategy.bridge.status', () => {
         if (!s.strategyForge || !s.actionBridge) throw new Error('StrategyForge or ActionBridge not available');
         return {

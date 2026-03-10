@@ -3,6 +3,8 @@ import type { SignalService } from './signal.service.js';
 import type { SynapseManager } from '../synapses/synapse-manager.js';
 import { fingerprintSimilarity } from '../signals/fingerprint.js';
 import { getLogger } from '../utils/logger.js';
+import type { OHLCVCandle } from '../paper/types.js';
+import type { ForgeStrategy, StrategyRule, StrategyForge } from '@timmeck/brain-core';
 
 export interface BacktestOptions {
   pair?: string;
@@ -51,6 +53,30 @@ export interface SignalComparison {
   stats2: { wins: number; losses: number; winRate: number; avgProfitPct: number; sampleSize: number };
   similarity: number;
   verdict: string;
+}
+
+export interface StrategyBacktestOptions {
+  strategyId: number;
+  pair?: string;
+  days?: number;
+  initialCapital?: number;
+}
+
+export interface StrategyBacktestResult {
+  strategyId: number;
+  strategyName: string;
+  pair: string;
+  days: number;
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalReturnPct: number;
+  sharpeRatio: number;
+  maxDrawdownPct: number;
+  profitFactor: number;
+  avgReturnPct: number;
+  equityCurve: EquityPoint[];
 }
 
 export interface RankedSignal {
@@ -310,6 +336,144 @@ export class BacktestService {
       avgProfitPct: total > 0 ? totalProfit / total : 0,
       sampleSize: total,
     };
+  }
+
+  /**
+   * Run a strategy backtest on historical OHLCV candle data.
+   * Evaluates strategy rules against each candle to simulate trades.
+   */
+  runStrategyBacktest(
+    strategy: ForgeStrategy,
+    candles: OHLCVCandle[],
+    options: { pair?: string; initialCapital?: number } = {},
+  ): StrategyBacktestResult {
+    const pair = options.pair ?? 'BTC/USDT';
+    const initialCapital = options.initialCapital ?? 10_000;
+
+    if (candles.length === 0) {
+      return {
+        strategyId: strategy.id, strategyName: strategy.name, pair,
+        days: 0, totalTrades: 0, wins: 0, losses: 0, winRate: 0,
+        totalReturnPct: 0, sharpeRatio: 0, maxDrawdownPct: 0,
+        profitFactor: 0, avgReturnPct: 0, equityCurve: [],
+      };
+    }
+
+    const trades: Array<{ returnPct: number; win: boolean }> = [];
+    let position: { entryPrice: number; entryIndex: number } | null = null;
+
+    for (let i = 1; i < candles.length; i++) {
+      const prev = candles[i - 1]!;
+      const curr = candles[i]!;
+
+      if (!position) {
+        // Evaluate entry rules
+        if (this.evaluateRules(strategy.rules, 'entry', prev, curr)) {
+          position = { entryPrice: curr.close, entryIndex: i };
+        }
+      } else {
+        // Evaluate exit rules or simple take-profit/stop-loss
+        const returnPct = ((curr.close - position.entryPrice) / position.entryPrice) * 100;
+        const holdBars = i - position.entryIndex;
+
+        if (this.evaluateRules(strategy.rules, 'exit', prev, curr) || holdBars >= 24 || returnPct > 5 || returnPct < -3) {
+          trades.push({ returnPct, win: returnPct > 0 });
+          position = null;
+        }
+      }
+    }
+
+    // Close any open position at end
+    if (position && candles.length > 0) {
+      const lastClose = candles[candles.length - 1]!.close;
+      const returnPct = ((lastClose - position.entryPrice) / position.entryPrice) * 100;
+      trades.push({ returnPct, win: returnPct > 0 });
+    }
+
+    if (trades.length === 0) {
+      return {
+        strategyId: strategy.id, strategyName: strategy.name, pair,
+        days: Math.round((candles[candles.length - 1]!.timestamp - candles[0]!.timestamp) / 86_400_000),
+        totalTrades: 0, wins: 0, losses: 0, winRate: 0,
+        totalReturnPct: 0, sharpeRatio: 0, maxDrawdownPct: 0,
+        profitFactor: 0, avgReturnPct: 0, equityCurve: [],
+      };
+    }
+
+    const wins = trades.filter(t => t.win).length;
+    const losses = trades.length - wins;
+    const returns = trades.map(t => t.returnPct);
+    const totalReturnPct = returns.reduce((s, r) => s + r, 0);
+    const avgReturnPct = totalReturnPct / trades.length;
+
+    // Equity curve + max drawdown
+    const equityCurve: EquityPoint[] = [];
+    let cum = 0; let peak = 0; let maxDD = 0;
+    for (let i = 0; i < trades.length; i++) {
+      cum += trades[i]!.returnPct;
+      equityCurve.push({ tradeIndex: i, cumulativePct: cum });
+      if (cum > peak) peak = cum;
+      const dd = peak - cum;
+      if (dd > maxDD) maxDD = dd;
+    }
+
+    // Sharpe ratio
+    const variance = returns.reduce((s, r) => s + (r - avgReturnPct) ** 2, 0) / returns.length;
+    const stddev = Math.sqrt(variance);
+    const sharpeRatio = stddev > 0 ? avgReturnPct / stddev : 0;
+
+    // Profit factor
+    const grossWins = returns.filter(r => r > 0).reduce((s, r) => s + r, 0);
+    const grossLosses = Math.abs(returns.filter(r => r < 0).reduce((s, r) => s + r, 0));
+    const profitFactor = grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? Infinity : 0;
+
+    const days = Math.round((candles[candles.length - 1]!.timestamp - candles[0]!.timestamp) / 86_400_000);
+
+    return {
+      strategyId: strategy.id, strategyName: strategy.name, pair, days,
+      totalTrades: trades.length, wins, losses,
+      winRate: wins / trades.length,
+      totalReturnPct, sharpeRatio, maxDrawdownPct: maxDD,
+      profitFactor, avgReturnPct, equityCurve,
+    };
+  }
+
+  /** Evaluate strategy rules for entry/exit signals based on candle data. */
+  private evaluateRules(rules: StrategyRule[], type: 'entry' | 'exit', prev: OHLCVCandle, curr: OHLCVCandle): boolean {
+    const relevant = rules.filter(r => {
+      const action = r.action.toLowerCase();
+      if (type === 'entry') return action.includes('buy') || action.includes('enter') || action.includes('long');
+      return action.includes('sell') || action.includes('exit') || action.includes('close');
+    });
+
+    if (relevant.length === 0) {
+      // Fallback: simple momentum entry, time-based exit
+      if (type === 'entry') return curr.close > prev.close && curr.volume > prev.volume;
+      return false;
+    }
+
+    // Evaluate conditions against price data
+    for (const rule of relevant) {
+      const cond = rule.condition.toLowerCase();
+      let matches = false;
+
+      if (cond.includes('price_above') || cond.includes('breakout')) {
+        matches = curr.close > prev.high;
+      } else if (cond.includes('price_below') || cond.includes('breakdown')) {
+        matches = curr.close < prev.low;
+      } else if (cond.includes('volume') && cond.includes('increase')) {
+        matches = curr.volume > prev.volume * 1.5;
+      } else if (cond.includes('momentum') || cond.includes('trend')) {
+        matches = curr.close > prev.close;
+      } else {
+        // Default: use confidence as probability
+        matches = Math.random() < rule.confidence;
+      }
+
+      if (matches) return true;
+    }
+
+    return false;
   }
 
   private emptyResult(): BacktestResult {

@@ -1365,6 +1365,19 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
       }
     },
   );
+
+  server.tool(
+    'brain_chat_multi',
+    'Send a message to multiple brains and get aggregated responses. Routes automatically based on keywords, or queries all brains for system-wide questions.',
+    {
+      message: z.string().describe('The question or command to send'),
+      session: z.string().optional().describe('Session ID for conversation context'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('chat.multi', { message: params.message, session: params.session });
+      return textResult(result.content ?? JSON.stringify(result));
+    },
+  );
 }
 
 function detectLanguage(filePath: string): string {

@@ -304,7 +304,11 @@ export class MarketingCore {
         return accepted;
       },
     };
-    this.borgSync = new BorgSyncEngine('marketing-brain', this.crossBrain!, borgProvider);
+    this.borgSync = new BorgSyncEngine('marketing-brain', this.crossBrain!, borgProvider, {
+      enabled: true, mode: 'selective',
+      shareTypes: ['rule', 'insight', 'principle'],
+      minConfidence: 0.6, relevanceThreshold: 0.4, syncIntervalMs: 120_000,
+    });
     services.borgSync = this.borgSync;
 
     // 10c-pre. MemoryWatchdog — heap leak detection (5 min samples, 1h window)

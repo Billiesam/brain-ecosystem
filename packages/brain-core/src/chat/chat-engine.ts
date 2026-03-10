@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { getLogger } from '../utils/logger.js';
+import { MultiBrainRouter, type AggregatedResponse } from './multi-brain-router.js';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -55,6 +56,8 @@ export class ChatEngine {
   private readonly config: Required<ChatEngineConfig>;
   private ipcHandler: IpcHandler | null = null;
   private availableRoutes: string[] = [];
+  private multiBrainRouter = new MultiBrainRouter();
+  private crossBrainQuery: ((brain: string, method: string, params?: unknown) => Promise<unknown>) | null = null;
 
   private readonly stmtInsert;
   private readonly stmtGetSession;
@@ -83,6 +86,63 @@ export class ChatEngine {
   /** Set the list of available IPC routes for NLU matching */
   setAvailableRoutes(routes: string[]): void {
     this.availableRoutes = routes;
+  }
+
+  /** Set the cross-brain query function for multi-brain chat. */
+  setCrossBrainQuery(fn: (brain: string, method: string, params?: unknown) => Promise<unknown>): void {
+    this.crossBrainQuery = fn;
+  }
+
+  /** Process a multi-brain query — routes message to 1+ brains and aggregates results. */
+  async processMultiBrain(sessionId: string, content: string): Promise<ChatMessage> {
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sessionId, role: 'user', content, timestamp: Date.now(),
+    };
+    this.storeMessage(userMsg);
+
+    let responseContent: string;
+    let toolCalls: string | undefined;
+
+    try {
+      const routing = this.multiBrainRouter.route(content);
+
+      if (routing.brains.length === 1 && routing.brains[0] === this.config.brainName) {
+        // Single brain — use local routing
+        const route = this.matchRoute(content);
+        if (route && this.ipcHandler) {
+          const params = this.extractParams(content, route);
+          const result = await this.ipcHandler(route, params);
+          toolCalls = JSON.stringify({ route, params, result });
+          responseContent = this.formatResult(route, result);
+        } else {
+          responseContent = this.generateFallback(content);
+        }
+      } else if (this.crossBrainQuery && this.ipcHandler) {
+        // Multi-brain query
+        const method = this.matchRoute(content) ?? 'status';
+        const aggregated = await this.multiBrainRouter.queryMultiple(
+          routing.brains,
+          this.config.brainName,
+          (m, p) => Promise.resolve(this.ipcHandler!(m, p)),
+          this.crossBrainQuery,
+          method,
+        );
+        toolCalls = JSON.stringify({ routing, method, responses: aggregated.responses.length });
+        responseContent = aggregated.markdown;
+      } else {
+        responseContent = this.generateFallback(content);
+      }
+    } catch (err) {
+      responseContent = `Fehler: ${(err as Error).message}`;
+    }
+
+    const assistantMsg: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sessionId, role: 'assistant', content: responseContent, toolCalls, timestamp: Date.now(),
+    };
+    this.storeMessage(assistantMsg);
+    return assistantMsg;
   }
 
   /** Process a user message and generate a response */

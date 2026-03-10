@@ -12,7 +12,7 @@
 
 ![Command Center](docs/assets/command-center.png)
 
-Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 60 autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. Multi-provider LLM support (Anthropic + Ollama) with Vision (image analysis). Live market data via CCXT WebSocket. Social feeds via Bluesky + Reddit. Web research via Brave Search + Playwright + Firecrawl. Borg collective sync. Plugin SDK for community brains. Causal inference with intervention planning. Multi-step research roadmaps with goal dependencies. Creative cross-domain idea generation. Self-protection guardrails with circuit breaker. Engine Governance with formal profiles, runtime influence tracking, anti-pattern detection (retrigger spirals, stagnation, KPI gaming, epistemic drift), and active control (throttle, cooldown, isolate, escalate, restore). Natural language chat interface with NLU routing. Sub-agent specialization. Cross-brain signal routing. Autonomous content publishing. Strategy mutation and evolution. Portfolio optimization with Kelly criterion. 620 MCP tools. 4,005 tests. The brain literally thinks about itself, gets curious, runs experiments, absorbs code from other repos, and writes code to improve itself.
+Brain Ecosystem is a system of three specialized "brains" connected through a Hebbian synapse network. 60 autonomous engines run in feedback loops — observing, detecting anomalies, forming hypotheses, testing them statistically, distilling principles, dreaming, debating, reasoning in chains, feeling emotions, evolving strategies genetically, and modifying their own source code. Multi-provider LLM support (Anthropic + Ollama) with Vision (image analysis). Live market data via CCXT WebSocket. Social feeds via Bluesky + Reddit. Web research via Brave Search + Playwright + Firecrawl. Borg collective sync across all 3 brains. Plugin SDK for community brains. Causal inference with intervention planning. Multi-step research roadmaps with goal dependencies. Creative cross-domain idea generation. Self-protection guardrails with circuit breaker. Engine Governance with formal profiles, runtime influence tracking, anti-pattern detection (retrigger spirals, stagnation, KPI gaming, epistemic drift), and active control (throttle, cooldown, isolate, escalate, restore). Natural language chat interface with multi-brain routing. Sub-agent specialization. Cross-brain signal routing. Autonomous content publishing. Strategy backtesting on historical OHLCV data. Strategy export/import for sharing between instances. Adaptive scheduling that speeds up productive hours and slows down idle ones. Strategy mutation and evolution. Portfolio optimization with Kelly criterion. 637 MCP tools. 4,061 tests. The brain literally thinks about itself, gets curious, runs experiments, absorbs code from other repos, and writes code to improve itself.
 
 ## Packages
 
@@ -98,12 +98,17 @@ Most AI tools forget everything between sessions. Brain doesn't. It builds a per
 - **StrategyMutator** — Strategy evolution: parameter mutation, crossover breeding, tournament selection
 - **CrossBrainSignalRouter** — Bidirectional cross-brain signal routing with confidence filtering
 - **AutoPublisher** — Autonomous content publishing pipeline with schedule optimization
+- **Strategy Backtesting** — Backtest StrategyForge strategies on historical OHLCV data with Sharpe ratio, max drawdown, profit factor, equity curve
+- **Strategy Export/Import** — Share strategies as portable JSON between brain instances with schema validation and duplicate detection
+- **Multi-Brain Chat** — Chat queries automatically routed to 1-3 brains based on keywords, responses aggregated as markdown
+- **Adaptive Scheduling** — Dynamic cycle intervals: speeds up during productive hours, slows down during idle hours (168 hourly buckets)
+- **Borg Sync (all 3 brains)** — Collective knowledge sharing now enabled in Trading Brain and Marketing Brain (bidirectional, selective mode)
 
 ## What It Does
 
 ### Brain — Error Memory, Code Intelligence & Full Autonomy
 
-265 MCP tools. Remembers errors, learns solutions, runs 68-step autonomous research cycles, dreams, debates, challenges principles (Advocatus Diaboli), reasons, feels, absorbs code from GitHub repos, extracts reusable features, and modifies its own code. ChatEngine provides natural language access to all subsystems. SubAgentFactory creates specialized agents for focused tasks.
+265 MCP tools. Remembers errors, learns solutions, runs 68-step autonomous research cycles, dreams, debates, challenges principles (Advocatus Diaboli), reasons, feels, absorbs code from GitHub repos, extracts reusable features, and modifies its own code. ChatEngine provides natural language access to all subsystems with multi-brain routing. SubAgentFactory creates specialized agents for focused tasks.
 
 - **Error Memory** — Track errors, match against known solutions with hybrid search (TF-IDF + vector + synapse boost)
 - **Code Intelligence** — Register and discover reusable code modules across all projects
@@ -136,7 +141,8 @@ Most AI tools forget everything between sessions. Brain doesn't. It builds a per
 - **Paper Trading** — 10 positions active, live equity tracking, balance management
 - **Live Market Data** — CoinGecko, Yahoo Finance, CCXT WebSocket real-time feeds
 - **Signal Fingerprinting** — RSI, MACD, Trend, Volatility classification
-- **Backtesting Engine** — Run backtests, compare signals, Sharpe/PF/MaxDD/Equity Curve
+- **Backtesting Engine** — Run backtests on historical trades or strategies on OHLCV data, compare signals, Sharpe/PF/MaxDD/Equity Curve
+- **Strategy Export/Import** — Share strategies as portable JSON between instances
 - **Risk Management** — Kelly Criterion position sizing, drawdown tracking
 - **40+ Autonomous Engines** — Same full engine suite as Brain, with trading-specific DataMiner
 
@@ -156,7 +162,7 @@ Most AI tools forget everything between sessions. Brain doesn't. It builds a per
 
 All three brains share 60 autonomous engine/service classes via Brain Core:
 
-- **51-Step Feedback Loop** — ResearchOrchestrator runs every 5 minutes: observe → hypothesize → experiment → measure → distill → adapt → absorb → resolve contradictions
+- **51-Step Feedback Loop** — ResearchOrchestrator runs with adaptive scheduling (2-15 min intervals): observe → hypothesize → experiment → measure → distill → adapt → absorb → resolve contradictions
 - **Self-Improvement** — HypothesisEngine generates theories, AutoExperiment tests them, AdaptiveStrategy applies winners
 - **Dream Mode** — Offline memory consolidation: replay, prune, compress, decay during idle
 - **Knowledge Distillation** — Extracts principles and anti-patterns from raw experience
@@ -205,7 +211,7 @@ Brain Core provides the building blocks all brains share:
 | **Tool Scoping** | Context-aware dynamic tool filtering per task |
 | **Marketplace** | Plugin discovery, rating, and installation |
 | **Code Sandbox** | Docker-isolated code execution for safe experimentation |
-| **ChatEngine** | Natural language interface with NLU intent routing + IPC dispatch |
+| **ChatEngine** | Natural language interface with NLU intent routing, multi-brain dispatch + response aggregation |
 | **SubAgentFactory** | Specialized sub-agent creation for focused tasks |
 | **FeedbackRouter** | Dead-end data routing to ActionBridge proposals |
 | **StrategyMutator** | Strategy evolution: mutation, crossover, tournament selection |
@@ -215,6 +221,10 @@ Brain Core provides the building blocks all brains share:
 | **RuntimeInfluenceTracker** | Before/after snapshots per engine step, observed influence graph |
 | **LoopDetector** | 4 anti-pattern detectors: retrigger spirals, stagnation, KPI gaming, epistemic drift |
 | **GovernanceLayer** | Active engine control: throttle, cooldown, isolate, escalate, restore |
+| **AdaptiveScheduler** | Dynamic cycle intervals: speeds up productive hours, slows down idle hours |
+| **MultiBrainRouter** | Chat message routing to 1-3 brains with parallel query + response aggregation |
+| **StrategyExporter** | Export strategies as portable JSON with lineage tracking |
+| **StrategyImporter** | Import + validate strategies with duplicate detection |
 
 ## Evidence & Measurements
 
@@ -223,8 +233,8 @@ Brain Core provides the building blocks all brains share:
 | Metric | Claimed | Measured |
 |--------|---------|----------|
 | Autonomous engines (brain-core) | 80+ | 40 engine classes + 20 forge/service classes + 4 governance modules = 64 unique |
-| MCP tools | 620 | 620 (brain: 265, trading: 178, marketing: 177) |
-| Test suite | 4,005 | 4,005 tests across 300 files (100% pass rate) |
+| MCP tools | 637 | 637 (brain: 266, trading: 194, marketing: 177) |
+| Test suite | 4,061 | 4,061 tests across 306 files (100% pass rate) |
 
 ### Paper Trading (Live)
 
@@ -327,6 +337,8 @@ brain creative status / insights / pollinate / analogies <concept>
 trading setup / start / stop / status / doctor
 trading query <text> / insights / rules / network / dashboard
 trading export / import <file> / peers
+trading backtest strategy <id> [--pair BTC/USDT] [--days 30]
+trading strategy export <id> [--file out.json] / import <file>
 
 # Marketing Brain
 marketing setup / start / stop / status / doctor
@@ -479,7 +491,7 @@ git clone https://github.com/timmeck/brain-ecosystem.git
 cd brain-ecosystem
 npm install          # installs all workspace dependencies
 npm run build        # builds all packages (brain-core first)
-npm test             # runs all 3,854 tests
+npm test             # runs all 4,061 tests
 ```
 
 ### Package Dependencies
@@ -505,7 +517,7 @@ brain-core          (no internal deps)
 - **Playwright** — Headless browser for web research
 - **Commander** — CLI framework
 - **Winston** — Structured logging with file rotation
-- **Vitest** — 3,854 tests across 285 test files
+- **Vitest** — 4,061 tests across 306 test files
 
 ## Docker (Optional)
 

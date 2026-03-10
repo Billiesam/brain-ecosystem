@@ -33,6 +33,8 @@ import { dashboardCommand } from './cli/commands/dashboard.js';
 import { peersCommand } from './cli/commands/peers.js';
 import { setupCommand } from './cli/commands/setup.js';
 import { paperCommand } from './cli/commands/paper.js';
+import { backtestCommand } from './cli/commands/backtest.js';
+import { strategyCommand } from './cli/commands/strategy.js';
 import { checkForUpdate, getCurrentVersion } from './cli/update-check.js';
 
 const program = new Command();
@@ -57,6 +59,8 @@ program.addCommand(dashboardCommand());
 program.addCommand(peersCommand());
 program.addCommand(setupCommand());
 program.addCommand(paperCommand());
+program.addCommand(backtestCommand());
+program.addCommand(strategyCommand());
 
 // Hidden command: run MCP server (called by Claude Code)
 program

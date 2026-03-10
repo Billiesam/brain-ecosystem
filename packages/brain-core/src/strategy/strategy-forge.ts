@@ -329,6 +329,11 @@ export class StrategyForge {
     };
   }
 
+  /** Import a strategy from external data (used by StrategyImporter). */
+  importStrategy(type: Strategy['type'], name: string, description: string, rules: StrategyRule[]): Strategy {
+    return this.storeStrategy(type, name, description, rules);
+  }
+
   // ── Private ──────────────────────────────────────────────
 
   private storeStrategy(type: Strategy['type'], name: string, description: string, rules: StrategyRule[], parentId?: number): Strategy {

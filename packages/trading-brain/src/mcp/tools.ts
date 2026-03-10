@@ -395,6 +395,37 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
   );
 
   server.tool(
+    'trading_backtest_strategy',
+    'Backtest a StrategyForge strategy on historical OHLCV data. Returns Sharpe ratio, max drawdown, win rate, profit factor, and equity curve.',
+    {
+      strategy_id: z.number().describe('Strategy ID to backtest'),
+      pair: z.string().optional().describe('Trading pair (e.g. BTC/USDT)'),
+      days: z.number().optional().describe('Number of days of historical data (default: 30)'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('backtest.strategy', {
+        strategyId: params.strategy_id,
+        pair: params.pair,
+        days: params.days,
+      });
+      if (result.totalTrades === 0) return textResult(`Strategy "${result.strategyName}" produced 0 trades in ${result.days} days.`);
+      const lines = [
+        `── Strategy Backtest: ${result.strategyName} ──`,
+        `  Pair:            ${result.pair}`,
+        `  Period:          ${result.days} days`,
+        `  Total trades:    ${result.totalTrades}`,
+        `  Win rate:        ${(result.winRate * 100).toFixed(1)}% (${result.wins}W / ${result.losses}L)`,
+        `  Total return:    ${result.totalReturnPct.toFixed(2)}%`,
+        `  Avg return:      ${result.avgReturnPct.toFixed(2)}%`,
+        `  Max drawdown:    ${result.maxDrawdownPct.toFixed(2)}%`,
+        `  Profit factor:   ${result.profitFactor === Infinity ? '∞' : result.profitFactor.toFixed(2)}`,
+        `  Sharpe ratio:    ${result.sharpeRatio.toFixed(2)}`,
+      ];
+      return textResult(lines.join('\n'));
+    },
+  );
+
+  server.tool(
     'trading_compare_signals',
     'Compare two signal fingerprint patterns head-to-head. Shows win rate, avg profit, sample size, and similarity.',
     {
@@ -851,6 +882,31 @@ function registerToolsWithCaller(server: McpServer, call: BrainCall): void {
         `#${e.id} [${e.errorType}] ${e.message?.slice(0, 100)}${e.resolved ? ' (resolved)' : ''}`
       );
       return textResult(`Errors from Brain matching "${params.search ?? params.pair}":\n${lines.join('\n')}`);
+    },
+  );
+
+  server.tool(
+    'trading_strategy_export',
+    'Export a strategy as portable JSON for sharing between instances.',
+    {
+      strategy_id: z.number().describe('Strategy ID to export'),
+    },
+    async (params) => {
+      const result = await call('strategy.export', { id: params.strategy_id });
+      return textResult(JSON.stringify(result, null, 2));
+    },
+  );
+
+  server.tool(
+    'trading_strategy_import',
+    'Import a strategy from JSON. Creates it as a draft that can be backtested and activated.',
+    {
+      json: z.string().describe('Strategy JSON string (from trading_strategy_export)'),
+    },
+    async (params) => {
+      const result: AnyResult = await call('strategy.import', { json: params.json });
+      if (!result.success) return textResult(`Import failed: ${result.error}`);
+      return textResult(`Strategy "${result.strategyName}" imported as #${result.strategyId} (status: draft)`);
     },
   );
 }

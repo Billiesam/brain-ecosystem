@@ -593,15 +593,20 @@ export type {
 } from './codegen/code-forge.js';
 
 // ── Strategy Forge ────────────────────────────────────────
-export { StrategyForge, runStrategyForgeMigration, StrategyMutator } from './strategy/index.js';
+export { StrategyForge, runStrategyForgeMigration, StrategyMutator, StrategyExporter, StrategyImporter } from './strategy/index.js';
 export type {
   Strategy as ForgeStrategy, StrategyRule, StrategyPerformance, BacktestResult,
   StrategyForgeConfig, StrategyForgeStatus, MutationConfig, MutationResult,
+  StrategyExportFormat, ImportResult,
 } from './strategy/index.js';
 
+// ── Adaptive Scheduler ───────────────────────────────────
+export { AdaptiveScheduler } from './research/adaptive-scheduler.js';
+export type { AdaptiveSchedulerConfig, AdaptiveSchedulerStatus, SchedulerBucket, CycleOutcome } from './research/adaptive-scheduler.js';
+
 // ── Chat Engine ──────────────────────────────────────────
-export { ChatEngine, runChatMigration } from './chat/index.js';
-export type { ChatMessage, ChatEngineConfig, ChatEngineStatus } from './chat/index.js';
+export { ChatEngine, runChatMigration, MultiBrainRouter } from './chat/index.js';
+export type { ChatMessage, ChatEngineConfig, ChatEngineStatus, MultiBrainRoute, MultiBrainResponse, AggregatedResponse } from './chat/index.js';
 
 // ── Governance ──────────────────────────────────────────
 export { EngineRegistry, runEngineRegistryMigration, getDefaultEngineProfiles } from './governance/index.js';
