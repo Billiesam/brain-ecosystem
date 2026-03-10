@@ -668,6 +668,23 @@ export class KnowledgeDistiller {
     return [...allDomains].slice(0, 5);
   }
 
+  /** Adjust a principle's confidence based on challenge outcome. */
+  adjustPrincipleConfidence(principleId: string, factor: number): boolean {
+    const row = this.db.prepare('SELECT id, confidence FROM knowledge_principles WHERE id = ?').get(principleId) as { id: string; confidence: number } | undefined;
+    if (!row) return false;
+    const newConfidence = Math.max(0, Math.min(1, row.confidence * factor));
+    this.db.prepare('UPDATE knowledge_principles SET confidence = ?, updated_at = datetime(\'now\') WHERE id = ?').run(newConfidence, principleId);
+    this.log.info(`[distiller] Principle ${principleId} confidence adjusted: ${row.confidence.toFixed(3)} → ${newConfidence.toFixed(3)} (factor: ${factor})`);
+    return true;
+  }
+
+  /** Remove a principle (e.g. when disproved). */
+  removePrinciple(principleId: string): boolean {
+    const changes = this.db.prepare('DELETE FROM knowledge_principles WHERE id = ?').run(principleId).changes;
+    if (changes > 0) this.log.info(`[distiller] Principle ${principleId} removed (disproved)`);
+    return changes > 0;
+  }
+
   private upsertPrinciple(p: Principle): void {
     this.db.prepare(`
       INSERT INTO knowledge_principles (id, domain, statement, success_rate, sample_size, confidence, source)

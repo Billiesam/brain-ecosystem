@@ -425,18 +425,6 @@ export class DebateEngine {
     const totalRelevance = debate.perspectives.reduce((s, p) => s + p.relevance, 0);
     const avgConfidence = totalRelevance > 0 ? totalWeight / totalRelevance : 0;
 
-    // 5. Try LLM synthesis for richer output (async warm-up for next call)
-    if (this.llm?.isAvailable() && debate.perspectives.length > 0) {
-      const perspectiveSummary = debate.perspectives.map(p =>
-        `[${p.brainName}] (confidence: ${(p.confidence * 100).toFixed(0)}%, relevance: ${(p.relevance * 100).toFixed(0)}%):\n${p.position}\nArguments:\n${p.arguments.slice(0, 5).map(a => `- ${a.claim} (${a.source}, strength: ${a.strength.toFixed(2)})`).join('\n')}`,
-      ).join('\n\n');
-      const conflictSummary = conflicts.map(c =>
-        `${c.perspectiveA} vs ${c.perspectiveB}: "${c.claimA}" vs "${c.claimB}" → ${c.resolution}`,
-      ).join('\n');
-      const llmPrompt = `Question: "${debate.question}"\n\nPerspectives:\n${perspectiveSummary}\n\n${conflicts.length > 0 ? `Conflicts:\n${conflictSummary}\n\n` : ''}Synthesize these perspectives. Find consensus, resolve conflicts, and make recommendations.`;
-      void this.llm.call('synthesize_debate', llmPrompt).catch(() => {});
-    }
-
     const synthesis: DebateSynthesis = {
       consensus,
       conflicts,
@@ -457,6 +445,12 @@ export class DebateEngine {
     );
 
     return synthesis;
+  }
+
+  /** Close a debate (sets status to 'closed' with timestamp). */
+  closeDebate(debateId: number): void {
+    this.stmtUpdateDebateStatus.run('closed', 'closed', debateId);
+    this.log.debug(`[DebateEngine] Debate #${debateId} closed`);
   }
 
   /** Async version that waits for LLM synthesis. */

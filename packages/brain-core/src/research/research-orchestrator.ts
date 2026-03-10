@@ -27,7 +27,7 @@ import type { TransferEngine } from '../transfer/transfer-engine.js';
 import type { NarrativeEngine } from '../narrative/narrative-engine.js';
 import type { CuriosityEngine } from '../curiosity/curiosity-engine.js';
 import type { EmergenceEngine } from '../emergence/emergence-engine.js';
-import type { DebateEngine } from '../debate/debate-engine.js';
+import type { DebateEngine, DebateArgument } from '../debate/debate-engine.js';
 import type { ParameterRegistry } from '../metacognition/parameter-registry.js';
 import type { MetaCognitionLayer } from '../metacognition/meta-cognition-layer.js';
 import type { AutoExperimentEngine } from '../metacognition/auto-experiment-engine.js';
@@ -529,6 +529,40 @@ export class ResearchOrchestrator {
     // Handle cross-brain desire coordination signals
     if (eventType === 'desire_active' && data.desireKey) {
       this.onCrossBrainDesireSignal(sourceBrain, data.desireKey as string, (data.priority as number) ?? 0);
+    }
+
+    // Handle cross-brain debate perspective requests
+    if (eventType === 'debate_perspective_request' && data.question && this.debateEngine) {
+      try {
+        const perspective = this.debateEngine.generatePerspective(data.question as string);
+        // Send perspective back via signal
+        if (this.signalRouter) {
+          this.signalRouter.emit({
+            targetBrain: sourceBrain,
+            signalType: 'debate_perspective_response',
+            payload: {
+              debateId: data.debateId as number,
+              perspective: { brainName: perspective.brainName, position: perspective.position, confidence: perspective.confidence, relevance: perspective.relevance, arguments: perspective.arguments },
+            },
+            confidence: perspective.confidence,
+          }).catch(() => { /* source may be offline */ });
+        }
+      } catch { /* debate engine not ready */ }
+    }
+
+    // Handle incoming debate perspective response — add to our debate
+    if (eventType === 'debate_perspective_response' && data.debateId && data.perspective && this.debateEngine) {
+      try {
+        const p = data.perspective as Record<string, unknown>;
+        this.debateEngine.addPerspective(data.debateId as number, {
+          brainName: (p.brainName as string) ?? sourceBrain,
+          position: (p.position as string) ?? '',
+          confidence: (p.confidence as number) ?? 0,
+          relevance: (p.relevance as number) ?? 0,
+          arguments: (p.arguments as DebateArgument[]) ?? [],
+        });
+        this.log.info(`[orchestrator] Added cross-brain perspective from ${sourceBrain} to debate #${data.debateId}`);
+      } catch { /* debate may not exist */ }
     }
   }
 
@@ -1623,26 +1657,63 @@ export class ResearchOrchestrator {
       }
     }
 
-    // 20. Internal Debate: periodically debate key findings to synthesize cross-engine wisdom
+    // 20. Internal + Cross-Brain Debate: debate key findings, solicit cross-brain perspectives
     if (this.debateEngine && this.cycleCount % this.reflectEvery === 0) {
-      ts?.emit('reflecting', 'reflecting', 'Initiating internal debate on recent findings...');
+      ts?.emit('reflecting', 'reflecting', 'Initiating debate on recent findings...');
       try {
-        // Pick a debate topic from recent attention or agenda
         const topic = this.pickDebateTopic();
         if (topic) {
           const debate = this.debateEngine.startDebate(topic);
-          const synthesis = this.debateEngine.synthesize(debate.id!);
-          if (synthesis && synthesis.conflicts.length > 0) {
-            this.journal.write({
-              type: 'discovery',
-              title: `Debate: ${topic.substring(0, 80)}`,
-              content: `Internal debate with ${synthesis.participantCount} perspective(s). ${synthesis.conflicts.length} conflict(s). Resolution: ${synthesis.resolution}`,
-              tags: [this.brainName, 'debate', 'synthesis'],
-              references: [],
-              significance: synthesis.conflicts.length > 2 ? 'notable' : 'routine',
-              data: { debate: { question: topic, synthesis } },
-            });
+
+          // Solicit cross-brain perspectives via SignalRouter
+          if (this.signalRouter) {
+            const peers = ['brain', 'trading-brain', 'marketing-brain'].filter(b => b !== this.brainName);
+            for (const peer of peers) {
+              try {
+                this.signalRouter.emit({
+                  targetBrain: peer,
+                  signalType: 'debate_perspective_request',
+                  payload: { debateId: debate.id!, question: topic },
+                  confidence: 0.7,
+                }).catch(() => { /* peer offline */ });
+              } catch { /* peer offline */ }
+            }
           }
+
+          const synthesis = this.debateEngine.synthesize(debate.id!);
+
+          if (synthesis) {
+            // Journal the debate
+            if (synthesis.conflicts.length > 0) {
+              this.journal.write({
+                type: 'discovery',
+                title: `Debate: ${topic.substring(0, 80)}`,
+                content: `Debate with ${synthesis.participantCount} perspective(s). ${synthesis.conflicts.length} conflict(s). Resolution: ${synthesis.resolution}`,
+                tags: [this.brainName, 'debate', 'synthesis'],
+                references: [],
+                significance: synthesis.conflicts.length > 2 ? 'notable' : 'routine',
+                data: { debate: { question: topic, synthesis } },
+              });
+            }
+
+            // Convert recommendations to ActionBridge proposals
+            if (this.actionBridge && synthesis.recommendations.length > 0) {
+              for (const rec of synthesis.recommendations.slice(0, 2)) {
+                this.actionBridge.propose({
+                  source: 'research',
+                  type: 'create_goal',
+                  title: `Debate recommendation: ${rec.substring(0, 70)}`,
+                  description: `From debate "${topic.substring(0, 80)}": ${rec}`,
+                  confidence: synthesis.confidence,
+                  payload: { debateId: debate.id, recommendation: rec },
+                });
+              }
+            }
+
+            // Auto-close the debate after synthesis
+            this.debateEngine.closeDebate(debate.id!);
+          }
+
           ts?.emit('reflecting', 'reflecting',
             `Debate on "${topic.substring(0, 40)}...": ${synthesis?.conflicts.length ?? 0} conflicts, confidence=${((synthesis?.confidence ?? 0) * 100).toFixed(0)}%`,
             synthesis && synthesis.conflicts.length > 0 ? 'notable' : 'routine',
@@ -1813,14 +1884,17 @@ export class ResearchOrchestrator {
       } catch (err) { this.log.warn(`[orchestrator] Step 24 error: ${(err as Error).message}`); }
     }
 
-    // Step 25: Advocatus Diaboli — challenge a random confirmed principle (every 10 cycles)
+    // Step 25: Advocatus Diaboli — challenge weakest principle + adjust confidence (every 10 cycles)
     if (this.debateEngine && this.cycleCount % 10 === 0) {
       try {
         ts?.emit('orchestrator', 'reflecting', 'Step 25: Challenging a principle...', 'routine');
         const principles = this.knowledgeDistiller.getPrinciples(undefined, 20);
         if (principles.length > 0) {
-          const randomPrinciple = principles[Math.floor(Math.random() * principles.length)];
-          const challenge = this.debateEngine.challenge(randomPrinciple.statement);
+          // Target weakest principles first (lowest confidence), not random
+          const sorted = [...principles].sort((a, b) => a.confidence - b.confidence);
+          const targetPrinciple = sorted[0];
+
+          const challenge = this.debateEngine.challenge(targetPrinciple.statement);
           this.journal.write({
             type: 'reflection',
             title: `Principle challenged: resilience=${(challenge.resilienceScore * 100).toFixed(0)}% → ${challenge.outcome}`,
@@ -1830,6 +1904,23 @@ export class ResearchOrchestrator {
             significance: challenge.outcome === 'disproved' ? 'notable' : 'routine',
             data: { challenge },
           });
+
+          // Actually adjust principle confidence based on challenge outcome
+          if (challenge.principleId !== null) {
+            const principleIdStr = String(challenge.principleId);
+            if (challenge.outcome === 'disproved') {
+              // Disproved → remove principle entirely
+              this.knowledgeDistiller.removePrinciple(principleIdStr);
+              this.log.info(`[orchestrator] Step 25: Principle "${targetPrinciple.statement.substring(0, 50)}" REMOVED (disproved)`);
+            } else if (challenge.outcome === 'weakened') {
+              // Weakened → reduce confidence by 30%
+              this.knowledgeDistiller.adjustPrincipleConfidence(principleIdStr, 0.7);
+              this.log.info(`[orchestrator] Step 25: Principle confidence reduced by 30% (weakened)`);
+            } else if (challenge.outcome === 'survived') {
+              // Survived → slight boost (+10%)
+              this.knowledgeDistiller.adjustPrincipleConfidence(principleIdStr, 1.1);
+            }
+          }
         }
         if (this.metaCognitionLayer) this.metaCognitionLayer.recordStep('advocatus_diaboli', this.cycleCount, { insights: 1 });
       } catch (err) { this.log.warn(`[orchestrator] Step 25 error: ${(err as Error).message}`); }
