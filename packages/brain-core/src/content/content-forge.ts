@@ -225,7 +225,8 @@ export class ContentForge {
     const today = new Date().toISOString().split('T')[0];
     this.schedule(pieceId, `${today}T${optimalTime}:00Z`);
 
-    if (this.actionBridge) {
+    // Only propose publish action if a social service is actually configured
+    if (this.actionBridge && this.socialService) {
       this.actionBridge.propose({
         source: 'creative',
         type: 'publish_content',
