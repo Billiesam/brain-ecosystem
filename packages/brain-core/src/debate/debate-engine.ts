@@ -187,8 +187,19 @@ export class DebateEngine {
     this.stmtOpenDebates = db.prepare('SELECT COUNT(*) as cnt FROM debates WHERE status = \'open\' OR status = \'deliberating\'');
     this.stmtSynthesizedDebates = db.prepare('SELECT COUNT(*) as cnt FROM debates WHERE status = \'synthesized\' OR status = \'closed\'');
     this.stmtInsertChallenge = db.prepare('INSERT INTO principle_challenges (principle_id, principle_statement, challenge_arguments, supporting_evidence, contradicting_evidence, resilience_score, outcome) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    this.stmtGetChallengeHistory = db.prepare('SELECT * FROM principle_challenges ORDER BY id DESC LIMIT ?');
-    this.stmtGetMostVulnerable = db.prepare('SELECT * FROM principle_challenges ORDER BY resilience_score ASC LIMIT ?');
+    this.stmtGetChallengeHistory = db.prepare(`
+      SELECT * FROM principle_challenges WHERE id IN (
+        SELECT MAX(id) FROM principle_challenges GROUP BY principle_statement
+      ) ORDER BY id DESC LIMIT ?
+    `);
+    this.stmtGetMostVulnerable = db.prepare(`
+      SELECT * FROM principle_challenges WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY principle_statement ORDER BY resilience_score ASC, id DESC) as rn
+          FROM principle_challenges
+        ) WHERE rn = 1
+      ) ORDER BY resilience_score ASC LIMIT ?
+    `);
     this.stmtTotalChallenges = db.prepare('SELECT COUNT(*) as cnt FROM principle_challenges');
 
     this.log.debug(`[DebateEngine] Initialized for ${this.config.brainName}`);
@@ -510,6 +521,14 @@ export class DebateEngine {
    * Returns a PrincipleChallenge with a resilience score.
    */
   challenge(principleStatement: string): PrincipleChallenge {
+    // Skip if this principle was already challenged in the last 24h
+    const recent = this.db.prepare(
+      `SELECT * FROM principle_challenges WHERE principle_statement = ? AND challenged_at > datetime('now', '-24 hours') ORDER BY id DESC LIMIT 1`,
+    ).get(principleStatement) as Record<string, unknown> | undefined;
+    if (recent) {
+      return this.toPrincipleChallenge(recent);
+    }
+
     this.ts?.emit('debate', 'analyzing', `Challenging principle: "${principleStatement.substring(0, 60)}..."`, 'notable');
 
     const keywords = this.extractKeywords(principleStatement);
