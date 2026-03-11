@@ -175,7 +175,11 @@ export class HypothesisEngine {
 
   /**
    * Test a hypothesis against available data.
-   * Returns the test result with updated status.
+   *
+   * Anti-confirmation-bias for re-tests: When a hypothesis has been tested before
+   * (tested_at exists), only uses data collected AFTER the last test. This ensures
+   * confirmed hypotheses must prove themselves on NEW data — pattern drift causes
+   * rejection. First test uses all data.
    */
   test(hypothesisId: number): HypothesisTestResult | null {
     const hyp = this.get(hypothesisId);
@@ -185,20 +189,27 @@ export class HypothesisEngine {
       ? JSON.parse(hyp.condition as unknown as string)
       : hyp.condition;
 
+    // Temporal holdout on re-tests: only use observations after last test.
+    // First test (tested_at is null) uses all data (-1 includes timestamp=0).
+    // Re-tests must prove the pattern still holds on new data.
+    const holdoutTimestamp = hyp.tested_at
+      ? new Date(hyp.tested_at).getTime()
+      : -1;
+
     let result: { evidenceFor: number; evidenceAgainst: number; pValue: number };
 
     switch (condition.type) {
       case 'temporal':
-        result = this.testTemporalHypothesis(hyp, condition);
+        result = this.testTemporalHypothesis(hyp, condition, holdoutTimestamp);
         break;
       case 'correlation':
-        result = this.testCorrelationHypothesis(hyp, condition);
+        result = this.testCorrelationHypothesis(hyp, condition, holdoutTimestamp);
         break;
       case 'threshold':
-        result = this.testThresholdHypothesis(hyp, condition);
+        result = this.testThresholdHypothesis(hyp, condition, holdoutTimestamp);
         break;
       case 'frequency':
-        result = this.testFrequencyHypothesis(hyp, condition);
+        result = this.testFrequencyHypothesis(hyp, condition, holdoutTimestamp);
         break;
       default:
         return null;
@@ -240,10 +251,17 @@ export class HypothesisEngine {
     };
   }
 
-  /** Test all proposed/testing hypotheses. */
+  /**
+   * Test all proposed/testing hypotheses.
+   * Also re-tests confirmed hypotheses older than 24h (pattern drift detection).
+   * This ensures previously confirmed hypotheses are rejected if patterns change.
+   */
   testAll(): HypothesisTestResult[] {
     const hypotheses = this.db.prepare(
-      `SELECT id FROM hypotheses WHERE status IN ('proposed', 'testing')`,
+      `SELECT id FROM hypotheses WHERE status IN ('proposed', 'testing')
+       UNION ALL
+       SELECT id FROM hypotheses WHERE status = 'confirmed'
+         AND (tested_at IS NULL OR tested_at < datetime('now', '-24 hours'))`,
     ).all() as { id: number }[];
 
     return hypotheses
@@ -670,9 +688,9 @@ export class HypothesisEngine {
         const typeA = types[i]!;
         const typeB = types[j]!;
 
-        // Simple correlation: count co-occurrences within 1 minute windows
+        // Co-occurrence: count distinct A observations that have ≥1 nearby B observation
         const coOccurrences = (this.db.prepare(`
-          SELECT COUNT(*) as count FROM observations a
+          SELECT COUNT(DISTINCT a.id) as count FROM observations a
           INNER JOIN observations b ON b.type = ? AND ABS(a.timestamp - b.timestamp) < 60000
           WHERE a.type = ?
         `).get(typeB, typeA) as { count: number }).count;
@@ -680,19 +698,20 @@ export class HypothesisEngine {
         const countA = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ?').get(typeA) as { c: number }).c;
 
         if (countA > 0 && coOccurrences / countA > 0.3) {
+          const rate = Math.min(coOccurrences / countA, 1); // bounded 0-1
           const existing = this.db.prepare(
             `SELECT id FROM hypotheses WHERE type = 'correlation' AND variables LIKE ? AND variables LIKE ? AND status != 'rejected'`,
           ).get(`%"${typeA}"%`, `%"${typeB}"%`) as { id: number } | undefined;
 
           if (!existing) {
             results.push(this.propose({
-              statement: `"${typeA}" and "${typeB}" events tend to occur together (co-occurrence rate: ${(coOccurrences / countA * 100).toFixed(0)}%)`,
+              statement: `"${typeA}" and "${typeB}" events tend to occur together (co-occurrence rate: ${(rate * 100).toFixed(0)}%)`,
               type: 'correlation',
               source: 'hypothesis-engine',
               variables: [typeA, typeB],
               condition: {
                 type: 'correlation',
-                params: { typeA, typeB, windowMs: 60_000, observedRate: coOccurrences / countA },
+                params: { typeA, typeB, windowMs: 60_000, observedRate: rate },
               },
             }));
           }
@@ -748,13 +767,14 @@ export class HypothesisEngine {
 
   // ── Hypothesis Testing ────────────────────────────
 
-  private testTemporalHypothesis(hyp: Hypothesis, condition: HypothesisCondition): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
+  private testTemporalHypothesis(hyp: Hypothesis, condition: HypothesisCondition, holdoutTimestamp = 0): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
     const { eventType, peakHour } = condition.params as { eventType: string; peakHour: number };
 
-    const total = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ?').get(eventType) as { c: number }).c;
+    // Only test on data after holdout (anti-confirmation-bias)
+    const total = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ? AND timestamp > ?').get(eventType, holdoutTimestamp) as { c: number }).c;
     const inPeak = (this.db.prepare(
-      'SELECT COUNT(*) as c FROM observations WHERE type = ? AND (timestamp / 3600000) % 24 = ?',
-    ).get(eventType, peakHour) as { c: number }).c;
+      'SELECT COUNT(*) as c FROM observations WHERE type = ? AND (timestamp / 3600000) % 24 = ? AND timestamp > ?',
+    ).get(eventType, peakHour, holdoutTimestamp) as { c: number }).c;
 
     const expected = total / 24;
     const evidenceFor = inPeak;
@@ -767,23 +787,24 @@ export class HypothesisEngine {
     return { evidenceFor, evidenceAgainst, pValue };
   }
 
-  private testCorrelationHypothesis(hyp: Hypothesis, condition: HypothesisCondition): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
+  private testCorrelationHypothesis(hyp: Hypothesis, condition: HypothesisCondition, holdoutTimestamp = 0): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
     const { typeA, typeB, windowMs } = condition.params as { typeA: string; typeB: string; windowMs: number };
 
+    // Only test on data after holdout (anti-confirmation-bias)
     const coOccurrences = (this.db.prepare(`
-      SELECT COUNT(*) as count FROM observations a
+      SELECT COUNT(DISTINCT a.id) as count FROM observations a
       INNER JOIN observations b ON b.type = ? AND ABS(a.timestamp - b.timestamp) < ?
-      WHERE a.type = ?
-    `).get(typeB, windowMs, typeA) as { count: number }).count;
+      WHERE a.type = ? AND a.timestamp > ?
+    `).get(typeB, windowMs, typeA, holdoutTimestamp) as { count: number }).count;
 
-    const countA = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ?').get(typeA) as { c: number }).c;
-    const countB = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ?').get(typeB) as { c: number }).c;
+    const countA = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ? AND timestamp > ?').get(typeA, holdoutTimestamp) as { c: number }).c;
+    const countB = (this.db.prepare('SELECT COUNT(*) as c FROM observations WHERE type = ? AND timestamp > ?').get(typeB, holdoutTimestamp) as { c: number }).c;
 
     if (countA === 0 || countB === 0) return { evidenceFor: 0, evidenceAgainst: 0, pValue: 1 };
 
-    const observedRate = coOccurrences / countA;
+    const observedRate = Math.min(coOccurrences / countA, 1); // bounded 0-1
     // Expected rate under independence
-    const timeRange = this.getObservationTimeRange();
+    const timeRange = this.getObservationTimeRange(holdoutTimestamp);
     const expectedRate = timeRange > 0 ? Math.min(1, (countB / timeRange) * windowMs * 2) : 0;
 
     const evidenceFor = coOccurrences;
@@ -797,16 +818,17 @@ export class HypothesisEngine {
     return { evidenceFor, evidenceAgainst, pValue: Math.min(1, pValue) };
   }
 
-  private testThresholdHypothesis(hyp: Hypothesis, condition: HypothesisCondition): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
+  private testThresholdHypothesis(hyp: Hypothesis, condition: HypothesisCondition, holdoutTimestamp = 0): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
     const { eventType, threshold } = condition.params as { eventType: string; threshold: number };
 
+    // Only test on data after holdout (anti-confirmation-bias)
     const above = (this.db.prepare(
-      'SELECT COUNT(*) as c FROM observations WHERE type = ? AND value > ?',
-    ).get(eventType, threshold) as { c: number }).c;
+      'SELECT COUNT(*) as c FROM observations WHERE type = ? AND value > ? AND timestamp > ?',
+    ).get(eventType, threshold, holdoutTimestamp) as { c: number }).c;
 
     const total = (this.db.prepare(
-      'SELECT COUNT(*) as c FROM observations WHERE type = ?',
-    ).get(eventType) as { c: number }).c;
+      'SELECT COUNT(*) as c FROM observations WHERE type = ? AND timestamp > ?',
+    ).get(eventType, holdoutTimestamp) as { c: number }).c;
 
     const below = total - above;
 
@@ -824,9 +846,52 @@ export class HypothesisEngine {
     return { evidenceFor: above, evidenceAgainst: below, pValue: Math.min(1, pValue) };
   }
 
-  private testFrequencyHypothesis(_hyp: Hypothesis, _condition: HypothesisCondition): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
-    // Placeholder for frequency/periodicity testing
-    return { evidenceFor: 0, evidenceAgainst: 0, pValue: 1 };
+  /**
+   * Test frequency/periodicity hypotheses.
+   * Checks if events occur with a regular interval (period P ± tolerance).
+   */
+  private testFrequencyHypothesis(hyp: Hypothesis, condition: HypothesisCondition, holdoutTimestamp = 0): { evidenceFor: number; evidenceAgainst: number; pValue: number } {
+    const { eventType, periodMs, toleranceMs } = condition.params as {
+      eventType: string; periodMs: number; toleranceMs?: number;
+    };
+
+    if (!periodMs || periodMs <= 0) return { evidenceFor: 0, evidenceAgainst: 0, pValue: 1 };
+
+    const tolerance = toleranceMs ?? periodMs * 0.2; // 20% tolerance by default
+
+    // Get timestamps of events after holdout
+    const timestamps = (this.db.prepare(
+      'SELECT timestamp FROM observations WHERE type = ? AND timestamp > ? ORDER BY timestamp',
+    ).all(eventType, holdoutTimestamp) as { timestamp: number }[]).map(r => r.timestamp);
+
+    if (timestamps.length < 3) return { evidenceFor: 0, evidenceAgainst: 0, pValue: 1 };
+
+    // Count how many consecutive intervals match the expected period
+    let matchingIntervals = 0;
+    let totalIntervals = 0;
+    for (let i = 1; i < timestamps.length; i++) {
+      const interval = timestamps[i]! - timestamps[i - 1]!;
+      totalIntervals++;
+      if (Math.abs(interval - periodMs) <= tolerance) {
+        matchingIntervals++;
+      }
+    }
+
+    if (totalIntervals === 0) return { evidenceFor: 0, evidenceAgainst: 0, pValue: 1 };
+
+    const matchRate = matchingIntervals / totalIntervals;
+    // Under random timing, expected match rate depends on tolerance/periodMs
+    const expectedRate = Math.min(1, (2 * tolerance) / periodMs);
+
+    const evidenceFor = matchingIntervals;
+    const evidenceAgainst = totalIntervals - matchingIntervals;
+
+    // Z-test for proportion
+    if (expectedRate <= 0 || expectedRate >= 1) return { evidenceFor, evidenceAgainst, pValue: 1 };
+    const z = (matchRate - expectedRate) / Math.sqrt(expectedRate * (1 - expectedRate) / totalIntervals);
+    const pValue = Math.exp(-0.5 * z * z);
+
+    return { evidenceFor, evidenceAgainst, pValue: Math.min(1, pValue) };
   }
 
   // ── Helpers ───────────────────────────────────────
@@ -835,10 +900,10 @@ export class HypothesisEngine {
     return (this.db.prepare('SELECT DISTINCT type FROM observations').all() as { type: string }[]).map(r => r.type);
   }
 
-  private getObservationTimeRange(): number {
+  private getObservationTimeRange(sinceTimestamp = 0): number {
     const row = this.db.prepare(
-      'SELECT MIN(timestamp) as min_ts, MAX(timestamp) as max_ts FROM observations',
-    ).get() as { min_ts: number | null; max_ts: number | null };
+      'SELECT MIN(timestamp) as min_ts, MAX(timestamp) as max_ts FROM observations WHERE timestamp > ?',
+    ).get(sinceTimestamp) as { min_ts: number | null; max_ts: number | null };
     return (row.max_ts ?? 0) - (row.min_ts ?? 0);
   }
 }

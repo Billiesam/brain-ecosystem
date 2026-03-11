@@ -587,6 +587,176 @@ describe('HypothesisEngine', () => {
     });
   });
 
+  // ── Re-test & Rejection Pipeline ────────────────────
+
+  describe('re-test and rejection pipeline', () => {
+    it('re-tests confirmed hypotheses older than 24h via testAll', () => {
+      // Propose and confirm a hypothesis
+      const hyp = engine.propose({
+        statement: 'Events peak at hour 14',
+        type: 'temporal',
+        source: 'test',
+        variables: ['retest_event'],
+        condition: { type: 'temporal', params: { eventType: 'retest_event', peakHour: 14 } },
+      });
+
+      // Add concentrated data and confirm
+      const baseTimestamp = 3600000 * 14;
+      for (let i = 0; i < 20; i++) {
+        engine.observe({ source: 'test', type: 'retest_event', value: 1, timestamp: baseTimestamp + i * 60000 });
+      }
+      for (let i = 0; i < 4; i++) {
+        engine.observe({ source: 'test', type: 'retest_event', value: 1, timestamp: 3600000 * i });
+      }
+
+      const result = engine.test(hyp.id!);
+      expect(result!.newStatus).toBe('confirmed');
+
+      // Manually set tested_at to 25h ago to simulate stale confirmation
+      db.prepare(`UPDATE hypotheses SET tested_at = datetime('now', '-25 hours') WHERE id = ?`).run(hyp.id);
+
+      // testAll should now include the confirmed hypothesis for re-testing
+      const results = engine.testAll();
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results.some(r => r.hypothesisId === hyp.id)).toBe(true);
+    });
+
+    it('rejects confirmed hypothesis when pattern stops on re-test', () => {
+      // Propose a hypothesis that events peak at hour 14
+      const hyp = engine.propose({
+        statement: 'Events peak at hour 14',
+        type: 'temporal',
+        source: 'test',
+        variables: ['drift_event'],
+        condition: { type: 'temporal', params: { eventType: 'drift_event', peakHour: 14 } },
+      });
+
+      // Add concentrated data → confirm
+      for (let i = 0; i < 20; i++) {
+        engine.observe({ source: 'test', type: 'drift_event', value: 1, timestamp: 3600000 * 14 + i * 60000 });
+      }
+      for (let i = 0; i < 4; i++) {
+        engine.observe({ source: 'test', type: 'drift_event', value: 1, timestamp: 3600000 * i });
+      }
+      const firstResult = engine.test(hyp.id!);
+      expect(firstResult!.newStatus).toBe('confirmed');
+
+      // Now add evenly distributed NEW data (pattern stops) with timestamps AFTER tested_at
+      // tested_at is datetime('now'), so future timestamps will pass the holdout
+      const futureBase = Date.now() + 60_000; // 1 minute in the future
+      for (let h = 0; h < 24; h++) {
+        for (let j = 0; j < 10; j++) {
+          engine.observe({ source: 'test', type: 'drift_event', value: 1, timestamp: futureBase + 3600000 * h + j * 1000 });
+        }
+      }
+
+      // Re-test: holdout means only future data is used → evenly distributed → p-value high → rejected
+      const retest = engine.test(hyp.id!);
+      expect(retest).not.toBeNull();
+      expect(retest!.pValue).toBeGreaterThan(0.5);
+      expect(retest!.newStatus).toBe('rejected');
+    });
+
+    it('co-occurrence rate is always bounded 0-100%', () => {
+      // Create events where each A event has many nearby B events
+      // This previously caused >100% rates
+      for (let i = 0; i < 5; i++) {
+        engine.observe({ source: 'test', type: 'rare_a', value: 1, timestamp: i * 120000 });
+        // Add 10 B events within 60s of each A
+        for (let j = 0; j < 10; j++) {
+          engine.observe({ source: 'test', type: 'common_b', value: 1, timestamp: i * 120000 + j * 5000 });
+        }
+      }
+
+      const hypotheses = engine.generate();
+      const correlation = hypotheses.find(h =>
+        h.type === 'correlation' &&
+        h.variables.includes('rare_a') &&
+        h.variables.includes('common_b'),
+      );
+
+      if (correlation) {
+        // Verify the rate in the statement is ≤100%
+        const rateMatch = correlation.statement.match(/(\d+)%/);
+        expect(rateMatch).not.toBeNull();
+        const rate = parseInt(rateMatch![1]!, 10);
+        expect(rate).toBeLessThanOrEqual(100);
+      }
+    });
+  });
+
+  // ── frequency hypothesis testing ──────────────────
+
+  describe('frequency hypothesis testing', () => {
+    it('confirms a frequency hypothesis with regular intervals', () => {
+      const hyp = engine.propose({
+        statement: 'heartbeat events occur every 60s',
+        type: 'frequency',
+        source: 'test',
+        variables: ['heartbeat'],
+        condition: {
+          type: 'frequency',
+          params: { eventType: 'heartbeat', periodMs: 60000, toleranceMs: 6000 },
+        },
+      });
+
+      // Add 15 events at regular 60s intervals
+      for (let i = 0; i < 15; i++) {
+        engine.observe({ source: 'test', type: 'heartbeat', value: 1, timestamp: i * 60000 });
+      }
+
+      const result = engine.test(hyp.id!);
+      expect(result).not.toBeNull();
+      expect(result!.evidenceFor).toBeGreaterThan(0);
+      expect(result!.pValue).toBeLessThan(0.5);
+    });
+
+    it('rejects a frequency hypothesis with random intervals', () => {
+      const hyp = engine.propose({
+        statement: 'random events occur every 60s',
+        type: 'frequency',
+        source: 'test',
+        variables: ['random_ev'],
+        condition: {
+          type: 'frequency',
+          params: { eventType: 'random_ev', periodMs: 60000, toleranceMs: 6000 },
+        },
+      });
+
+      // Add events at random intervals (not periodic)
+      const timestamps = [0, 15000, 90000, 95000, 200000, 500000, 502000, 800000, 1200000, 1201000];
+      for (const ts of timestamps) {
+        engine.observe({ source: 'test', type: 'random_ev', value: 1, timestamp: ts });
+      }
+
+      const result = engine.test(hyp.id!);
+      expect(result).not.toBeNull();
+      // Random intervals shouldn't match 60s period consistently
+      expect(result!.evidenceAgainst).toBeGreaterThan(result!.evidenceFor);
+    });
+
+    it('returns testing status with insufficient data', () => {
+      const hyp = engine.propose({
+        statement: 'test with too few events',
+        type: 'frequency',
+        source: 'test',
+        variables: ['sparse'],
+        condition: {
+          type: 'frequency',
+          params: { eventType: 'sparse', periodMs: 60000 },
+        },
+      });
+
+      // Only 2 events (need at least 3 for meaningful intervals)
+      engine.observe({ source: 'test', type: 'sparse', value: 1, timestamp: 0 });
+      engine.observe({ source: 'test', type: 'sparse', value: 1, timestamp: 60000 });
+
+      const result = engine.test(hyp.id!);
+      expect(result).not.toBeNull();
+      expect(result!.newStatus).toBe('testing'); // insufficient evidence
+    });
+  });
+
   // ── Constructor config ──────────────────────────────
 
   describe('constructor config', () => {

@@ -58,6 +58,7 @@ export interface PredictionAccuracy {
 
 export interface PredictionSummary {
   total_predictions: number;
+  correct: number;
   pending: number;
   resolved: number;
   accuracy_rate: number;

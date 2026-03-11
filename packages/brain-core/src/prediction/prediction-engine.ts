@@ -325,6 +325,7 @@ export class PredictionEngine {
 
     return {
       total_predictions: totalPredictions,
+      correct: totalCorrect,
       pending,
       resolved,
       accuracy_rate: totalResolved > 0 ? totalCorrect / totalResolved : 0,
