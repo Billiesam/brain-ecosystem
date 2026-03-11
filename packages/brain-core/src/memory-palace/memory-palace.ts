@@ -298,9 +298,10 @@ export class MemoryPalace {
     }
 
     // 5. Journal entries → cross-references via tags/data
+    //    Limited to 50 entries (50×50=2500 pairs) to prevent O(n²) explosion.
     if (this.sources.getJournalEntries) {
       try {
-        const entries = this.sources.getJournalEntries(500);
+        const entries = this.sources.getJournalEntries(50);
         for (const entry of entries) {
           // Parse tags for cross-references (supports string[] or JSON string)
           let tags: string[] = [];
@@ -343,7 +344,23 @@ export class MemoryPalace {
       } catch (err) { this.log.warn(`[palace] gaps→journal scan error: ${(err as Error).message}`); }
     }
 
-    const totalEdges = (this.stmtCountEdges.get() as { count: number }).count;
+    let totalEdges = (this.stmtCountEdges.get() as { count: number }).count;
+
+    // Retention: prune weakest auto-detected connections when exceeding 100K
+    const MAX_CONNECTIONS = 100_000;
+    if (totalEdges > MAX_CONNECTIONS) {
+      const excess = totalEdges - MAX_CONNECTIONS;
+      this.db.prepare(`
+        DELETE FROM knowledge_connections WHERE id IN (
+          SELECT id FROM knowledge_connections
+          WHERE auto_detected = 1
+          ORDER BY strength ASC, created_at ASC
+          LIMIT ?
+        )
+      `).run(excess);
+      totalEdges = (this.stmtCountEdges.get() as { count: number }).count;
+      this.log.info(`[palace] Pruned ${excess} weak connections (now ${totalEdges})`);
+    }
 
     this.ts?.emit('palace', 'discovering', `MemoryPalace built ${newCount} new connections (${totalEdges} total, scanned: ${scanned.join(', ')})`,
       newCount > 5 ? 'notable' : 'routine');
